@@ -125,8 +125,9 @@
   .main {
     margin-left: 220px;
     flex: 1;
-    padding: 32px;
-    max-width: calc(100vw - 220px);
+    padding: 28px 36px;
+    width: calc(100vw - 220px);
+    min-width: 0;
   }
 
   .page { display: none; }
@@ -416,7 +417,7 @@
   <aside class="sidebar">
     <div class="logo">
       <div class="logo-name">Poppadi's Studyo</div>
-      <div class="logo-sub" id="logo-sub">Payment & scheduling</div>
+      <div class="logo-sub" data-en="Payment & scheduling" data-th="ระบบการเงินและตาราง" id="logo-sub">Payment & scheduling</div>
     </div>
     <nav class="nav">
       <button class="nav-item active" onclick="showPage('overview', this)">
@@ -454,7 +455,7 @@
     </div>
     <div style="padding:10px 20px;border-top:1px solid var(--border)">
       <div style="font-size:11px;color:var(--text3);margin-bottom:4px" id="user-email"></div>
-      <button onclick="logout()" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;text-decoration:underline">
+      <button onclick="logout()" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;text-decoration:underline" data-en="Sign out" data-th="ออกจากระบบ">
         Sign out
       </button>
     </div>
@@ -595,14 +596,10 @@
             </div>
             <div id="makeup-fields" style="display:none">
               <div id="makeup-selected-info" style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px"></div>
-              <div class="form-row">
-                <div class="form-group"><label data-en="New date" data-th="วันที่ใหม่">New date</label><input type="date" id="makeup-date"></div>
-                <div class="form-group"><label data-en="Start time" data-th="เวลาเริ่ม">Start time</label><input type="time" id="makeup-start"></div>
-              </div>
-              <div class="form-row">
-                <div class="form-group"><label data-en="End time" data-th="เวลาสิ้นสุด">End time</label><input type="time" id="makeup-end"></div>
-                <div class="form-group"><label data-en="Notes" data-th="หมายเหตุ">Notes</label><input type="text" id="makeup-notes" placeholder="e.g. confirmed via LINE"></div>
-              </div>
+              <div class="form-group" style="margin-bottom:10px"><label data-en="New date" data-th="วันที่ใหม่">New date</label><input type="date" id="makeup-date" style="width:100%"></div>
+              <div class="form-group" style="margin-bottom:10px"><label data-en="Start time" data-th="เวลาเริ่ม">Start time</label><input type="time" id="makeup-start" style="width:100%"></div>
+              <div class="form-group" style="margin-bottom:10px"><label data-en="End time" data-th="เวลาสิ้นสุด">End time</label><input type="time" id="makeup-end" style="width:100%"></div>
+              <div class="form-group" style="margin-bottom:14px"><label data-en="Notes" data-th="หมายเหตุ">Notes</label><input type="text" id="makeup-notes" placeholder="e.g. confirmed via LINE" style="width:100%"></div>
               <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
                 <button class="btn btn-sm" onclick="clearMakeup()" data-en="Cancel" data-th="ยกเลิก">Cancel</button>
                 <button class="btn btn-sm btn-primary" onclick="confirmMakeup()" data-en="Confirm makeup ✓" data-th="ยืนยันชดเชย ✓">Confirm makeup ✓</button>
@@ -780,7 +777,7 @@
             </table>
           </div>
           <div style="margin-top:14px;display:flex;gap:8px">
-            <input type="text" id="new-expense-name" placeholder="New expense item" style="flex:1;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+            <input type="text" id="new-expense-name" data-en="New expense item" data-th="รายการค่าใช้จ่ายใหม่" placeholder="New expense item" style="flex:1;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
             <input type="number" id="new-expense-amt" placeholder="฿" style="width:90px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
             <button class="btn btn-sm btn-primary" onclick="addExpense()" data-en="Add" data-th="เพิ่ม">Add</button>
           </div>
@@ -1043,11 +1040,11 @@ function getTutorName(id) { return getTutor(id).name || id; }
 
 function statusBadge(s) {
   const map = {
-    'Completed': ['badge-done', lang==='th'?'สอนแล้ว':'Completed'],
-    'Cancelled':  ['badge-cancel', lang==='th'?'ยกเลิก':'Cancelled'],
-    'Missed':     ['badge-miss', lang==='th'?'ขาดเรียน':'Missed'],
-    'Makeup':     ['badge-makeup', lang==='th'?'ชดเชย':'Makeup'],
-    'Scheduled':  ['', lang==='th'?'กำหนดการ':'Scheduled'],
+    'Completed': ['badge-done',   lang==='th'?'สอนแล้ว':'Completed'],
+    'Cancelled': ['badge-cancel', lang==='th'?'ยกเลิก':'Cancelled'],
+    'Missed':    ['badge-miss',   lang==='th'?'ขาดเรียน':'Missed'],
+    'Makeup':    ['badge-makeup', lang==='th'?'ชดเชย':'Makeup'],
+    'Scheduled': ['',             lang==='th'?'กำหนดการ':'Scheduled'],
   };
   const [cls, label] = map[s] || ['', s];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -1866,14 +1863,14 @@ function submitEnrollment() {
 
 // ─── FALLBACK (when sheet is empty) ───────────────────────
 function renderFallback() {
-  document.getElementById('overview-month').textContent = new Date().toLocaleString('en-US',{month:'long',year:'numeric'});
-  document.getElementById('overview-metrics').innerHTML = `<div class="metric"><div class="metric-label">Status</div><div class="metric-value" style="font-size:16px">Sheet connected</div><div class="metric-sub">Add data to your Google Sheet to see live numbers</div></div>`;
-  document.getElementById('coverage-bars').innerHTML = `<div class="empty">Add expenses to your sheet to see coverage</div>`;
-  document.getElementById('invoice-alerts').innerHTML = `<div class="empty">No alerts yet</div>`;
-  document.getElementById('schedule-body').innerHTML = `<tr><td colspan="8" class="empty">Add sessions to your Google Sheet to see the schedule</td></tr>`;
-  document.getElementById('makeup-queue').innerHTML = `<div class="empty">No pending makeups</div>`;
-  document.getElementById('students-body').innerHTML = `<tr><td colspan="8" class="empty">No courses yet</td></tr>`;
-  document.getElementById('expenses-body').innerHTML = `<tr><td colspan="2" class="empty">No expenses yet</td></tr>`;
+  document.getElementById('overview-month').textContent = new Date().toLocaleString(lang==='th'?'th-TH':'en-US',{month:'long',year:'numeric'});
+  document.getElementById('overview-metrics').innerHTML = `<div class="metric"><div class="metric-label">${lang==='th'?'สถานะ':'Status'}</div><div class="metric-value" style="font-size:16px">${lang==='th'?'เชื่อมต่อชีตแล้ว':'Sheet connected'}</div><div class="metric-sub">${lang==='th'?'เพิ่มข้อมูลใน Google Sheet เพื่อดูตัวเลข':'Add data to your Google Sheet to see live numbers'}</div></div>`;
+  document.getElementById('coverage-bars').innerHTML = `<div class="empty">${lang==='th'?'เพิ่มค่าใช้จ่ายใน Sheet เพื่อดูการครอบคลุม':'Add expenses to your sheet to see coverage'}</div>`;
+  document.getElementById('invoice-alerts').innerHTML = `<div class="empty">${lang==='th'?'ยังไม่มีการแจ้งเตือน':'No alerts yet'}</div>`;
+  document.getElementById('schedule-body').innerHTML = `<tr><td colspan="9" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน — เพิ่มข้อมูลใน Google Sheet':'Add sessions to your Google Sheet to see the schedule'}</td></tr>`;
+  document.getElementById('makeup-queue').innerHTML = `<div class="empty">${lang==='th'?'ไม่มีคาบที่รอชดเชย':'No pending makeups'}</div>`;
+  document.getElementById('students-body').innerHTML = `<tr><td colspan="9" class="empty">${lang==='th'?'ยังไม่มีคอร์ส':'No courses yet'}</td></tr>`;
+  document.getElementById('expenses-body').innerHTML = `<tr><td colspan="2" class="empty">${lang==='th'?'ยังไม่มีค่าใช้จ่าย':'No expenses yet'}</td></tr>`;
   document.getElementById('expenses-metrics').innerHTML = '';
 }
 
@@ -2213,6 +2210,7 @@ function setLang(l, btn) {
     else el.textContent=val;
   });
   renderAll();
+  if (tutorViewMode==='all') renderTutorAll(); else renderTutorDetail();
   if (scheduleViewMode==='calendar') renderCalendar();
 }
 
