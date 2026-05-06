@@ -589,27 +589,51 @@
       <div class="page-header">
         <div>
           <div class="page-title" data-en="Tutors & payouts" data-th="ครูและค่าตอบแทน">Tutors & payouts</div>
-          <div class="page-sub" data-en="Full breakdown per tutor — every lesson line by line" data-th="รายละเอียดทุกคาบต่อครู">Full breakdown per tutor — every lesson line by line</div>
+          <div class="page-sub" data-en="Full breakdown — by tutor or all at once" data-th="รายละเอียดค่าตอบแทน — รายคนหรือทั้งหมด">Full breakdown — by tutor or all at once</div>
         </div>
-        <select id="tutor-select" onchange="renderTutorDetail()" style="font-size:13px;padding:8px 12px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
-        </select>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden">
+            <button id="tutor-view-all" onclick="setTutorView('all')" class="btn btn-sm" style="border:none;border-radius:0;background:var(--text);color:#fff;font-size:12px" data-en="All tutors" data-th="ทุกคน">All tutors</button>
+            <button id="tutor-view-single" onclick="setTutorView('single')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="Individual" data-th="รายคน">Individual</button>
+          </div>
+          <select id="tutor-select" onchange="renderTutorDetail()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif;display:none"></select>
+          <button onclick="downloadTutorExcel()" class="btn btn-sm" data-en="⬇ Download Excel" data-th="⬇ ดาวน์โหลด Excel">⬇ Download Excel</button>
+          <button onclick="copyTutorTable()" class="btn btn-sm" data-en="⎘ Copy table" data-th="⎘ คัดลอกตาราง">⎘ Copy table</button>
+        </div>
       </div>
-
-      <!-- Tutor summary card -->
-      <div class="metrics" id="tutor-metrics"></div>
-
-      <!-- Full lesson breakdown -->
-      <div class="card" style="padding:0">
-        <div style="padding:16px;border-bottom:1px solid var(--border)">
-          <div class="card-title" style="margin:0" data-en="Lesson-by-lesson breakdown" data-th="รายละเอียดทุกคาบ">Lesson-by-lesson breakdown</div>
+      <div id="tutor-all-view">
+        <div class="metrics" id="tutor-all-metrics"></div>
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table id="tutor-all-table">
+              <thead><tr>
+                <th data-en="Tutor" data-th="ครู">Tutor</th>
+                <th data-en="Sessions" data-th="คาบ">Sessions</th>
+                <th data-en="Total billed" data-th="ยอดรวม">Total billed</th>
+                <th data-en="Tutor pay" data-th="ค่าสอน">Tutor pay</th>
+                <th data-en="Commission" data-th="คอมมิชชั่น">Commission</th>
+                <th data-en="School rem." data-th="คงเหลือ">School rem.</th>
+                <th data-en="VAT 3%" data-th="ภาษี 3%">VAT 3%</th>
+                <th data-en="Net transfer" data-th="ยอดโอน">Net transfer</th>
+              </tr></thead>
+              <tbody id="tutor-all-body"></tbody>
+            </table>
+          </div>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
+      </div>
+      <div id="tutor-single-view" style="display:none">
+        <div class="metrics" id="tutor-metrics"></div>
+        <div class="card" style="padding:0">
+          <div style="padding:16px;border-bottom:1px solid var(--border)">
+            <div class="card-title" style="margin:0" data-en="Lesson-by-lesson breakdown" data-th="รายละเอียดทุกคาบ">Lesson-by-lesson breakdown</div>
+          </div>
+          <div class="table-wrap">
+            <table id="tutor-single-table">
+              <thead><tr>
                 <th data-en="Session" data-th="คาบ">Session</th>
                 <th data-en="Subject" data-th="วิชา">Subject</th>
                 <th data-en="Date" data-th="วันที่">Date</th>
+                <th data-en="Time" data-th="เวลา">Time</th>
                 <th data-en="Hrs" data-th="ชม.">Hrs</th>
                 <th data-en="Students" data-th="นักเรียน">Students</th>
                 <th data-en="Fee/hr" data-th="ค่าเรียน/ชม.">Fee/hr</th>
@@ -619,10 +643,10 @@
                 <th data-en="Comm. amt" data-th="จำนวนคอมม์">Comm. amt</th>
                 <th data-en="School rem." data-th="คงเหลือ">School rem.</th>
                 <th data-en="Status" data-th="สถานะ">Status</th>
-              </tr>
-            </thead>
-            <tbody id="tutor-sessions-body"></tbody>
-          </table>
+              </tr></thead>
+              <tbody id="tutor-sessions-body"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -632,26 +656,68 @@
       <div class="page-header">
         <div>
           <div class="page-title" data-en="Students & courses" data-th="นักเรียนและคอร์ส">Students & courses</div>
-          <div class="page-sub" data-en="Hour pool tracker and invoice alerts" data-th="ติดตามชั่วโมงและแจ้งเตือนใบแจ้งหนี้">Hour pool tracker and invoice alerts</div>
+          <div class="page-sub" data-en="Click any row to view full session history" data-th="คลิกเพื่อดูประวัติทุกคาบ">Click any row to view full session history</div>
         </div>
       </div>
-      <div class="card" style="padding:0">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
+
+      <!-- Course list -->
+      <div id="students-list-view">
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
                 <th data-en="Student" data-th="นักเรียน">Student</th>
                 <th data-en="Tutor" data-th="ครู">Tutor</th>
                 <th data-en="Subject" data-th="วิชา">Subject</th>
+                <th data-en="Block" data-th="บล็อก">Block</th>
                 <th data-en="Paid hrs" data-th="ชม.ที่จ่าย">Paid hrs</th>
                 <th data-en="Taught" data-th="สอนแล้ว">Taught</th>
                 <th data-en="Remaining" data-th="คงเหลือ">Remaining</th>
                 <th data-en="Progress" data-th="ความคืบหน้า">Progress</th>
                 <th data-en="Alert" data-th="แจ้งเตือน">Alert</th>
-              </tr>
-            </thead>
-            <tbody id="students-body"></tbody>
-          </table>
+              </tr></thead>
+              <tbody id="students-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student detail view -->
+      <div id="students-detail-view" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <button onclick="closeStudentDetail()" class="btn btn-sm">← <span data-en="Back" data-th="กลับ">Back</span></button>
+            <div>
+              <div class="page-title" id="detail-student-name" style="font-size:16px"></div>
+              <div style="font-size:12px;color:var(--text3)" id="detail-course-info"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="copyStudentDetail()" class="btn btn-sm">⎘ <span data-en="Copy for LINE/email" data-th="คัดลอกสำหรับ LINE">Copy for LINE/email</span></button>
+            <button onclick="downloadStudentExcel()" class="btn btn-sm">⬇ <span data-en="Download Excel" data-th="ดาวน์โหลด Excel">Download Excel</span></button>
+          </div>
+        </div>
+
+        <!-- Summary metrics -->
+        <div class="metrics" id="detail-metrics" style="margin-bottom:16px"></div>
+
+        <!-- Session table -->
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table id="detail-sessions-table">
+              <thead><tr>
+                <th data-en="#" data-th="#">#</th>
+                <th data-en="Date" data-th="วันที่">Date</th>
+                <th data-en="Time" data-th="เวลา">Time</th>
+                <th data-en="Status" data-th="สถานะ">Status</th>
+                <th data-en="Hrs charged" data-th="ชม.ที่เก็บ">Hrs charged</th>
+                <th data-en="Hrs studied" data-th="ชม.ที่เรียน">Hrs studied</th>
+                <th data-en="Revenue" data-th="รายได้">Revenue</th>
+                <th data-en="Notes" data-th="หมายเหตุ">Notes</th>
+              </tr></thead>
+              <tbody id="detail-sessions-body"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -803,9 +869,37 @@ function getMonthOptions() {
 
 function filterByMonth(arr, dateField) {
   if (!selectedMonth) return arr;
+  const [year, month] = selectedMonth.split('-').map(Number);
   return arr.filter(item => {
     const d = item[dateField] || '';
-    return d.startsWith(selectedMonth);
+    if (!d) return false;
+    // Handle YYYY-MM-DD format
+    if (d.match(/^\d{4}-\d{2}-\d{2}/)) {
+      return d.startsWith(selectedMonth);
+    }
+    // Handle M/D/YYYY or MM/DD/YYYY format (Google Sheets default)
+    if (d.includes('/')) {
+      const parts = d.split('/');
+      if (parts.length >= 3) {
+        const m = parseInt(parts[0]);
+        const y = parseInt(parts[2]);
+        return y === year && m === month;
+      }
+    }
+    // Handle D/M/YYYY format
+    if (d.includes('-')) {
+      const parts = d.split('-');
+      if (parts.length >= 3) {
+        const y = parseInt(parts[0]);
+        const m = parseInt(parts[1]);
+        return y === year && m === month;
+      }
+    }
+    // Fallback — try Date parsing
+    try {
+      const parsed = new Date(d);
+      return parsed.getFullYear() === year && (parsed.getMonth()+1) === month;
+    } catch(e) { return false; }
   });
 }
 
@@ -898,7 +992,7 @@ function renderAll() {
   renderOverview();
   renderSchedule();
   renderMakeupQueue();
-  renderTutorSelect();
+  renderTutorAll();
   renderStudents();
   renderExpenses();
 }
@@ -1417,99 +1511,249 @@ function resetMakeup() {
   document.querySelectorAll('.makeup-item').forEach(el => el.classList.remove('selected'));
 }
 
-// ─── TUTORS & PAYOUTS ─────────────────────────────────────
-function renderTutorSelect() {
-  const sel = document.getElementById('tutor-select');
-  sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t =>
-    `<option value="${t.tutor_id}">${t.name}</option>`
-  ).join('');
-  renderTutorDetail();
+// ─── TUTORS VIEW TOGGLE ───────────────────────────────────
+let tutorViewMode = 'all';
+let currentDetailCourse = null;
+
+function setTutorView(mode) {
+  tutorViewMode = mode;
+  document.getElementById('tutor-all-view').style.display    = mode==='all'    ? 'block':'none';
+  document.getElementById('tutor-single-view').style.display = mode==='single' ? 'block':'none';
+  document.getElementById('tutor-select').style.display      = mode==='single' ? 'block':'none';
+  document.getElementById('tutor-view-all').style.background    = mode==='all'    ? 'var(--text)':'transparent';
+  document.getElementById('tutor-view-all').style.color         = mode==='all'    ? '#fff':'var(--text2)';
+  document.getElementById('tutor-view-single').style.background = mode==='single' ? 'var(--text)':'transparent';
+  document.getElementById('tutor-view-single').style.color      = mode==='single' ? '#fff':'var(--text2)';
+  if (mode==='all') renderTutorAll(); else renderTutorDetail();
 }
 
+function renderTutorSelect() {
+  const sel = document.getElementById('tutor-select');
+  sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
+    `<option value="${t.tutor_id}">${t.name}</option>`
+  ).join('');
+  renderTutorAll();
+}
+
+// ─── ALL TUTORS VIEW ──────────────────────────────────────
+function renderTutorAll() {
+  const monthSessions = filterByMonth(DATA.sessions,'date');
+  const activeTutors  = DATA.tutors.filter(t=>t.active==='TRUE');
+  let gB=0,gP=0,gC=0,gR=0,gV=0,gN=0;
+  const rows = activeTutors.map(tutor => {
+    const sessions = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id&&(s.status==='Completed'||s.status==='Makeup'));
+    if (!sessions.length) return null;
+    const count=sessions.length,billed=sessions.reduce((s,x)=>s+Number(x.total_revenue||0),0),
+      pay=sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0),
+      comm=sessions.reduce((s,x)=>s+Number(x.commission_amt||0),0),
+      rem=sessions.reduce((s,x)=>s+Number(x.school_remainder||0),0),
+      vat=tutor.tutor_id!=='T001'?pay*0.03:0,net=pay-vat,color=COLOR_MAP[tutor.color]||'#888';
+    gB+=billed;gP+=pay;gC+=comm;gR+=rem;gV+=vat;gN+=net;
+    return `<tr><td><span class="dot" style="background:${color}"></span><strong>${tutor.name}</strong></td><td>${count}</td><td>฿${fmt(billed)}</td><td>฿${fmt(pay)}</td><td>฿${fmt(comm)}</td><td>฿${fmt(rem)}</td><td>฿${fmt(vat)}</td><td style="color:var(--teal);font-weight:500">฿${fmt(net)}</td></tr>`;
+  }).filter(Boolean);
+  document.getElementById('tutor-all-body').innerHTML = rows.join('')+`<tr style="background:var(--surface2);font-weight:500;border-top:2px solid var(--border-strong)"><td>${lang==='th'?'รวม':'Total'}</td><td>—</td><td>฿${fmt(gB)}</td><td>฿${fmt(gP)}</td><td>฿${fmt(gC)}</td><td>฿${fmt(gR)}</td><td>฿${fmt(gV)}</td><td style="color:var(--teal)">฿${fmt(gN)}</td></tr>`;
+  document.getElementById('tutor-all-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">${lang==='th'?'รายได้รวม':'Total billed'}</div><div class="metric-value">฿${fmt(gB)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'ค่าสอนรวม':'Total tutor pay'}</div><div class="metric-value">฿${fmt(gP)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'คอมมิชชั่นรวม':'Total commission'}</div><div class="metric-value">฿${fmt(gC)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div><div class="metric-value">฿${fmt(gR)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'ยอดโอนสุทธิรวม':'Total net transfer'}</div><div class="metric-value" style="color:var(--teal)">฿${fmt(gN)}</div></div>`;
+}
+
+// ─── INDIVIDUAL TUTOR VIEW ────────────────────────────────
 function renderTutorDetail() {
   const tutorId = document.getElementById('tutor-select').value;
-  const tutor = getTutor(tutorId);
-  const sessions = DATA.sessions.filter(s => s.tutor_id === tutorId && (s.status==='Completed'||s.status==='Makeup'));
-
-  const totalBilled    = sessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
-  const totalTutorPay  = sessions.reduce((sum,s)=>sum+Number(s.tutor_pay||0),0);
-  const totalCommission= sessions.reduce((sum,s)=>sum+Number(s.commission_amt||0),0);
-  const totalRemainder = sessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
-  const vat            = tutorId !== 'T001' ? totalTutorPay * 0.03 : 0;
-  const netTransfer    = totalTutorPay - vat;
-
-  document.getElementById('tutor-metrics').innerHTML = `
-    <div class="metric"><div class="metric-label">${lang==='th'?'ยอดรวม':'Total billed'}</div><div class="metric-value">฿${fmt(totalBilled)}</div></div>
-    <div class="metric"><div class="metric-label">${lang==='th'?'ค่าสอน':'Tutor pay'}</div><div class="metric-value">฿${fmt(totalTutorPay)}</div></div>
+  const tutor   = getTutor(tutorId);
+  const monthSessions = filterByMonth(DATA.sessions,'date');
+  const done = monthSessions.filter(s=>s.tutor_id===tutorId&&(s.status==='Completed'||s.status==='Makeup'));
+  const tB=done.reduce((s,x)=>s+Number(x.total_revenue||0),0),
+        tP=done.reduce((s,x)=>s+Number(x.tutor_pay||0),0),
+        tC=done.reduce((s,x)=>s+Number(x.commission_amt||0),0),
+        tR=done.reduce((s,x)=>s+Number(x.school_remainder||0),0),
+        vat=tutorId!=='T001'?tP*0.03:0,net=tP-vat;
+  document.getElementById('tutor-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">${lang==='th'?'ยอดรวม':'Total billed'}</div><div class="metric-value">฿${fmt(tB)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'ค่าสอน':'Tutor pay'}</div><div class="metric-value">฿${fmt(tP)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'ภาษี 3%':'VAT 3%'}</div><div class="metric-value">฿${fmt(vat)}</div></div>
-    <div class="metric"><div class="metric-label">${lang==='th'?'ยอดโอน':'Net transfer'}</div><div class="metric-value" style="color:var(--teal)">฿${fmt(netTransfer)}</div></div>
-    <div class="metric"><div class="metric-label">${lang==='th'?'คอมมิชชั่น':'Commission'}</div><div class="metric-value">฿${fmt(totalCommission)}</div></div>
-    <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div><div class="metric-value">฿${fmt(totalRemainder)}</div></div>
-  `;
-
-  const allSessions = DATA.sessions.filter(s => s.tutor_id === tutorId);
+    <div class="metric"><div class="metric-label">${lang==='th'?'ยอดโอน':'Net transfer'}</div><div class="metric-value" style="color:var(--teal)">฿${fmt(net)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'คอมมิชชั่น':'Commission'}</div><div class="metric-value">฿${fmt(tC)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div><div class="metric-value">฿${fmt(tR)}</div></div>`;
+  const all = monthSessions.filter(s=>s.tutor_id===tutorId);
   const body = document.getElementById('tutor-sessions-body');
-  if (!allSessions.length) {
-    body.innerHTML = `<tr><td colspan="12" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet'}</td></tr>`;
-    return;
-  }
-  body.innerHTML = allSessions.map(s => `
-    <tr>
-      <td>${s.student_id||'—'}</td>
-      <td>${s.subject||'—'}</td>
-      <td>${s.date||'—'}</td>
-      <td>${s.hours||'—'}</td>
-      <td>${s.num_students||'—'}</td>
-      <td>฿${fmt(s.total_revenue && s.hours ? Math.round(Number(s.total_revenue)/Number(s.hours)) : 0)}</td>
-      <td>฿${fmt(s.total_revenue)}</td>
-      <td>฿${fmt(s.tutor_pay)}</td>
-      <td>${s.commission_who||'none'}</td>
-      <td>฿${fmt(s.commission_amt)}</td>
-      <td>฿${fmt(s.school_remainder)}</td>
-      <td>${statusBadge(s.status)}</td>
-    </tr>
-  `).join('');
+  if (!all.length){body.innerHTML=`<tr><td colspan="13" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet'}</td></tr>`;return;}
+  body.innerHTML = all.map(s=>{
+    const student=DATA.students.find(st=>st.student_id===s.student_id);
+    const timeStr=s.start_time&&s.end_time?`${s.start_time}–${s.end_time}`:(s.start_time||'—');
+    return `<tr><td>${student?.nickname||s.student_id}</td><td>${s.subject||'—'}</td><td>${s.date||'—'}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
+  }).join('');
+}
+
+// ─── EXPORT HELPERS ───────────────────────────────────────
+function copyTableToClipboard(tableId) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const rows = Array.from(table.querySelectorAll('tr'));
+  const text = rows.map(r=>Array.from(r.querySelectorAll('th,td')).map(c=>c.innerText.trim()).join('\t')).join('\n');
+  navigator.clipboard.writeText(text).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+  });
+}
+
+function downloadTableAsCSV(tableId, filename) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const rows = Array.from(table.querySelectorAll('tr'));
+  const csv  = rows.map(r=>Array.from(r.querySelectorAll('th,td')).map(c=>'"'+c.innerText.trim().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+}
+
+function copyTutorTable() {
+  const tableId = tutorViewMode==='all'?'tutor-all-table':'tutor-single-table';
+  copyTableToClipboard(tableId);
+  showToast(lang==='th'?'✓ คัดลอกแล้ว — วางใน LINE หรือ Excel ได้เลย':'✓ Copied — paste into LINE or Excel');
+}
+
+function downloadTutorExcel() {
+  const tableId = tutorViewMode==='all'?'tutor-all-table':'tutor-single-table';
+  const tutorName = tutorViewMode==='single'?getTutor(document.getElementById('tutor-select').value).name:'AllTutors';
+  downloadTableAsCSV(tableId,`Poppadi_${tutorName}_${selectedMonth}.csv`);
 }
 
 // ─── STUDENTS ─────────────────────────────────────────────
 function renderStudents() {
   const body = document.getElementById('students-body');
   if (!DATA.courses.length) {
-    body.innerHTML = `<tr><td colspan="8" class="empty">${lang==='th'?'ยังไม่มีคอร์ส':'No courses yet — use New Enrollment to add one'}</td></tr>`;
+    body.innerHTML=`<tr><td colspan="9" class="empty">${lang==='th'?'ยังไม่มีคอร์ส':'No courses yet — use New Enrollment to add one'}</td></tr>`;
     return;
   }
-
-  body.innerHTML = DATA.courses.map(course => {
-    const student = DATA.students.find(s => s.student_id === course.student_id);
-    const tutor = getTutor(course.tutor_id);
-    const color = COLOR_MAP[tutor.color] || '#888';
-    const paid = Number(course.total_paid_hrs || 0);
-    const taught = DATA.sessions.filter(s =>
-      s.course_id === course.course_id && (s.status==='Completed'||s.status==='Makeup')
-    ).reduce((sum,s)=>sum+Number(s.hours||0),0);
-    const remaining = Math.max(0, paid - taught);
-    const pct = paid > 0 ? Math.round((taught/paid)*100) : 0;
-    const progressClass = remaining <= 2 ? 'danger' : remaining <= 3 ? 'warn' : '';
-    const alertBadge = remaining <= 2
-      ? `<span class="badge badge-alert-high">${lang==='th'?`เหลือ ${remaining} — ส่งใบแจ้งหนี้`:`${remaining} left — send invoice`}</span>`
-      : remaining <= 3
-      ? `<span class="badge badge-alert-med">${lang==='th'?`เหลือ ${remaining} — เตรียมใบ`:`${remaining} left — prepare`}</span>`
-      : '—';
-
-    return `<tr>
+  body.innerHTML = DATA.courses.map(course=>{
+    const student=DATA.students.find(s=>s.student_id===course.student_id);
+    const tutor=getTutor(course.tutor_id);
+    const color=COLOR_MAP[tutor.color]||'#888';
+    const paid=Number(course.total_paid_hrs||0);
+    const taught=DATA.sessions.filter(s=>s.course_id===course.course_id&&(s.status==='Completed'||s.status==='Makeup')).reduce((sum,s)=>sum+Number(s.hours||0),0);
+    const remaining=Math.max(0,paid-taught);
+    const pct=paid>0?Math.round((taught/paid)*100):0;
+    const progressClass=remaining<=2?'danger':remaining<=3?'warn':'';
+    const alertBadge=remaining<=2?`<span class="badge badge-alert-high">${lang==='th'?`เหลือ ${remaining} — ส่งใบ`:`${remaining} left — invoice`}</span>`:remaining<=3?`<span class="badge badge-alert-med">${lang==='th'?`เหลือ ${remaining} — เตรียม`:`${remaining} left — prepare`}</span>`:'—';
+    return `<tr style="cursor:pointer" onclick="openStudentDetail('${course.course_id}')" title="${lang==='th'?'คลิกเพื่อดูรายละเอียด':'Click to view details'}">
       <td><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_id}</td>
       <td>${tutor.name||course.tutor_id}</td>
       <td>${course.subject||'—'}</td>
-      <td>${paid}</td>
-      <td>${taught}</td>
-      <td>${remaining}</td>
-      <td style="min-width:100px">
-        <div style="font-size:11px;color:var(--text3)">${pct}%</div>
-        <div class="progress-wrap"><div class="progress-fill ${progressClass}" style="width:${pct}%"></div></div>
-      </td>
+      <td>${course.block_number||'1'}</td>
+      <td>${paid}</td><td>${taught}</td><td>${remaining}</td>
+      <td style="min-width:100px"><div style="font-size:11px;color:var(--text3)">${pct}%</div><div class="progress-wrap"><div class="progress-fill ${progressClass}" style="width:${pct}%"></div></div></td>
       <td>${alertBadge}</td>
     </tr>`;
   }).join('');
+}
+
+// ─── STUDENT DETAIL VIEW ──────────────────────────────────
+function openStudentDetail(courseId) {
+  const course  = DATA.courses.find(c=>c.course_id===courseId);
+  if (!course) return;
+  currentDetailCourse = course;
+  const student = DATA.students.find(s=>s.student_id===course.student_id);
+  const tutor   = getTutor(course.tutor_id);
+  document.getElementById('students-list-view').style.display   = 'none';
+  document.getElementById('students-detail-view').style.display = 'block';
+  document.getElementById('detail-student-name').textContent =
+    (student?.nickname||course.student_id)+' — '+course.subject;
+  document.getElementById('detail-course-info').textContent =
+    `${tutor.name||course.tutor_id} · Block ${course.block_number||1} · Invoice: ${course.invoice_ref||'—'} · Paid: ${course.payment_date||'—'}`;
+
+  const paid     = Number(course.total_paid_hrs||0);
+  const sessions = DATA.sessions.filter(s=>s.course_id===courseId).sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  // Calculate totals
+  let totalCharged=0, totalStudied=0, totalRevenue=0;
+  sessions.forEach(s=>{
+    const hrs = Number(s.hours||0);
+    if (s.status==='Completed'){totalCharged+=hrs;totalStudied+=hrs;totalRevenue+=Number(s.total_revenue||0);}
+    else if (s.status==='Missed'){totalCharged+=hrs*0.5;totalRevenue+=Number(s.total_revenue||0);}
+    else if (s.status==='Makeup'){totalStudied+=hrs;}
+  });
+
+  document.getElementById('detail-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">${lang==='th'?'ชม.ที่จ่าย':'Paid hours'}</div><div class="metric-value">${paid}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'ชม.ที่เก็บเงิน':'Hours charged'}</div><div class="metric-value">${totalCharged}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'ชม.ที่เรียนจริง':'Hours studied'}</div><div class="metric-value">${totalStudied}</div><div class="metric-sub">${lang==='th'?'ไม่เกินชม.ที่จ่าย':'Never exceeds paid'}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'ชม.คงเหลือ':'Remaining'}</div><div class="metric-value">${Math.max(0,paid-totalCharged)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'รายได้รวม':'Total revenue'}</div><div class="metric-value">฿${fmt(totalRevenue)}</div></div>`;
+
+  const body = document.getElementById('detail-sessions-body');
+  if (!sessions.length){body.innerHTML=`<tr><td colspan="8" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet'}</td></tr>`;return;}
+
+  let sessionNum=0;
+  body.innerHTML = sessions.map(s=>{
+    const hrs=Number(s.hours||0);
+    const timeStr=s.start_time&&s.end_time?`${s.start_time}–${s.end_time}`:(s.start_time||'—');
+    let hrsCharged='—', hrsStudied='—', notes='';
+    if (s.status==='Completed'){sessionNum++;hrsCharged=hrs;hrsStudied=hrs;notes='';}
+    else if (s.status==='Missed'){hrsCharged=hrs*0.5+' (50%)';hrsStudied=0;notes=lang==='th'?'ขาดเรียน — เก็บ 50%':'Missed — 50% charged';}
+    else if (s.status==='Makeup'){hrsCharged=0;hrsStudied=hrs;notes=lang==='th'?`ชดเชยจาก ${s.makeup_ref||'—'}`:`Makeup for ${s.makeup_ref||'—'}`;}
+    else if (s.status==='Cancelled'){hrsCharged=0;hrsStudied=0;notes=lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup';}
+    else{hrsCharged='—';hrsStudied='—';}
+    const num = s.status==='Scheduled'?'—':sessionNum||'—';
+    return `<tr>
+      <td>${num}</td>
+      <td>${s.date||'—'}</td>
+      <td>${timeStr}</td>
+      <td>${statusBadge(s.status)}</td>
+      <td>${hrsCharged}</td>
+      <td>${hrsStudied}</td>
+      <td>${s.status==='Scheduled'?'<span style="color:var(--text3)">pending</span>':'฿'+fmt(s.total_revenue)}</td>
+      <td style="font-size:12px;color:var(--text3)">${notes}</td>
+    </tr>`;
+  }).join('');
+}
+
+function closeStudentDetail() {
+  currentDetailCourse = null;
+  document.getElementById('students-list-view').style.display   = 'block';
+  document.getElementById('students-detail-view').style.display = 'none';
+}
+
+function copyStudentDetail() {
+  const course  = currentDetailCourse;
+  if (!course) return;
+  const student = DATA.students.find(s=>s.student_id===course.student_id);
+  const tutor   = getTutor(course.tutor_id);
+  const sessions= DATA.sessions.filter(s=>s.course_id===course.course_id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const paid    = Number(course.total_paid_hrs||0);
+  let lines=[];
+  lines.push(`📚 ${student?.nickname||course.student_id} — ${course.subject}`);
+  lines.push(`ครู: ${tutor.name||course.tutor_id} | Block ${course.block_number||1} | จ่าย ${paid} ชม.`);
+  lines.push('─────────────────────');
+  lines.push(`${'#'.padEnd(3)} ${'วันที่'.padEnd(12)} ${'เวลา'.padEnd(14)} ${'สถานะ'.padEnd(12)} ${'ชม.เก็บ'.padEnd(8)} ${'ชม.เรียน'.padEnd(8)} รายได้`);
+  let num=0;
+  sessions.forEach(s=>{
+    const hrs=Number(s.hours||0),timeStr=s.start_time&&s.end_time?`${s.start_time}-${s.end_time}`:(s.start_time||'—');
+    let charged='—',studied='—';
+    if(s.status==='Completed'){num++;charged=String(hrs);studied=String(hrs);}
+    else if(s.status==='Missed'){charged=String(hrs*0.5)+'(50%)';studied='0';}
+    else if(s.status==='Makeup'){charged='0';studied=String(hrs);}
+    else if(s.status==='Cancelled'){charged='0';studied='0';}
+    const n=s.status==='Scheduled'?'—':String(num||'—');
+    lines.push(`${n.padEnd(3)} ${(s.date||'—').padEnd(12)} ${timeStr.padEnd(14)} ${(s.status||'').padEnd(12)} ${charged.padEnd(8)} ${studied.padEnd(8)} ฿${fmt(s.total_revenue)}`);
+  });
+  lines.push('─────────────────────');
+  const taught=sessions.filter(s=>s.status==='Completed'||s.status==='Makeup').reduce((sum,s)=>sum+Number(s.hours||0),0);
+  lines.push(`รวมชม.เรียน: ${taught} / ${paid} ชม.`);
+  lines.push(`คงเหลือ: ${Math.max(0,paid-taught)} ชม.`);
+  const totalRev=sessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
+  lines.push(`รายได้รวม: ฿${fmt(totalRev)}`);
+  const text=lines.join('\n');
+  navigator.clipboard.writeText(text).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);});
+  showToast(lang==='th'?'✓ คัดลอกแล้ว — วางใน LINE ได้เลย':'✓ Copied — paste into LINE or email');
+}
+
+function downloadStudentExcel() {
+  const course  = currentDetailCourse;
+  if (!course) return;
+  const student = DATA.students.find(s=>s.student_id===course.student_id);
+  downloadTableAsCSV('detail-sessions-table',`Poppadi_${student?.nickname||course.student_id}_Block${course.block_number||1}.csv`);
 }
 
 // ─── EXPENSES ─────────────────────────────────────────────
