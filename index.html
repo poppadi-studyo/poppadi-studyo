@@ -504,37 +504,72 @@
           <div class="page-title" data-en="Schedule" data-th="ตารางสอน">Schedule</div>
           <div class="page-sub" data-en="All sessions this month" data-th="ทุกคาบเรียนเดือนนี้">All sessions this month</div>
         </div>
-      </div>
-      <div class="card" style="padding:0">
-        <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap">
-          <select id="filter-tutor" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
-            <option value="" data-en="All tutors" data-th="ครูทุกคน">All tutors</option>
-          </select>
-          <select id="filter-status" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
-            <option value="" data-en="All statuses" data-th="ทุกสถานะ">All statuses</option>
-            <option value="Completed" data-en="Completed" data-th="สอนแล้ว">Completed</option>
-            <option value="Cancelled" data-en="Cancelled" data-th="ยกเลิก">Cancelled</option>
-            <option value="Missed" data-en="Missed" data-th="ขาดเรียน">Missed</option>
-            <option value="Makeup" data-en="Makeup" data-th="ชดเชย">Makeup</option>
-            <option value="Scheduled" data-en="Scheduled" data-th="กำหนดการ">Scheduled</option>
-          </select>
+        <div style="display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden">
+          <button id="sched-view-list" onclick="setScheduleView('list')" class="btn btn-sm" style="border:none;border-radius:0;background:var(--text);color:#fff;font-size:12px" data-en="List" data-th="รายการ">List</button>
+          <button id="sched-view-cal" onclick="setScheduleView('calendar')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="Calendar" data-th="ปฏิทิน">Calendar</button>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th data-en="Student" data-th="นักเรียน">Student</th>
-                <th data-en="Tutor" data-th="ครู">Tutor</th>
-                <th data-en="Subject" data-th="วิชา">Subject</th>
-                <th data-en="Date" data-th="วันที่">Date</th>
-                <th data-en="Hrs" data-th="ชม.">Hrs</th>
-                <th data-en="Revenue" data-th="รายได้">Revenue</th>
-                <th data-en="Status" data-th="สถานะ">Status</th>
-                <th data-en="Action" data-th="การดำเนินการ">Action</th>
-              </tr>
-            </thead>
-            <tbody id="schedule-body"></tbody>
-          </table>
+      </div>
+
+      <!-- LIST VIEW -->
+      <div id="schedule-list-view">
+        <div class="card" style="padding:0">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <select id="filter-tutor" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <option value="" data-en="All tutors" data-th="ครูทุกคน">All tutors</option>
+            </select>
+            <select id="filter-status" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <option value="" data-en="All statuses" data-th="ทุกสถานะ">All statuses</option>
+              <option value="Completed" data-en="Completed" data-th="สอนแล้ว">Completed</option>
+              <option value="Cancelled" data-en="Cancelled" data-th="ยกเลิก">Cancelled</option>
+              <option value="Missed" data-en="Missed" data-th="ขาดเรียน">Missed</option>
+              <option value="Makeup" data-en="Makeup" data-th="ชดเชย">Makeup</option>
+              <option value="Scheduled" data-en="Scheduled" data-th="กำหนดการ">Scheduled</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-en="Student" data-th="นักเรียน">Student</th>
+                  <th data-en="Tutor" data-th="ครู">Tutor</th>
+                  <th data-en="Subject" data-th="วิชา">Subject</th>
+                  <th data-en="Date" data-th="วันที่">Date</th>
+                  <th data-en="Time" data-th="เวลา">Time</th>
+                  <th data-en="Hrs" data-th="ชม.">Hrs</th>
+                  <th data-en="Revenue" data-th="รายได้">Revenue</th>
+                  <th data-en="Status" data-th="สถานะ">Status</th>
+                  <th data-en="Action" data-th="การดำเนินการ">Action</th>
+                </tr>
+              </thead>
+              <tbody id="schedule-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALENDAR VIEW -->
+      <div id="schedule-calendar-view" style="display:none">
+        <div class="card" style="padding:0">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+            <div style="display:flex;gap:8px;align-items:center">
+              <button onclick="calNav(-1)" class="btn btn-sm">←</button>
+              <span id="cal-title" style="font-size:14px;font-weight:500;min-width:180px;text-align:center"></span>
+              <button onclick="calNav(1)" class="btn btn-sm">→</button>
+              <button onclick="calToday()" class="btn btn-sm" style="margin-left:4px">Today</button>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <select id="cal-filter-tutor" onchange="renderCalendar()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+                <option value="">All tutors</option>
+              </select>
+              <div style="display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden">
+                <button onclick="setCalView('day')"   id="cal-btn-day"   class="btn btn-sm" style="border:none;border-radius:0;font-size:12px">Day</button>
+                <button onclick="setCalView('week')"  id="cal-btn-week"  class="btn btn-sm" style="border:none;border-radius:0;font-size:12px;background:var(--text);color:#fff">Week</button>
+                <button onclick="setCalView('month')" id="cal-btn-month" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px">Month</button>
+                <button onclick="setCalView('year')"  id="cal-btn-year"  class="btn btn-sm" style="border:none;border-radius:0;font-size:12px">Year</button>
+              </div>
+            </div>
+          </div>
+          <div id="calendar-body" style="padding:16px;min-height:500px;overflow-x:auto"></div>
         </div>
       </div>
     </div>
@@ -597,7 +632,8 @@
             <button id="tutor-view-single" onclick="setTutorView('single')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="Individual" data-th="รายคน">Individual</button>
           </div>
           <select id="tutor-select" onchange="renderTutorDetail()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif;display:none"></select>
-          <button onclick="downloadTutorExcel()" class="btn btn-sm" data-en="⬇ Download Excel" data-th="⬇ ดาวน์โหลด Excel">⬇ Download Excel</button>
+          <button onclick="downloadTutorExcel()" class="btn btn-sm" data-en="⬇ Download Excel (internal)" data-th="⬇ ดาวน์โหลด (ภายใน)">⬇ Download Excel (internal)</button>
+          <button onclick="downloadTutorFacing()" class="btn btn-sm" data-en="⬇ Download for tutor" data-th="⬇ ดาวน์โหลดสำหรับครู">⬇ Download for tutor</button>
           <button onclick="copyTutorTable()" class="btn btn-sm" data-en="⎘ Copy table" data-th="⎘ คัดลอกตาราง">⎘ Copy table</button>
         </div>
       </div>
@@ -1243,13 +1279,6 @@ function showLogin() {
   document.getElementById('app-wrapper').style.display = 'none';
 }
 
-function showApp() {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-wrapper').style.display = 'flex';
-  document.getElementById('user-email').textContent = currentUser?.email || '';
-  loadAllData();
-}
-
 function handleGoogleLogin(response) {
   // Decode JWT from Google
   const payload = JSON.parse(atob(response.credential.split('.')[1]));
@@ -1398,6 +1427,8 @@ function renderSchedule() {
     const tutor = getTutor(s.tutor_id);
     const student = DATA.students.find(st => st.student_id === s.student_id);
     const color = COLOR_MAP[tutor.color] || '#888';
+    const subject = getSubjectForSession(s);
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
     const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
     const isCompleted = s.status === 'Completed' || s.status === 'Makeup';
     const isLocked = isCompleted || isMonthLocked(s.date);
@@ -1419,8 +1450,9 @@ function renderSchedule() {
     return `<tr>
       <td><span class="dot" style="background:${color}"></span>${student?.nickname||s.student_id}</td>
       <td>${tutor.name||s.tutor_id}</td>
-      <td>${s.subject||'—'}</td>
+      <td>${subject}</td>
       <td>${s.date||'—'}</td>
+      <td style="white-space:nowrap">${timeStr}</td>
       <td>${s.hours||'—'}</td>
       <td>฿${fmt(s.total_revenue)}</td>
       <td>${statusDropdown}</td>
@@ -1845,6 +1877,318 @@ function renderFallback() {
   document.getElementById('expenses-metrics').innerHTML = '';
 }
 
+// ─── PAGE MEMORY (persist on refresh) ────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.querySelectorAll('.nav-item').forEach(b => { if (b.textContent.toLowerCase().includes(id)) b.classList.add('active'); });
+  localStorage.setItem('poppadi_page', id);
+}
+
+function restorePage() {
+  const saved = localStorage.getItem('poppadi_page');
+  if (saved && document.getElementById('page-'+saved)) {
+    showPage(saved);
+  }
+}
+
+// ─── TIME FORMATTING ──────────────────────────────────────
+function formatTime(t) {
+  if (!t) return '—';
+  // Handle HH:MM:SS or HH:MM
+  const parts = t.split(':');
+  if (parts.length < 2) return t;
+  let h = parseInt(parts[0]), m = parseInt(parts[1]);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function formatTimeRange(start, end) {
+  if (!start) return '—';
+  if (!end) return formatTime(start);
+  return `${formatTime(start)}–${formatTime(end)}`;
+}
+
+// ─── SUBJECT LOOKUP ───────────────────────────────────────
+function getSubjectForSession(session) {
+  if (session.subject && session.subject !== '—' && session.subject !== '') return session.subject;
+  const course = DATA.courses.find(c => c.course_id === session.course_id);
+  return course?.subject || '—';
+}
+
+// ─── SCHEDULE VIEW TOGGLE ────────────────────────────────
+let scheduleViewMode = 'list';
+
+function setScheduleView(mode) {
+  scheduleViewMode = mode;
+  document.getElementById('schedule-list-view').style.display     = mode==='list'     ? 'block':'none';
+  document.getElementById('schedule-calendar-view').style.display = mode==='calendar' ? 'block':'none';
+  document.getElementById('sched-view-list').style.background = mode==='list'     ? 'var(--text)':'transparent';
+  document.getElementById('sched-view-list').style.color      = mode==='list'     ? '#fff':'var(--text2)';
+  document.getElementById('sched-view-cal').style.background  = mode==='calendar' ? 'var(--text)':'transparent';
+  document.getElementById('sched-view-cal').style.color       = mode==='calendar' ? '#fff':'var(--text2)';
+  if (mode==='calendar') {
+    populateCalTutorFilter();
+    renderCalendar();
+  }
+}
+
+// ─── CALENDAR ─────────────────────────────────────────────
+let calView = 'week'; // day | week | month | year
+let calDate = new Date();
+
+const WEEKDAYS_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const WEEKDAYS_TH = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+const MONTHS_EN   = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_TH   = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+function populateCalTutorFilter() {
+  const sel = document.getElementById('cal-filter-tutor');
+  if (sel && sel.options.length <= 1) {
+    DATA.tutors.filter(t=>t.active==='TRUE').forEach(t=>{
+      const o=document.createElement('option');o.value=t.tutor_id;o.textContent=t.name;sel.appendChild(o);
+    });
+  }
+}
+
+function setCalView(v) {
+  calView = v;
+  ['day','week','month','year'].forEach(x=>{
+    const btn=document.getElementById('cal-btn-'+x);
+    if(btn){btn.style.background=v===x?'var(--text)':'transparent';btn.style.color=v===x?'#fff':'var(--text2)';}
+  });
+  renderCalendar();
+}
+
+function calNav(dir) {
+  if (calView==='day')   calDate.setDate(calDate.getDate()+dir);
+  else if (calView==='week')  calDate.setDate(calDate.getDate()+dir*7);
+  else if (calView==='month') calDate.setMonth(calDate.getMonth()+dir);
+  else if (calView==='year')  calDate.setFullYear(calDate.getFullYear()+dir);
+  renderCalendar();
+}
+
+function calToday() { calDate = new Date(); renderCalendar(); }
+
+function getCalSessions() {
+  const tutorFilter = document.getElementById('cal-filter-tutor')?.value || '';
+  return DATA.sessions.filter(s => !tutorFilter || s.tutor_id===tutorFilter);
+}
+
+function getEventColor(session) {
+  const tutorFilter = document.getElementById('cal-filter-tutor')?.value || '';
+  if (tutorFilter) {
+    // Single tutor view — color by course/paid block
+    const colors = ['#1D9E75','#378ADD','#7F77DD','#D85A30','#D4537E','#BA7517','#888780','#E24B4A','#2196F3','#9C27B0'];
+    const courses = DATA.courses.filter(c=>c.tutor_id===tutorFilter);
+    const idx = courses.findIndex(c=>c.course_id===session.course_id);
+    return colors[Math.max(0,idx) % colors.length];
+  } else {
+    // All tutors — color by tutor
+    const tutor = getTutor(session.tutor_id);
+    return COLOR_MAP[tutor.color]||'#888';
+  }
+}
+
+function parseSessionDate(dateStr) {
+  if (!dateStr) return null;
+  // Handle M/D/YYYY
+  if (dateStr.includes('/')) {
+    const p=dateStr.split('/');
+    if(p.length>=3) return new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1]));
+  }
+  return new Date(dateStr);
+}
+
+function isSameDay(d1,d2) {
+  return d1.getFullYear()===d2.getFullYear()&&d1.getMonth()===d2.getMonth()&&d1.getDate()===d2.getDate();
+}
+
+function renderCalEventPill(s, compact=false) {
+  const color=getEventColor(s);
+  const student=DATA.students.find(st=>st.student_id===s.student_id);
+  const name=student?.nickname||s.student_id;
+  const subject=getSubjectForSession(s);
+  const time=s.start_time?formatTime(s.start_time):'';
+  const opacity=s.status==='Cancelled'?'0.45':s.status==='Missed'?'0.6':'1';
+  const title=`${name}${subject&&subject!=='—'?' · '+subject:''} ${time?'@ '+time:''}`;
+  if(compact){
+    return `<div style="background:${color};opacity:${opacity};color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer" title="${title}">${name}</div>`;
+  }
+  return `<div style="background:${color};opacity:${opacity};color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer" title="${title}">
+    <div style="font-weight:500">${name}</div>
+    <div style="opacity:0.85">${time}${subject&&subject!=='—'?' · '+subject:''}</div>
+  </div>`;
+}
+
+function renderCalendar() {
+  const body=document.getElementById('calendar-body');
+  const title=document.getElementById('cal-title');
+  const sessions=getCalSessions();
+  const wdays=lang==='th'?WEEKDAYS_TH:WEEKDAYS_EN;
+  const months=lang==='th'?MONTHS_TH:MONTHS_EN;
+
+  if(calView==='day') {
+    title.textContent=`${wdays[calDate.getDay()]} ${calDate.getDate()} ${months[calDate.getMonth()]} ${calDate.getFullYear()}`;
+    const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),calDate));
+    body.innerHTML=daySessions.length
+      ?daySessions.map(s=>renderCalEventPill(s,false)).join('')
+      :`<div class="empty">${lang==='th'?'ไม่มีคาบเรียนวันนี้':'No sessions today'}</div>`;
+  }
+
+  else if(calView==='week') {
+    const start=new Date(calDate);start.setDate(calDate.getDate()-calDate.getDay());
+    const end=new Date(start);end.setDate(start.getDate()+6);
+    title.textContent=`${start.getDate()} ${months[start.getMonth()]} – ${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
+    let html=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">`;
+    for(let i=0;i<7;i++){
+      const d=new Date(start);d.setDate(start.getDate()+i);
+      const isToday=isSameDay(d,new Date());
+      const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),d));
+      html+=`<div style="min-height:120px">
+        <div style="font-size:12px;font-weight:500;margin-bottom:8px;color:${isToday?'var(--teal)':'var(--text2)'};text-align:center">
+          ${wdays[d.getDay()]}<br><span style="font-size:16px;color:${isToday?'var(--teal)':'var(--text)'}">${d.getDate()}</span>
+        </div>
+        ${daySessions.map(s=>renderCalEventPill(s,true)).join('')}
+      </div>`;
+    }
+    html+=`</div>`;
+    body.innerHTML=html;
+  }
+
+  else if(calView==='month') {
+    const y=calDate.getFullYear(),m=calDate.getMonth();
+    title.textContent=`${months[m]} ${y}`;
+    const firstDay=new Date(y,m,1).getDay();
+    const daysInMonth=new Date(y,m+1,0).getDate();
+    let html=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">`;
+    wdays.forEach(d=>{html+=`<div style="font-size:11px;font-weight:500;color:var(--text3);text-align:center;padding:4px">${d}</div>`;});
+    for(let i=0;i<firstDay;i++) html+=`<div></div>`;
+    for(let day=1;day<=daysInMonth;day++){
+      const d=new Date(y,m,day);
+      const isToday=isSameDay(d,new Date());
+      const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),d));
+      html+=`<div style="min-height:80px;border:1px solid var(--border);border-radius:8px;padding:6px;background:${isToday?'var(--teal-bg)':'var(--surface)'}">
+        <div style="font-size:12px;font-weight:${isToday?'600':'400'};color:${isToday?'var(--teal)':'var(--text)'};margin-bottom:4px">${day}</div>
+        ${daySessions.map(s=>renderCalEventPill(s,true)).join('')}
+      </div>`;
+    }
+    html+=`</div>`;
+    body.innerHTML=html;
+  }
+
+  else if(calView==='year') {
+    const y=calDate.getFullYear();
+    title.textContent=String(y);
+    // Monthly revenue bars
+    const monthlyData=Array.from({length:12},(_,mi)=>{
+      const monthSessions=sessions.filter(s=>{
+        const d=parseSessionDate(s.date);
+        return d&&d.getFullYear()===y&&d.getMonth()===mi&&(s.status==='Completed'||s.status==='Makeup');
+      });
+      return {
+        revenue:monthSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0),
+        count:monthSessions.length
+      };
+    });
+    const maxRev=Math.max(...monthlyData.map(m=>m.revenue),1);
+    let html=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">`;
+    monthlyData.forEach((md,mi)=>{
+      const barPct=Math.round((md.revenue/maxRev)*100);
+      const isCurrent=mi===new Date().getMonth()&&y===new Date().getFullYear();
+      html+=`<div style="background:var(--surface2);border-radius:10px;padding:12px;border:1px solid ${isCurrent?'var(--teal)':'var(--border)'}">
+        <div style="font-size:12px;font-weight:500;color:${isCurrent?'var(--teal)':'var(--text2)'};margin-bottom:8px">${months[mi]}</div>
+        <div style="background:var(--border);border-radius:4px;height:6px;margin-bottom:8px">
+          <div style="background:${isCurrent?'var(--teal)':'var(--blue)'};height:100%;border-radius:4px;width:${barPct}%"></div>
+        </div>
+        <div style="font-size:14px;font-weight:600">฿${fmt(md.revenue)}</div>
+        <div style="font-size:11px;color:var(--text3)">${md.count} session${md.count!==1?'s':''}</div>
+      </div>`;
+    });
+    html+=`</div>`;
+    body.innerHTML=html;
+  }
+}
+
+// ─── EXPENSE WRITE TO SHEET ───────────────────────────────
+async function addExpense() {
+  const name = document.getElementById('new-expense-name').value.trim();
+  const amt  = document.getElementById('new-expense-amt').value.trim();
+  if (!name || !amt) return;
+
+  const month = new Date().toISOString().slice(0,7);
+  const newId = 'E'+(DATA.expenses.length+1).toString().padStart(3,'0');
+  const newRow = [newId, month, name, amt, 'other'];
+
+  // Update local data immediately
+  DATA.expenses.push({ expense_id:newId, month, item_name:name, amount:amt, category:'other' });
+  document.getElementById('new-expense-name').value = '';
+  document.getElementById('new-expense-amt').value  = '';
+  renderExpenses();
+  renderOverview();
+
+  // Write to Google Sheet
+  try {
+    const url = `${SHEET_WRITE_URL}/Expenses!A:E:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({values:[newRow]})
+    });
+    if (res.ok) {
+      showToast(lang==='th'?'✓ เพิ่มค่าใช้จ่ายแล้ว':'✓ Expense added to sheet');
+    } else {
+      showToast(lang==='th'?'⚠️ บันทึกในหน้าแล้ว กรุณาเพิ่มใน Sheet ด้วย':'⚠️ Saved locally — please also add to Google Sheet');
+    }
+  } catch(e) {
+    showToast(lang==='th'?'⚠️ บันทึกในหน้าแล้ว':'⚠️ Saved locally — offline?');
+  }
+}
+
+// ─── TUTOR DOWNLOAD (internal vs tutor-facing) ────────────
+function downloadTutorExcel() {
+  // Internal version — full financial details
+  const tableId = tutorViewMode==='all'?'tutor-all-table':'tutor-single-table';
+  const tutorName = tutorViewMode==='single'?getTutor(document.getElementById('tutor-select').value).name:'AllTutors';
+  downloadTableAsCSV(tableId,`Poppadi_Internal_${tutorName}_${selectedMonth}.csv`);
+}
+
+function downloadTutorFacing() {
+  // Tutor-facing version — no fees, no school remainder, no commission details
+  if (tutorViewMode!=='single') {
+    showToast(lang==='th'?'กรุณาเลือก Individual ก่อน':'Please switch to Individual view first'); return;
+  }
+  const tutorId = document.getElementById('tutor-select').value;
+  const tutor = getTutor(tutorId);
+  const monthSessions = filterByMonth(DATA.sessions,'date').filter(s=>s.tutor_id===tutorId);
+  if (!monthSessions.length) { showToast('No sessions found'); return; }
+
+  const headers = ['Session','Subject','Date','Time','Hrs','Students','Tutor Pay','Status'];
+  const rows = monthSessions.map(s=>{
+    const student=DATA.students.find(st=>st.student_id===s.student_id);
+    const timeStr=formatTimeRange(s.start_time,s.end_time);
+    return [
+      s.session_id||'—',
+      getSubjectForSession(s),
+      s.date||'—',
+      timeStr,
+      s.hours||'—',
+      s.num_students||'—',
+      '฿'+fmt(s.tutor_pay),
+      s.status||'—'
+    ];
+  });
+
+  const csv=[headers,...rows].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`Poppadi_${tutor.name||tutorId}_${selectedMonth}_TutorSummary.csv`;a.click();
+  showToast(lang==='th'?'✓ ดาวน์โหลดสำหรับครูแล้ว':'✓ Tutor summary downloaded');
+}
+
 // ─── NAV ──────────────────────────────────────────────────
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1852,25 +2196,24 @@ function showPage(id, btn) {
   document.getElementById('page-'+id).classList.add('active');
   if (btn) btn.classList.add('active');
   else document.querySelectorAll('.nav-item').forEach(b => { if (b.textContent.toLowerCase().includes(id)) b.classList.add('active'); });
+  localStorage.setItem('poppadi_page', id);
 }
 
 // ─── LANGUAGE ─────────────────────────────────────────────
 function setLang(l, btn) {
   lang = l;
+  localStorage.setItem('poppadi_lang', l);
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('[data-en]').forEach(el => {
     const val = el.getAttribute('data-'+l);
     if (!val) return;
-    if (el.tagName === 'INPUT' && el.type !== 'date' && el.type !== 'time' && el.type !== 'number') el.placeholder = val;
-    else if (el.tagName === 'OPTION') el.textContent = val;
-    else el.textContent = val;
+    if (el.tagName==='INPUT'&&el.type!=='date'&&el.type!=='time'&&el.type!=='number') el.placeholder=val;
+    else if (el.tagName==='OPTION') el.textContent=val;
+    else el.textContent=val;
   });
-  renderOverview();
-  renderSchedule();
-  renderMakeupQueue();
-  renderStudents();
-  renderExpenses();
+  renderAll();
+  if (scheduleViewMode==='calendar') renderCalendar();
 }
 
 // ─── TUTOR RATE SUGGESTION ────────────────────────────────
@@ -1913,8 +2256,31 @@ function getJaneCommissionRate() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────
+function onAppReady() {
+  // Restore language preference
+  const savedLang = localStorage.getItem('poppadi_lang');
+  if (savedLang && savedLang !== 'en') {
+    const langBtn = document.querySelector(`.lang-btn[onclick*="${savedLang}"]`);
+    if (langBtn) setLang(savedLang, langBtn);
+  }
+  loadAllData().then(() => {
+    // Restore page after data loads
+    const savedPage = localStorage.getItem('poppadi_page');
+    if (savedPage && document.getElementById('page-'+savedPage)) {
+      showPage(savedPage);
+    }
+    setTimeout(suggestTutorRate, 100);
+  });
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-wrapper').style.display = 'flex';
+  document.getElementById('user-email').textContent = currentUser?.email || '';
+  onAppReady();
+}
+
 initAuth();
-setTimeout(suggestTutorRate, 500);
 </script>
 </div><!-- end app-wrapper -->
 </body>
