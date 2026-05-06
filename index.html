@@ -622,6 +622,7 @@
         </div>
       </div>
       <div id="tutor-single-view" style="display:none">
+        <div style="margin-bottom:12px;font-size:13px;color:var(--text2)" id="tutor-single-header"></div>
         <div class="metrics" id="tutor-metrics"></div>
         <div class="card" style="padding:0">
           <div style="padding:16px;border-bottom:1px solid var(--border)">
@@ -1519,12 +1520,23 @@ function setTutorView(mode) {
   tutorViewMode = mode;
   document.getElementById('tutor-all-view').style.display    = mode==='all'    ? 'block':'none';
   document.getElementById('tutor-single-view').style.display = mode==='single' ? 'block':'none';
-  document.getElementById('tutor-select').style.display      = mode==='single' ? 'block':'none';
+  document.getElementById('tutor-select').style.display      = mode==='single' ? 'inline-block':'none';
   document.getElementById('tutor-view-all').style.background    = mode==='all'    ? 'var(--text)':'transparent';
   document.getElementById('tutor-view-all').style.color         = mode==='all'    ? '#fff':'var(--text2)';
   document.getElementById('tutor-view-single').style.background = mode==='single' ? 'var(--text)':'transparent';
   document.getElementById('tutor-view-single').style.color      = mode==='single' ? '#fff':'var(--text2)';
-  if (mode==='all') renderTutorAll(); else renderTutorDetail();
+  if (mode==='all') {
+    renderTutorAll();
+  } else {
+    // Populate dropdown if empty
+    const sel = document.getElementById('tutor-select');
+    if (sel.options.length === 0) {
+      sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
+        `<option value="${t.tutor_id}">${t.name}</option>`
+      ).join('');
+    }
+    renderTutorDetail();
+  }
 }
 
 function renderTutorSelect() {
@@ -1532,7 +1544,8 @@ function renderTutorSelect() {
   sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
     `<option value="${t.tutor_id}">${t.name}</option>`
   ).join('');
-  renderTutorAll();
+  // Default to all tutors view
+  setTutorView('all');
 }
 
 // ─── ALL TUTORS VIEW ──────────────────────────────────────
@@ -1563,7 +1576,13 @@ function renderTutorAll() {
 // ─── INDIVIDUAL TUTOR VIEW ────────────────────────────────
 function renderTutorDetail() {
   const tutorId = document.getElementById('tutor-select').value;
+  if (!tutorId) return;
   const tutor   = getTutor(tutorId);
+  const color   = COLOR_MAP[tutor.color]||'#888';
+
+  // Show tutor name header
+  const header = document.getElementById('tutor-single-header');
+  if (header) header.innerHTML = `<span class="dot" style="background:${color}"></span><strong>${tutor.name||tutorId}</strong> — ${lang==='th'?'รายละเอียดการสอนเดือนนี้':'Teaching breakdown for selected month'}`;
   const monthSessions = filterByMonth(DATA.sessions,'date');
   const done = monthSessions.filter(s=>s.tutor_id===tutorId&&(s.status==='Completed'||s.status==='Makeup'));
   const tB=done.reduce((s,x)=>s+Number(x.total_revenue||0),0),
