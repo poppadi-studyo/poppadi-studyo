@@ -765,7 +765,6 @@
         <div>
           <div class="page-title" data-en="Fixed expenses" data-th="ค่าใช้จ่ายคงที่">Fixed expenses</div>
           <div class="page-sub" data-en="Monthly fixed costs and coverage" data-th="ค่าใช้จ่ายคงที่รายเดือน">Monthly fixed costs and coverage</div>
-          <div style="margin-top:6px;font-size:12px;color:var(--amber);background:var(--amber-bg);padding:6px 12px;border-radius:6px;display:inline-block" data-en="⚠️ Adding items here is for quick calculation only — changes are not saved to Google Sheet. To permanently update expenses, edit the Expenses tab in Google Sheet directly." data-th="⚠️ การเพิ่มรายการที่นี่เป็นแค่การคำนวณชั่วคราวเท่านั้น — ไม่ได้บันทึกลง Google Sheet โปรดแก้ไขใน Google Sheet โดยตรงเพื่ออัปเดตถาวร">⚠️ Adding items here is for quick calculation only — changes are not saved to Google Sheet. To permanently update expenses, edit the Expenses tab in Google Sheet directly.</div>
         </div>
       </div>
       <div class="two-col">
@@ -874,9 +873,41 @@
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────
-const SHEET_ID = '1ln-vg5I1Ce23Hapem4kyGPuHP0FB8Xx6T8ZNGf9Uvbk';
-const API_KEY  = 'AIzaSyDMVTFG9CIVcJFKdIDqayaKslA407jaMQQ';
-const BASE     = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+const SHEET_ID  = '1ln-vg5I1Ce23Hapem4kyGPuHP0FB8Xx6T8ZNGf9Uvbk';
+const API_KEY   = 'AIzaSyDMVTFG9CIVcJFKdIDqayaKslA407jaMQQ';
+const BASE      = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+// ↓ Paste your Web App URL here after deploying Apps Script
+let WEB_APP_URL = localStorage.getItem('poppadi_webapp_url') || '';
+
+// ─── WRITE TO SHEET VIA WEB APP ───────────────────────────
+async function webAppWrite(action, payload) {
+  if (!WEB_APP_URL) {
+    showWebAppPrompt();
+    throw new Error('Web App URL not configured');
+  }
+  const body = JSON.stringify({ action, ...payload });
+  const res = await fetch(WEB_APP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body
+  });
+  if (!res.ok) throw new Error('Web App request failed: ' + res.status);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Web App returned error');
+  return data;
+}
+
+function showWebAppPrompt() {
+  const url = prompt(
+    '⚙️ One-time setup needed!\n\nPaste your Google Apps Script Web App URL here:\n(Get it from Extensions → Apps Script → Deploy → Manage deployments)',
+    WEB_APP_URL || 'https://script.google.com/macros/s/...'
+  );
+  if (url && url.startsWith('https://script.google.com')) {
+    WEB_APP_URL = url;
+    localStorage.setItem('poppadi_webapp_url', url);
+    showToast('✓ Web App URL saved!');
+  }
+}
 
 // ─── STATE ────────────────────────────────────────────────
 let DATA = { tutors:[], students:[], courses:[], sessions:[], expenses:[], invoices:[] };
@@ -1401,65 +1432,46 @@ async function updateSessionStatus(sessionId, newStatus) {
   const session = DATA.sessions.find(s => s.session_id === sessionId);
   if (!session) return;
 
-  // ── Month lock check ─────────────────────────────────────
   if (isMonthLocked(session.date)) {
     alert(lang==='th'
-      ? `🔒 ไม่สามารถแก้ไขได้\n\nคาบเรียนนี้อยู่ในเดือนที่ล็อคแล้ว (หลังวันที่ 11)\nหากต้องการแก้ไข กรุณาติดต่อผู้ดูแลระบบเพื่อแก้ไขใน Google Sheet โดยตรง`
-      : `🔒 Editing locked\n\nThis session is in a locked month (past the 11th).\nIf a correction is needed, please contact the system admin to update directly in Google Sheet.`
+      ? `🔒 ไม่สามารถแก้ไขได้\n\nคาบเรียนนี้อยู่ในเดือนที่ล็อคแล้ว (หลังวันที่ 11)`
+      : `🔒 Editing locked\n\nThis session is in a locked month (past the 11th).`
     );
-    renderSchedule(); // reset dropdown
-    return;
+    renderSchedule(); return;
   }
 
-  // ── Already completed check ──────────────────────────────
   if ((session.status === 'Completed' || session.status === 'Makeup') && newStatus !== session.status) {
-    const confirm = window.confirm(lang==='th'
-      ? `⚠️ คาบนี้บันทึกแล้ว\n\nต้องการเปลี่ยนสถานะจาก "${session.status}" เป็น "${newStatus}" จริงหรือไม่?\n\nการเปลี่ยนแปลงนี้จะถูกบันทึกในระบบ`
-      : `⚠️ This session is already ${session.status}.\n\nAre you sure you want to change it to "${newStatus}"?\n\nThis change will be logged.`
+    const ok = window.confirm(lang==='th'
+      ? `⚠️ คาบนี้บันทึกแล้ว\n\nต้องการเปลี่ยนสถานะเป็น "${newStatus}" จริงหรือไม่?`
+      : `⚠️ This session is already ${session.status}.\n\nChange to "${newStatus}"?`
     );
-    if (!confirm) { renderSchedule(); return; }
+    if (!ok) { renderSchedule(); return; }
   }
+
+  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving...');
 
   try {
-    const rows = await fetchSheet('Sessions!A:A');
-    const rowIndex = rows.findIndex(r => r[0] === sessionId);
-    if (rowIndex < 0) { alert('Session not found in sheet'); return; }
-
-    const sheetRow = rowIndex + 1;
-    const statusCol = 'K';
-
-    const url = `${SHEET_WRITE_URL}/Sessions!${statusCol}${sheetRow}?valueInputOption=RAW&key=${API_KEY}`;
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [[newStatus]] })
+    await webAppWrite('updateSessionStatus', {
+      sessionId,
+      newStatus,
+      userEmail: currentUser?.email || 'dashboard'
     });
-
-    if (!res.ok) {
-      alert(lang==='th'
-        ? `กรุณาอัปเดตสถานะใน Google Sheet โดยตรง:\nSession: ${sessionId}\nสถานะใหม่: ${newStatus}\n\n(การเขียนกลับอัตโนมัติต้องการ OAuth)`
-        : `Please update the status in Google Sheet directly:\nSession: ${sessionId}\nNew status: ${newStatus}\n\n(Auto write-back requires OAuth setup)`
-      );
-      return;
-    }
-
     session.status = newStatus;
-    renderAll();
-
-    const confirmMsg = {
+    await loadAllData();
+    const msg = {
       'Completed': lang==='th' ? '✓ บันทึกสอนแล้ว' : '✓ Marked as completed',
-      'Missed':    lang==='th' ? '✓ บันทึกขาดเรียน (เก็บ 50%)' : '✓ Marked as missed (50% charged)',
+      'Missed':    lang==='th' ? '✓ บันทึกขาดเรียน (เก็บ 50%)' : '✓ Marked as missed',
       'Cancelled': lang==='th' ? '✓ บันทึกยกเลิก' : '✓ Marked as cancelled',
-      'Scheduled': lang==='th' ? '✓ รีเซ็ตเป็นกำหนดการ' : '✓ Reset to scheduled',
+      'Scheduled': lang==='th' ? '✓ รีเซ็ต' : '✓ Reset to scheduled',
     };
-    showToast(confirmMsg[newStatus] || '✓ Updated');
-
+    showToast(msg[newStatus] || '✓ Updated');
   } catch(err) {
-    console.error('Status update error:', err);
-    alert(lang==='th'
-      ? `กรุณาอัปเดตสถานะใน Google Sheet โดยตรง\nSession: ${sessionId} → ${newStatus}`
-      : `Please update in Google Sheet directly\nSession: ${sessionId} → ${newStatus}`
-    );
+    if (err.message.includes('Web App URL')) return;
+    if (err.message.includes('LOCKED'))        alert('🔒 ' + (lang==='th'?'เดือนนี้ล็อคแล้ว':err.message));
+    else if (err.message.includes('POOL'))     alert('🚫 ' + (lang==='th'?'เกินชั่วโมงที่จ่าย':err.message));
+    else if (err.message.includes('DUPLICATE'))alert('⚠️ ' + (lang==='th'?'คาบนี้บันทึกแล้ว':err.message));
+    else showToast('❌ ' + err.message);
+    renderSchedule();
   }
 }
 
@@ -1613,15 +1625,35 @@ function clearMakeup() {
   document.getElementById('makeup-fields').style.display = 'none';
 }
 
-function confirmMakeup() {
+async function confirmMakeup() {
   const d = document.getElementById('makeup-date').value;
   const s = document.getElementById('makeup-start').value;
+  const e = document.getElementById('makeup-end').value;
   if (!d || !s) { alert(lang==='th'?'กรุณาระบุวันที่และเวลา':'Please fill in date and time'); return; }
-  document.getElementById('makeup-fields').style.display = 'none';
-  document.getElementById('makeup-done').style.display = 'block';
-  document.getElementById('makeup-confirm-text').textContent =
-    (lang==='th'?'นัดชดเชย ':'Makeup scheduled for ') + selectedMakeup?.student_id + ' → ' + d + ' ' + s +
-    (lang==='th'?` (เชื่อมโยงกับ ${selectedMakeup?.date})`:(` (linked to original ${selectedMakeup?.date})`));
+
+  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving...');
+
+  try {
+    await webAppWrite('scheduleMakeup', {
+      originalSessionId: selectedMakeup?.session_id,
+      newDate: d,
+      startTime: s,
+      endTime: e,
+      notes: document.getElementById('makeup-notes').value
+    });
+
+    document.getElementById('makeup-fields').style.display = 'none';
+    document.getElementById('makeup-done').style.display = 'block';
+    document.getElementById('makeup-confirm-text').textContent =
+      (lang==='th'?'นัดชดเชย ':'Makeup scheduled for ') +
+      (selectedMakeup?.student_id||'') + ' → ' + d + ' ' + s +
+      (lang==='th'?` (เชื่อมโยงกับ ${selectedMakeup?.date})`:(` (linked to ${selectedMakeup?.date})`));
+
+    await loadAllData();
+  } catch(err) {
+    if (err.message.includes('Web App URL')) return;
+    showToast('❌ ' + err.message);
+  }
 }
 
 function resetMakeup() {
@@ -2296,31 +2328,21 @@ async function addExpense() {
   if (!name || !amt) return;
 
   const month = new Date().toISOString().slice(0,7);
-  const newId = 'E'+(DATA.expenses.length+1).toString().padStart(3,'0');
-  const newRow = [newId, month, name, amt, 'other'];
+  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving...');
 
-  // Update local data immediately
-  DATA.expenses.push({ expense_id:newId, month, item_name:name, amount:amt, category:'other' });
-  document.getElementById('new-expense-name').value = '';
-  document.getElementById('new-expense-amt').value  = '';
-  renderExpenses();
-  renderOverview();
-
-  // Write to Google Sheet
   try {
-    const url = `${SHEET_WRITE_URL}/Expenses!A:E:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
-    const res = await fetch(url, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({values:[newRow]})
+    const result = await webAppWrite('addExpense', {
+      itemName: name, amount: Number(amt), category: 'other', month
     });
-    if (res.ok) {
-      showToast(lang==='th'?'✓ เพิ่มค่าใช้จ่ายแล้ว':'✓ Expense added to sheet');
-    } else {
-      showToast(lang==='th'?'⚠️ บันทึกในหน้าแล้ว กรุณาเพิ่มใน Sheet ด้วย':'⚠️ Saved locally — please also add to Google Sheet');
-    }
-  } catch(e) {
-    showToast(lang==='th'?'⚠️ บันทึกในหน้าแล้ว':'⚠️ Saved locally — offline?');
+    DATA.expenses.push({ expense_id: result.expense_id, month, item_name: name, amount: amt, category: 'other' });
+    document.getElementById('new-expense-name').value = '';
+    document.getElementById('new-expense-amt').value  = '';
+    renderExpenses();
+    renderOverview();
+    showToast(lang==='th' ? '✓ เพิ่มค่าใช้จ่ายแล้ว' : '✓ Expense added to sheet');
+  } catch(err) {
+    if (err.message.includes('Web App URL')) return;
+    showToast('❌ ' + err.message);
   }
 }
 
@@ -2495,10 +2517,93 @@ function addScheduleRow() {
   tbody.appendChild(row);
 }
 
-function submitEnrollment() {
-  alert(lang==='th'
-    ? 'ในเวอร์ชันนี้ กรุณาเพิ่มข้อมูลลงใน Google Sheet โดยตรง ฟีเจอร์บันทึกอัตโนมัติจะพร้อมใช้งานเมื่อตั้งค่า OAuth เสร็จสิ้น'
-    : 'In this version, please add the data directly to your Google Sheet. Auto-save will be available after OAuth setup is complete.');
+async function submitEnrollment() {
+  const studentName = document.getElementById('enroll-student').value.trim();
+  const subject     = document.getElementById('enroll-subject').value.trim();
+  const tutorId     = document.getElementById('enroll-tutor').value;
+  const numStudents = parseInt(document.getElementById('enroll-num').value) || 1;
+  const paidHrs     = parseFloat(document.getElementById('enroll-hours').value) || 0;
+  const feePerHr    = parseFloat(document.getElementById('enroll-fee').value) || 0;
+  const tutorRate   = parseFloat(document.getElementById('enroll-rate').value) || 0;
+  const commTo      = document.getElementById('enroll-jane').value;
+  const invoiceRef  = document.getElementById('enroll-invoice').value.trim();
+  const payDate     = document.getElementById('enroll-date').value;
+
+  if (!studentName || !tutorId || !paidHrs || !feePerHr) {
+    alert(lang==='th' ? 'กรุณากรอกข้อมูลที่จำเป็น (ชื่อนักเรียน, ครู, ชั่วโมง, ค่าเรียน)' : 'Please fill in required fields (student name, tutor, hours, fee)');
+    return;
+  }
+
+  // Find or create student_id
+  let student = DATA.students.find(s => s.nickname === studentName || s.full_name === studentName);
+  const studentId = student?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
+
+  // Collect schedule rows
+  const rows = document.querySelectorAll('#enroll-schedule-body tr');
+  const sessions = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    if (inputs.length >= 3 && inputs[0].value) {
+      sessions.push({
+        date:       inputs[0].value,
+        start_time: inputs[1].value,
+        end_time:   inputs[2].value,
+        hours:      parseFloat(inputs[3]?.value) || paidHrs / rows.length
+      });
+    }
+  });
+
+  if (sessions.length === 0) {
+    alert(lang==='th' ? 'กรุณาเพิ่มอย่างน้อย 1 คาบ' : 'Please add at least 1 session to the schedule');
+    return;
+  }
+
+  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving enrollment...');
+
+  try {
+    const result = await webAppWrite('addEnrollment', {
+      course: {
+        student_id: studentId,
+        tutor_id: tutorId,
+        subject,
+        total_paid_hrs: paidHrs,
+        fee_per_hr: feePerHr,
+        tutor_rate_per_hr: tutorRate,
+        commission_to: commTo,
+        invoice_ref: invoiceRef,
+        payment_date: payDate,
+        block_number: 1,
+        num_students: numStudents
+      },
+      sessions
+    });
+
+    showToast(lang==='th'
+      ? `✓ ลงทะเบียนแล้ว — ${result.course_id} (${sessions.length} คาบ)`
+      : `✓ Enrolled — ${result.course_id} (${sessions.length} sessions)`
+    );
+
+    // Clear form
+    document.getElementById('enroll-student').value = '';
+    document.getElementById('enroll-subject').value = '';
+    document.getElementById('enroll-hours').value   = '';
+    document.getElementById('enroll-fee').value     = '';
+    document.getElementById('enroll-invoice').value = '';
+    document.getElementById('enroll-date').value    = '';
+    document.getElementById('enroll-schedule-body').innerHTML = `<tr>
+      <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
+      <td><input type="time" class="sched-start" oninput="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
+      <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
+      <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" placeholder="2" step="0.5" min="0.5"></td>
+      <td><button class="btn btn-sm" onclick="addScheduleRow()">+ row</button></td>
+    </tr>`;
+
+    await loadAllData();
+
+  } catch(err) {
+    if (err.message.includes('Web App URL')) return;
+    showToast('❌ ' + err.message);
+  }
 }
 
 // ─── DOWNLOAD SCHEDULE PDF ────────────────────────────────
