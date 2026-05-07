@@ -455,6 +455,7 @@
     </div>
     <div style="padding:10px 20px;border-top:1px solid var(--border)">
       <div style="font-size:11px;color:var(--text3);margin-bottom:4px" id="user-email"></div>
+      <button onclick="openWebAppSettings()" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;text-decoration:underline;display:block;margin-bottom:4px" data-en="⚙️ Web App settings" data-th="⚙️ ตั้งค่า Web App">⚙️ Web App settings</button>
       <button onclick="logout()" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;text-decoration:underline" data-en="Sign out" data-th="ออกจากระบบ">
         Sign out
       </button>
@@ -854,7 +855,7 @@
           <div class="form-row">
             <div class="form-group">
               <label data-en="Student name" data-th="ชื่อนักเรียน">Student name</label>
-              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. N' Boss">
+              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. น้อง Boss">
               <datalist id="student-list"></datalist>
             </div>
             <div class="form-group">
@@ -984,15 +985,35 @@ async function webAppWrite(action, payload) {
   return data;
 }
 
+function openWebAppSettings() {
+  const current = localStorage.getItem('poppadi_webapp_url') || '';
+  const msg = current
+    ? `Current Web App URL:\n${current}\n\nPaste a new URL to update, or cancel to keep current:`
+    : `Paste your Google Apps Script Web App URL below:\n\n(Get it from: Google Sheet → Extensions → Apps Script → Deploy → Manage deployments)`;
+  const url = prompt(msg, current);
+  if (url === null) return; // cancelled
+  if (url && url.includes('script.google.com')) {
+    WEB_APP_URL = url.trim();
+    localStorage.setItem('poppadi_webapp_url', WEB_APP_URL);
+    showToast('✅ Web App URL saved! All writes now go directly to Google Sheet.');
+  } else if (url === '') {
+    localStorage.removeItem('poppadi_webapp_url');
+    WEB_APP_URL = '';
+    showToast('⚠️ Web App URL cleared.');
+  } else {
+    alert('That doesn\'t look like a valid Apps Script URL. It should start with:\nhttps://script.google.com/macros/s/...');
+  }
+}
+
 function showWebAppPrompt() {
   const url = prompt(
-    '⚙️ One-time setup needed!\n\nPaste your Google Apps Script Web App URL here:\n(Get it from Extensions → Apps Script → Deploy → Manage deployments)',
-    WEB_APP_URL || 'https://script.google.com/macros/s/...'
+    '⚙️ One-time setup needed!\n\nPaste your Google Apps Script Web App URL:\n(Extensions → Apps Script → Deploy → Manage deployments → copy the URL)',
+    WEB_APP_URL || ''
   );
-  if (url && url.startsWith('https://script.google.com')) {
-    WEB_APP_URL = url;
-    localStorage.setItem('poppadi_webapp_url', url);
-    showToast('✓ Web App URL saved!');
+  if (url && url.includes('script.google.com')) {
+    WEB_APP_URL = url.trim();
+    localStorage.setItem('poppadi_webapp_url', WEB_APP_URL);
+    showToast('✅ Web App URL saved!');
   }
 }
 
@@ -3088,7 +3109,16 @@ function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-wrapper').style.display = 'flex';
   document.getElementById('user-email').textContent = currentUser?.email || '';
+  updateWebAppStatus();
   onAppReady();
+}
+
+function updateWebAppStatus() {
+  const btn = document.querySelector('[onclick="openWebAppSettings()"]');
+  if (!btn) return;
+  const connected = !!localStorage.getItem('poppadi_webapp_url');
+  btn.textContent = connected ? '⚙️ Web App ✅' : '⚙️ Web App ❌ — Setup needed';
+  btn.style.color = connected ? 'var(--teal)' : 'var(--red)';
 }
 
 initAuth();
