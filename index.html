@@ -855,7 +855,7 @@
           <div class="form-row">
             <div class="form-group">
               <label data-en="Student name" data-th="ชื่อนักเรียน">Student name</label>
-              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. น้อง Boss">
+              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. N'Boss">
               <datalist id="student-list"></datalist>
             </div>
             <div class="form-group">
@@ -883,7 +883,7 @@
         <div style="height:1px;background:var(--border);margin:16px 0"></div>
 
         <div class="form-row">
-          <div class="form-group"><label data-en="Subject" data-th="วิชา">Subject</label><input type="text" id="enroll-subject" placeholder="e.g. IELTS"></div>
+          <div class="form-group"><label data-en="Subject" data-th="วิชา">Subject</label><input type="text" id="enroll-subject" list="subject-list" placeholder="e.g. IELTS"><datalist id="subject-list"></datalist></div>
           <div class="form-group">
             <label data-en="Tutor" data-th="ครู">Tutor</label>
             <select id="enroll-tutor" onchange="suggestTutorRate()"></select>
@@ -2037,6 +2037,17 @@ function populateStudentDatalist() {
   ).join('');
 }
 
+function populateSubjectDatalist() {
+  const dl = document.getElementById('subject-list');
+  if (!dl) return;
+  // Get unique subjects from existing courses
+  const subjects = [...new Set(DATA.courses.map(c => c.subject).filter(Boolean))];
+  // Add common defaults if not already present
+  const defaults = ['IELTS', 'TOEFL', 'SAT W&R', 'SAT Math', 'Grammar for English', 'Conversation', 'TOEIC'];
+  const all = [...new Set([...subjects, ...defaults])].sort();
+  dl.innerHTML = all.map(s => `<option value="${s}">`).join('');
+}
+
 // ─── LIFECYCLE STATUS BADGE ───────────────────────────────
 function lifecycleBadge(status, courseId) {
   const opts = [
@@ -2752,6 +2763,7 @@ function showPage(id, btn) {
     if (tbody && tbody.children.length === 0) initScheduleBody();
     populateEnrollTutors();
     populateStudentDatalist();
+    populateSubjectDatalist();
     setEnrollType(enrollType || 'new');
     // Set default fee if empty
     const feeInput = document.getElementById('enroll-fee');
@@ -2855,7 +2867,9 @@ function makeSchedRowHTML(isFirst) {
     <td><select class="sched-start" onchange="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box">
       ${generateTimeOptions(defaultStart)}
     </select></td>
-    <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" value="${defaultEnd}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;color:var(--teal);box-sizing:border-box"></td>
+    <td><select class="sched-end" onchange="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--teal);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box;color:var(--teal)">
+      ${generateTimeOptions(defaultEnd)}
+    </select></td>
     <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" value="${defaultHrs}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" step="0.5" min="0.5"></td>
     <td>${btn}</td>`;
 }
@@ -2881,17 +2895,22 @@ function autoEndTime(startInput) {
   const row = startInput.closest('tr');
   if (!row) return;
   const hrsInput = row.querySelector('.sched-hrs');
-  const endInput = row.querySelector('.sched-end');
-  if (!hrsInput || !endInput) return;
+  const endSel   = row.querySelector('.sched-end');
+  if (!hrsInput || !endSel) return;
   const startVal = startInput.value;
-  const hrsVal = parseFloat(hrsInput.value);
+  const hrsVal   = parseFloat(hrsInput.value);
   if (!startVal || !hrsVal) return;
-  const [h, m] = startVal.split(':').map(Number);
-  const totalMins = h * 60 + m + Math.round(hrsVal * 60);
-  const endH = Math.floor(totalMins / 60) % 24;
-  const endM = totalMins % 60;
-  endInput.value = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
-  endInput.style.color = 'var(--teal)';
+  const [h, m]   = startVal.split(':').map(Number);
+  const totalMins= h * 60 + m + Math.round(hrsVal * 60);
+  const endH     = Math.floor(totalMins / 60) % 24;
+  const endM     = totalMins % 60;
+  // Round to nearest 15 mins for dropdown
+  const roundedM = Math.round(endM / 15) * 15 % 60;
+  const adjustH  = endM >= 53 ? (endH + 1) % 24 : endH;
+  const endVal   = `${String(adjustH).padStart(2,'0')}:${String(roundedM).padStart(2,'0')}`;
+  endSel.value   = endVal;
+  endSel.style.color       = 'var(--teal)';
+  endSel.style.borderColor = 'var(--teal)';
 }
 
 function autoHoursFromTimes(endInput) {
@@ -2906,7 +2925,7 @@ function autoHoursFromTimes(endInput) {
   if (!startVal || !endVal) return;
   const [sh, sm] = startVal.split(':').map(Number);
   const [eh, em] = endVal.split(':').map(Number);
-  const diffMins = (eh*60+em) - (sh*60+sm);
+  const diffMins = (eh * 60 + em) - (sh * 60 + sm);
   if (diffMins <= 0) return;
   const hrs = diffMins / 60;
   hrsInput.value = Number.isInteger(hrs) ? hrs : hrs.toFixed(1);
@@ -2975,14 +2994,14 @@ async function submitEnrollment() {
   schedRows.forEach(row => {
     const dateInput  = row.querySelector('input[type="date"]');
     const startSel   = row.querySelector('.sched-start');
-    const endInput   = row.querySelector('.sched-end');
+    const endSel     = row.querySelector('.sched-end');
     const hrsInput   = row.querySelector('.sched-hrs');
     if (!dateInput?.value) return;
     sessions.push({
       date:       dateInput.value,
       start_time: startSel?.value || '',
-      end_time:   endInput?.value  || '',
-      hours:      parseFloat(hrsInput?.value) || paidHrs / schedRows.length
+      end_time:   endSel?.value   || '',
+      hours:      parseFloat(hrsInput?.value) || 2
     });
   });
 
