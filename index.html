@@ -2122,7 +2122,23 @@ function resetSaveBtn() {
   isSaving = false;
 }
 
-// ─── PENDING PAYMENT DETAIL VIEW ─────────────────────────
+// ─── PAYMENT STATUS HELPER ────────────────────────────────
+// Empty = unknown, treat as Paid for display (existing data)
+// Explicit 'Pending' = pending
+// Explicit 'Paid' = paid
+function getPayStatus(course) {
+  const raw = (course.payment_status || '').trim();
+  if (raw === 'Pending') return 'Pending';
+  if (raw === 'Cancelled') return 'Cancelled';
+  return 'Paid'; // 'Paid' or empty = paid
+}
+
+function payStatusBadge(course) {
+  const s = getPayStatus(course);
+  if (s === 'Pending')   return `<span style="color:var(--amber)">⏳ ${lang==='th'?'รอชำระ':'Pending'}</span>`;
+  if (s === 'Cancelled') return `<span style="color:var(--text3)">✕ ${lang==='th'?'ยกเลิก':'Cancelled'}</span>`;
+  return `<span style="color:var(--teal)">✅ ${lang==='th'?'ชำระแล้ว':'Paid'}</span>`;
+}
 let editingCourse = null;
 
 function openPendingDetail(courseId) {
@@ -2376,7 +2392,7 @@ function copyPendingForLine(courseId) {
   });
 }
 function renderPendingPayments() {
-  const pending = DATA.courses.filter(c => (c.payment_status||'Paid') === 'Pending');
+  const pending = DATA.courses.filter(c => getPayStatus(c) === 'Pending');
   const section = document.getElementById('pending-payments-section');
   const body    = document.getElementById('pending-payments-body');
   if (!section || !body) return;
@@ -2499,7 +2515,7 @@ function renderStudents() {
     const tutor = getTutor(firstCourse.tutor_id);
     const color = COLOR_MAP[tutor.color]||'#888';
     const subject = firstCourse.subject||'—';
-    const anyPending = courses.some(c=>(c.payment_status||'Paid')==='Pending');
+    const anyPending = courses.some(c => getPayStatus(c) === 'Pending');
     const groupBg = anyPending ? 'background:rgba(245,158,11,0.06)' : '';
 
     html += `<tr style="cursor:pointer;${groupBg}" onclick="toggleGroup('${groupId}')">
@@ -2525,7 +2541,7 @@ function renderStudents() {
       const pct = paid>0?Math.round((taught/paid)*100):0;
       const isComplete = pct>=100;
       const lifecycle = course.lifecycle_status||'Active';
-      const payStatus = course.payment_status||'Paid';
+      const payStatus = getPayStatus(course);
       const needsAttention = isComplete && lifecycle==='Active';
       const rowBg = needsAttention?'background:rgba(226,75,74,0.06)':payStatus==='Pending'?'background:rgba(245,158,11,0.06)':'';
       const progressColor = needsAttention?'danger':remaining<=2?'danger':remaining<=3?'warn':'';
@@ -2539,7 +2555,7 @@ function renderStudents() {
         <td>${tutor.name||course.tutor_id}</td>
         <td>${subject}</td>
         <td>${course.block_number||1}</td>
-        <td>${payStatus==='Pending'?`<span style="color:var(--amber)">⏳ ${lang==='th'?'รอชำระ':'Pending'}</span>`:`<span style="color:var(--teal)">✅ ${lang==='th'?'ชำระแล้ว':'Paid'}</span>`}</td>
+        <td>${payStatusBadge(course)}</td>
         <td>${paid}</td><td>${taught}</td><td>${remaining}</td>
         <td><div style="font-size:11px;color:${needsAttention?'var(--red)':'var(--text3)'}">${pct}%</div><div class="progress-wrap"><div class="progress-fill ${progressColor}" style="width:${pct}%"></div></div></td>
         <td onclick="event.stopPropagation()">${lifecycleBadge(lifecycle,course.course_id)}</td>
@@ -2558,7 +2574,7 @@ function renderStudents() {
     const remaining = Math.max(0,paid-taught);
     const pct = paid>0?Math.round((taught/paid)*100):0;
     const lifecycle = course.lifecycle_status||'Active';
-    const payStatus = course.payment_status||'Paid';
+    const payStatus = getPayStatus(course);
     const needsAttention = pct>=100 && lifecycle==='Active';
     const rowBg = needsAttention?'background:rgba(226,75,74,0.06)':payStatus==='Pending'?'background:rgba(245,158,11,0.06)':'';
     const progressColor = needsAttention?'danger':remaining<=2?'danger':remaining<=3?'warn':'';
@@ -2576,7 +2592,7 @@ function renderStudents() {
       <td>${tutor.name||course.tutor_id}</td>
       <td>${course.subject||'—'}</td>
       <td>${course.block_number||1}</td>
-      <td>${payStatus==='Pending'?`<span style="color:var(--amber)">⏳ ${lang==='th'?'รอชำระ':'Pending'}</span>`:`<span style="color:var(--teal)">✅ ${lang==='th'?'ชำระแล้ว':'Paid'}</span>`}</td>
+      <td>${payStatusBadge(course)}</td>
       <td>${paid}</td><td>${taught}</td><td>${remaining}</td>
       <td><div style="font-size:11px;color:${needsAttention?'var(--red)':'var(--text3)'}">${pct}%</div><div class="progress-wrap"><div class="progress-fill ${progressColor}" style="width:${pct}%"></div></div></td>
       <td onclick="event.stopPropagation()">${lifecycleBadge(lifecycle,course.course_id)}</td>
