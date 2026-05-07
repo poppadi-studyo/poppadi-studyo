@@ -669,12 +669,13 @@
           <div class="table-wrap">
             <table id="tutor-single-table">
               <thead><tr>
+                <th data-en="Student" data-th="นักเรียน">Student</th>
                 <th data-en="Session" data-th="คาบ">Session</th>
                 <th data-en="Subject" data-th="วิชา">Subject</th>
                 <th data-en="Date" data-th="วันที่">Date</th>
                 <th data-en="Time" data-th="เวลา">Time</th>
                 <th data-en="Hrs" data-th="ชม.">Hrs</th>
-                <th data-en="Students" data-th="นักเรียน">Students</th>
+                <th data-en="Students" data-th="จำนวน">Students</th>
                 <th data-en="Fee/hr" data-th="ค่าเรียน/ชม.">Fee/hr</th>
                 <th data-en="Total" data-th="รวม">Total</th>
                 <th data-en="Tutor pay" data-th="ค่าสอน">Tutor pay</th>
@@ -771,6 +772,7 @@
                 <th data-en="Hrs studied" data-th="ชม.ที่เรียน">Hrs studied</th>
                 <th data-en="Revenue" data-th="รายได้">Revenue</th>
                 <th data-en="Notes" data-th="หมายเหตุ">Notes</th>
+                <th data-en="Edit" data-th="แก้ไข">Edit</th>
               </tr></thead>
               <tbody id="detail-sessions-body"></tbody>
             </table>
@@ -863,8 +865,8 @@
             <div class="form-group">
               <label data-en="Payment status" data-th="สถานะการชำระ">Payment status</label>
               <select id="enroll-payment-status" style="width:100%">
+                <option value="Pending" data-en="Payment Pending ⏳" data-th="รอการชำระ ⏳" selected>Payment Pending ⏳</option>
                 <option value="Paid" data-en="Paid ✅" data-th="ชำระแล้ว ✅">Paid ✅</option>
-                <option value="Pending" data-en="Payment Pending ⏳" data-th="รอการชำระ ⏳">Payment Pending ⏳</option>
               </select>
             </div>
           </div>
@@ -1202,7 +1204,7 @@ async function loadAllData() {
     const [tutorRows, studentRows, courseRows, sessionRows, expenseRows, invoiceRows] = await Promise.all([
       fetchSheet('Tutors!A:F'),
       fetchSheet('Students!A:F'),
-      fetchSheet('Courses!A:N'),
+      fetchSheet('Courses!A:R'),
       fetchSheet('Sessions!A:T'),
       fetchSheet('Expenses!A:E'),
       fetchSheet('Invoices!A:G'),
@@ -1930,11 +1932,79 @@ function renderTutorDetail() {
   body.innerHTML = all.map(s=>{
     const student=DATA.students.find(st=>st.student_id===s.student_id);
     const timeStr=s.start_time&&s.end_time?`${s.start_time}–${s.end_time}`:(s.start_time||'—');
-    return `<tr><td>${student?.nickname||s.student_id}</td><td>${getSubjectForSession(s)}</td><td>${s.date||'—'}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
+    return `<tr><td>${student?.nickname||s.student_id}</td><td>${s.session_id||'—'}</td><td>${getSubjectForSession(s)}</td><td>${s.date||'—'}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
   }).join('');
 }
 
-// ─── EXPORT HELPERS ───────────────────────────────────────
+// ─── EDIT SESSION DATE/TIME ───────────────────────────────
+function openEditSession(sessionId) {
+  const s = DATA.sessions.find(x => x.session_id === sessionId);
+  if (!s) return;
+  if (isMonthLocked(s.date)) {
+    alert(lang==='th' ? '🔒 เดือนนี้ล็อคแล้ว ไม่สามารถแก้ไขได้' : '🔒 This month is locked — cannot edit');
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:24px;max-width:400px;width:100%;font-family:'DM Sans',sans-serif">
+      <div style="font-size:16px;font-weight:600;margin-bottom:4px">✏️ ${lang==='th'?'แก้ไขวันที่และเวลา':'Edit date & time'}</div>
+      <div style="font-size:12px;color:#888;margin-bottom:16px">${s.session_id}</div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">${lang==='th'?'วันที่':'Date'}</label>
+        <input type="date" id="edit-sess-date" value="${s.date||''}" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">${lang==='th'?'เวลาเริ่ม':'Start time'}</label>
+        <select id="edit-sess-start" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+          ${generateTimeOptions(s.start_time||'')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">${lang==='th'?'เวลาสิ้นสุด':'End time'}</label>
+        <select id="edit-sess-end" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+          ${generateTimeOptions(s.end_time||'')}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="this.closest('[style*=fixed]').remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ยกเลิก':'Cancel'}</button>
+        <button id="save-sess-edit-btn" onclick="saveSessionDateTime('${sessionId}')" style="padding:8px 16px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">${lang==='th'?'💾 บันทึก':'💾 Save'}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function saveSessionDateTime(sessionId) {
+  const btn       = document.getElementById('save-sess-edit-btn');
+  const newDate   = document.getElementById('edit-sess-date')?.value;
+  const newStart  = document.getElementById('edit-sess-start')?.value;
+  const newEnd    = document.getElementById('edit-sess-end')?.value;
+
+  if (!newDate) { alert(lang==='th'?'กรุณาใส่วันที่':'Please enter a date'); return; }
+  if (btn) { btn.textContent = '⏳ Saving...'; btn.disabled = true; }
+
+  try {
+    await webAppWrite('updateSessionDateTime', {
+      sessionId, date: newDate, start_time: newStart, end_time: newEnd,
+      userEmail: currentUser?.email
+    });
+
+    // Update local data
+    const s = DATA.sessions.find(x => x.session_id === sessionId);
+    if (s) { s.date = newDate; s.start_time = newStart; s.end_time = newEnd; }
+
+    showToast(lang==='th' ? '✅ อัปเดตวันที่และเวลาแล้ว' : '✅ Date & time updated across system');
+    document.querySelector('[style*="position:fixed"]')?.remove();
+    await loadAllData();
+    // Re-open student detail if it was open
+    if (currentDetailCourse) openStudentDetail(currentDetailCourse.course_id);
+  } catch(e) {
+    if (e.message.includes('Web App URL')) { if(btn){btn.textContent='💾 Save';btn.disabled=false;} return; }
+    showToast('❌ ' + e.message);
+    if (btn) { btn.textContent = '💾 Save'; btn.disabled = false; }
+  }
+}
 function copyTableToClipboard(tableId) {
   const table = document.getElementById(tableId);
   if (!table) return;
@@ -2658,6 +2728,7 @@ function openStudentDetail(courseId) {
     else if (s.status==='Cancelled'){hrsCharged=0;hrsStudied=0;notes=lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup';}
     else{hrsCharged='—';hrsStudied='—';}
     const num = s.status==='Scheduled'?'—':sessionNum||'—';
+    const isEditable = s.status === 'Scheduled'; // Only scheduled sessions can have date/time edited
     return `<tr>
       <td>${num}</td>
       <td>${s.date||'—'}</td>
@@ -2667,6 +2738,10 @@ function openStudentDetail(courseId) {
       <td>${hrsStudied}</td>
       <td>${s.status==='Scheduled'?'<span style="color:var(--text3)">pending</span>':'฿'+fmt(s.total_revenue)}</td>
       <td style="font-size:12px;color:var(--text3)">${notes}</td>
+      <td>${isEditable
+        ? `<button onclick="openEditSession('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2)">✏️</button>`
+        : `<span style="font-size:11px;color:var(--text3)">🔒</span>`
+      }</td>
     </tr>`;
   }).join('');
 }
@@ -3394,11 +3469,12 @@ function downloadTutorFacing() {
   const monthSessions = filterByMonth(DATA.sessions,'date').filter(s=>s.tutor_id===tutorId);
   if (!monthSessions.length) { showToast('No sessions found'); return; }
 
-  const headers = ['Session','Subject','Date','Time','Hrs','Students','Tutor Pay','Status'];
+  const headers = ['Student','Session','Subject','Date','Time','Hrs','Students','Tutor Pay','Status'];
   const rows = monthSessions.map(s=>{
     const student=DATA.students.find(st=>st.student_id===s.student_id);
     const timeStr=formatTimeRange(s.start_time,s.end_time);
     return [
+      student?.nickname||s.student_id,
       s.session_id||'—',
       getSubjectForSession(s),
       s.date||'—',
@@ -3513,19 +3589,23 @@ function getJaneCommissionRate() {
 
 // ─── SCHEDULE ROW HELPER ─────────────────────────────────
 function getDefaultStartTime() {
-  // Default to next full hour :00
-  const now = new Date();
-  const nextHour = now.getHours() + 1;
-  return `${String(nextHour % 24).padStart(2,'0')}:00`;
+  const now  = new Date();
+  const h    = now.getHours() + 1;
+  const snapped = h >= 22 ? 22 : h;
+  return `${String(snapped % 24).padStart(2,'0')}:00`;
 }
 
 function makeSchedRowHTML(isFirst) {
   const defaultStart = getDefaultStartTime();
   const defaultHrs   = 2;
-  // Pre-calculate end time: start + 2hrs
-  const [h, m] = defaultStart.split(':').map(Number);
-  const endH = (h + defaultHrs) % 24;
-  const defaultEnd = `${String(endH).padStart(2,'0')}:00`;
+  const [h, m]       = defaultStart.split(':').map(Number);
+  const endTotalMins = h * 60 + m + defaultHrs * 60;
+  const endH         = Math.floor(endTotalMins / 60) % 24;
+  const endM         = endTotalMins % 60;
+  // Snap end to nearest :00 or :30
+  const snappedM     = endM < 15 ? 0 : endM < 45 ? 30 : 0;
+  const snappedH     = endM >= 45 ? (endH + 1) % 24 : endH;
+  const defaultEnd   = `${String(snappedH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
 
   const btn = isFirst
     ? `<span></span>`
@@ -3546,13 +3626,13 @@ function makeSchedRowHTML(isFirst) {
 function generateTimeOptions(selectedVal) {
   const options = [];
   for (let h = 6; h <= 22; h++) {
-    for (let m of [0, 15, 30, 45]) {
-      const val = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    for (let m of [0, 30]) {
+      const val      = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
       const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const label = `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
-      const selected = val === selectedVal ? 'selected' : '';
-      options.push(`<option value="${val}" ${selected}>${label}</option>`);
+      const ampm     = h >= 12 ? 'PM' : 'AM';
+      const label    = `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
+      const sel      = val === selectedVal ? 'selected' : '';
+      options.push(`<option value="${val}" ${sel}>${label}</option>`);
     }
   }
   return options.join('');
@@ -3561,7 +3641,7 @@ function generateTimeOptions(selectedVal) {
 // Override autoEndTime to work with select element
 function autoEndTime(startInput) {
   if (!startInput) return;
-  const row = startInput.closest('tr');
+  const row    = startInput.closest('tr');
   if (!row) return;
   const hrsInput = row.querySelector('.sched-hrs');
   const endSel   = row.querySelector('.sched-end');
@@ -3569,15 +3649,15 @@ function autoEndTime(startInput) {
   const startVal = startInput.value;
   const hrsVal   = parseFloat(hrsInput.value);
   if (!startVal || !hrsVal) return;
-  const [h, m]   = startVal.split(':').map(Number);
-  const totalMins= h * 60 + m + Math.round(hrsVal * 60);
-  const endH     = Math.floor(totalMins / 60) % 24;
-  const endM     = totalMins % 60;
-  // Round to nearest 15 mins for dropdown
-  const roundedM = Math.round(endM / 15) * 15 % 60;
-  const adjustH  = endM >= 53 ? (endH + 1) % 24 : endH;
-  const endVal   = `${String(adjustH).padStart(2,'0')}:${String(roundedM).padStart(2,'0')}`;
-  endSel.value   = endVal;
+  const [h, m]     = startVal.split(':').map(Number);
+  const totalMins  = h * 60 + m + Math.round(hrsVal * 60);
+  const endH       = Math.floor(totalMins / 60) % 24;
+  const endM       = totalMins % 60;
+  // Snap to nearest :00 or :30
+  const snappedM   = endM < 15 ? 0 : endM < 45 ? 30 : 0;
+  const snappedH   = endM >= 45 ? (endH + 1) % 24 : endH;
+  const endVal     = `${String(snappedH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
+  endSel.value     = endVal;
   endSel.style.color       = 'var(--teal)';
   endSel.style.borderColor = 'var(--teal)';
 }
@@ -3745,7 +3825,7 @@ async function submitEnrollment() {
     document.getElementById('enroll-invoice').value = '';
     document.getElementById('enroll-date').value    = '';
     if (document.getElementById('enroll-payment-status'))
-      document.getElementById('enroll-payment-status').value = 'Paid';
+      document.getElementById('enroll-payment-status').value = 'Pending';
     initScheduleBody();
     resetSaveBtn();
     await loadAllData();
