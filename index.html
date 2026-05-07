@@ -847,7 +847,7 @@
             <thead><tr>
               <th data-en="Date" data-th="วันที่">Date</th>
               <th data-en="Start" data-th="เริ่ม">Start</th>
-              <th data-en="End (auto)" data-th="สิ้นสุด (อัตโนมัติ)">End (auto)</th>
+              <th data-en="End (auto from hrs)" data-th="สิ้นสุด (คำนวณจากชม.)">End (auto from hrs)</th>
               <th data-en="Hours" data-th="ชั่วโมง">Hours</th>
               <th></th>
             </tr></thead>
@@ -855,7 +855,7 @@
               <tr>
                 <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
                 <td><input type="time" class="sched-start" oninput="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-                <td><input type="time" class="sched-end" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;background:var(--surface2)" readonly></td>
+                <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
                 <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" placeholder="2" step="0.5" min="0.5"></td>
                 <td><button class="btn btn-sm" onclick="addScheduleRow()">+ row</button></td>
               </tr>
@@ -996,7 +996,7 @@ async function loadAllData() {
     const [tutorRows, studentRows, courseRows, sessionRows, expenseRows, invoiceRows] = await Promise.all([
       fetchSheet('Tutors!A:F'),
       fetchSheet('Students!A:F'),
-      fetchSheet('Courses!A:M'),
+      fetchSheet('Courses!A:N'),
       fetchSheet('Sessions!A:T'),
       fetchSheet('Expenses!A:E'),
       fetchSheet('Invoices!A:G'),
@@ -1576,7 +1576,7 @@ function renderMakeupQueue() {
       <div class="makeup-top">
         <div>
           <div class="makeup-name"><span class="dot" style="background:${color}"></span>${s.student_id}</div>
-          <div class="makeup-meta">${tutor.name||s.tutor_id} · ${s.subject||''} · ${s.date||''}</div>
+          <div class="makeup-meta">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${s.date||''}</div>
         </div>
         <span class="badge ${isMiss?'badge-miss':'badge-cancel'}">${isMiss?(lang==='th'?'ชดเชย 50%':'50% makeup'):(lang==='th'?'ชดเชยเต็ม':'Full makeup')}</span>
       </div>
@@ -1596,7 +1596,7 @@ function selectMakeup(sessionId) {
   document.getElementById('makeup-fields').style.display = 'block';
   document.getElementById('makeup-selected-info').innerHTML = `
     <div style="font-weight:500">${s.student_id}</div>
-    <div style="font-size:12px;color:var(--text2);margin-top:2px">${tutor.name||s.tutor_id} · ${s.subject||''} · ${s.date||''}</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:2px">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${s.date||''}</div>
     <div style="margin-top:6px"><span class="badge ${s.status==='Missed'?'badge-miss':'badge-cancel'}">${s.status==='Missed'?(lang==='th'?'ขาดเรียน — ชดเชย 50%':'Missed — 50% makeup'):(lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup')}</span></div>
   `;
 }
@@ -1723,7 +1723,7 @@ function renderTutorDetail() {
   body.innerHTML = all.map(s=>{
     const student=DATA.students.find(st=>st.student_id===s.student_id);
     const timeStr=s.start_time&&s.end_time?`${s.start_time}–${s.end_time}`:(s.start_time||'—');
-    return `<tr><td>${student?.nickname||s.student_id}</td><td>${s.subject||'—'}</td><td>${s.date||'—'}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
+    return `<tr><td>${student?.nickname||s.student_id}</td><td>${getSubjectForSession(s)}</td><td>${s.date||'—'}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
   }).join('');
 }
 
@@ -2002,9 +2002,22 @@ function formatTimeRange(start, end) {
 
 // ─── SUBJECT LOOKUP ───────────────────────────────────────
 function getSubjectForSession(session) {
+  if (!session) return '—';
+  // First check if session itself has a subject field
   if (session.subject && session.subject !== '—' && session.subject !== '') return session.subject;
-  const course = DATA.courses.find(c => c.course_id === session.course_id);
-  return course?.subject || '—';
+  // Look up from Courses tab via course_id
+  if (session.course_id) {
+    const course = DATA.courses.find(c => c.course_id === session.course_id);
+    if (course?.subject && course.subject !== '') return course.subject;
+  }
+  // Last resort: look up by student_id and tutor_id
+  if (session.student_id && session.tutor_id) {
+    const course = DATA.courses.find(c =>
+      c.student_id === session.student_id && c.tutor_id === session.tutor_id
+    );
+    if (course?.subject && course.subject !== '') return course.subject;
+  }
+  return '—';
 }
 
 // ─── SCHEDULE VIEW TOGGLE ────────────────────────────────
@@ -2438,6 +2451,26 @@ function autoEndTime(startInput) {
   endInput.style.borderColor = 'var(--teal)';
 }
 
+// If end time is typed manually, back-calculate hours
+function autoHoursFromTimes(endInput) {
+  if (!endInput) return;
+  const row = endInput.closest('tr');
+  if (!row) return;
+  const startInput = row.querySelector('.sched-start');
+  const hrsInput   = row.querySelector('.sched-hrs');
+  if (!startInput || !hrsInput) return;
+  const startVal = startInput.value;
+  const endVal   = endInput.value;
+  if (!startVal || !endVal) return;
+  const [sh, sm] = startVal.split(':').map(Number);
+  const [eh, em] = endVal.split(':').map(Number);
+  const diffMins = (eh*60+em) - (sh*60+sm);
+  if (diffMins <= 0) return;
+  const hrs = diffMins / 60;
+  hrsInput.value = Number.isInteger(hrs) ? hrs : hrs.toFixed(1);
+  hrsInput.style.borderColor = 'var(--teal)';
+}
+
 // ─── DYNAMIC TUTOR LOADER ─────────────────────────────────
 function populateEnrollTutors() {
   const sel = document.getElementById('enroll-tutor');
@@ -2456,7 +2489,7 @@ function addScheduleRow() {
   row.innerHTML = `
     <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
     <td><input type="time" class="sched-start" oninput="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-    <td><input type="time" class="sched-end" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;background:var(--surface2)" readonly></td>
+    <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
     <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" placeholder="2" step="0.5" min="0.5"></td>
     <td><button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button></td>`;
   tbody.appendChild(row);
@@ -2536,6 +2569,12 @@ function downloadSchedulePDF() {
 
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
+  // Clear cache once to force fresh subject data load
+  const cacheVersion = '1.1';
+  if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.setItem('poppadi_cache_ver', cacheVersion);
+  }
   // Restore language preference
   const savedLang = localStorage.getItem('poppadi_lang');
   if (savedLang && savedLang !== 'en') {
