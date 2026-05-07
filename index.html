@@ -514,18 +514,21 @@
       <!-- LIST VIEW -->
       <div id="schedule-list-view">
         <div class="card" style="padding:0">
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <select id="filter-tutor" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
-              <option value="" data-en="All tutors" data-th="ครูทุกคน">All tutors</option>
-            </select>
-            <select id="filter-status" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
-              <option value="" data-en="All statuses" data-th="ทุกสถานะ">All statuses</option>
-              <option value="Completed" data-en="Completed" data-th="สอนแล้ว">Completed</option>
-              <option value="Cancelled" data-en="Cancelled" data-th="ยกเลิก">Cancelled</option>
-              <option value="Missed" data-en="Missed" data-th="ขาดเรียน">Missed</option>
-              <option value="Makeup" data-en="Makeup" data-th="ชดเชย">Makeup</option>
-              <option value="Scheduled" data-en="Scheduled" data-th="กำหนดการ">Scheduled</option>
-            </select>
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <select id="filter-tutor" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+                <option value="" data-en="All tutors" data-th="ครูทุกคน">All tutors</option>
+              </select>
+              <select id="filter-status" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+                <option value="" data-en="All statuses" data-th="ทุกสถานะ">All statuses</option>
+                <option value="Completed" data-en="Completed" data-th="สอนแล้ว">Completed</option>
+                <option value="Cancelled" data-en="Cancelled" data-th="ยกเลิก">Cancelled</option>
+                <option value="Missed" data-en="Missed" data-th="ขาดเรียน">Missed</option>
+                <option value="Makeup" data-en="Makeup" data-th="ชดเชย">Makeup</option>
+                <option value="Scheduled" data-en="Scheduled" data-th="กำหนดการ">Scheduled</option>
+              </select>
+            </div>
+            <button id="pdf-download-btn" onclick="downloadSchedulePDF()" class="btn btn-sm" style="display:none" data-en="⬇ PDF for tutor" data-th="⬇ PDF สำหรับครู">⬇ PDF for tutor</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -537,7 +540,7 @@
                   <th data-en="Date" data-th="วันที่">Date</th>
                   <th data-en="Time" data-th="เวลา">Time</th>
                   <th data-en="Hrs" data-th="ชม.">Hrs</th>
-                  <th data-en="Revenue" data-th="รายได้">Revenue</th>
+                  <th data-en="Revenue" data-th="รายได้" data-col="revenue">Revenue</th>
                   <th data-en="Status" data-th="สถานะ">Status</th>
                   <th data-en="Action" data-th="การดำเนินการ">Action</th>
                 </tr>
@@ -844,16 +847,16 @@
             <thead><tr>
               <th data-en="Date" data-th="วันที่">Date</th>
               <th data-en="Start" data-th="เริ่ม">Start</th>
-              <th data-en="End" data-th="สิ้นสุด">End</th>
+              <th data-en="End (auto)" data-th="สิ้นสุด (อัตโนมัติ)">End (auto)</th>
               <th data-en="Hours" data-th="ชั่วโมง">Hours</th>
               <th></th>
             </tr></thead>
             <tbody id="enroll-schedule-body">
               <tr>
-                <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif"></td>
-                <td><input type="time" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif"></td>
-                <td><input type="time" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif"></td>
-                <td><input type="number" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:60px;font-family:'DM Sans',sans-serif" placeholder="2"></td>
+                <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
+                <td><input type="time" class="sched-start" oninput="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
+                <td><input type="time" class="sched-end" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;background:var(--surface2)" readonly></td>
+                <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" placeholder="2" step="0.5" min="0.5"></td>
                 <td><button class="btn btn-sm" onclick="addScheduleRow()">+ row</button></td>
               </tr>
             </tbody>
@@ -964,8 +967,13 @@ function parseSheet(rows) {
 }
 
 async function loadAllData() {
-  document.getElementById('overview-loading').style.display = 'flex';
-  document.getElementById('overview-content').style.display = 'none';
+  // Don't show overview loading if we're restoring to a different page
+  const savedPage = localStorage.getItem('poppadi_page');
+  const showingOverview = !savedPage || savedPage === 'overview';
+  if (showingOverview) {
+    document.getElementById('overview-loading').style.display = 'flex';
+    document.getElementById('overview-content').style.display = 'none';
+  }
   document.getElementById('overview-error').innerHTML = '';
 
   // Try loading from cache first for instant display
@@ -974,14 +982,16 @@ async function loadAllData() {
     try {
       const parsed = JSON.parse(cached);
       DATA = parsed.data;
-      showToast(lang==='th' ? '⚡ โหลดจากแคช — กำลังอัปเดต...' : '⚡ Loaded from cache — refreshing...');
       renderAll();
-      document.getElementById('overview-loading').style.display = 'none';
-      document.getElementById('overview-content').style.display = 'block';
+      if (showingOverview) {
+        document.getElementById('overview-loading').style.display = 'none';
+        document.getElementById('overview-content').style.display = 'block';
+      }
+      populateEnrollTutors();
     } catch(e) { localStorage.removeItem(CACHE_KEY); }
   }
 
-  // Then fetch fresh data from Sheets in background
+  // Fetch fresh data from Sheets in background
   try {
     const [tutorRows, studentRows, courseRows, sessionRows, expenseRows, invoiceRows] = await Promise.all([
       fetchSheet('Tutors!A:F'),
@@ -999,23 +1009,24 @@ async function loadAllData() {
     DATA.expenses = parseSheet(expenseRows);
     DATA.invoices = parseSheet(invoiceRows);
 
-    // Save to local cache
-    localStorage.setItem(CACHE_KEY, JSON.stringify({
-      data: DATA,
-      cachedAt: new Date().toISOString()
-    }));
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: DATA, cachedAt: new Date().toISOString() }));
 
     renderAll();
-    document.getElementById('overview-loading').style.display = 'none';
-    document.getElementById('overview-content').style.display = 'block';
+    populateEnrollTutors();
+    if (showingOverview) {
+      document.getElementById('overview-loading').style.display = 'none';
+      document.getElementById('overview-content').style.display = 'block';
+    }
     showToast(lang==='th' ? '✓ ข้อมูลล่าสุดแล้ว' : '✓ Data up to date');
 
   } catch(e) {
-    document.getElementById('overview-loading').style.display = 'none';
+    if (showingOverview) {
+      document.getElementById('overview-loading').style.display = 'none';
+    }
     if (!cached) {
       document.getElementById('overview-error').innerHTML =
         `<div class="error-banner">Could not load data from Google Sheets. Make sure the sheet is shared as "Anyone with the link can view" and the Sheets API is enabled.<br><small>${e.message}</small></div>`;
-      document.getElementById('overview-content').style.display = 'block';
+      if (showingOverview) document.getElementById('overview-content').style.display = 'block';
       renderFallback();
     } else {
       showToast(lang==='th' ? '⚠️ ใช้ข้อมูลแคช (ออฟไลน์)' : '⚠️ Using cached data (offline)');
@@ -1304,7 +1315,86 @@ function logout() {
   showLogin();
 }
 
-// ─── UPDATE STATUS → GOOGLE SHEETS ───────────────────────
+// ─── SCHEDULE ─────────────────────────────────────────────
+function renderSchedule() {
+  const tutorFilter  = document.getElementById('filter-tutor')?.value  || '';
+  const statusFilter = document.getElementById('filter-status')?.value || '';
+  const pdfBtn = document.getElementById('pdf-download-btn');
+  if (pdfBtn) pdfBtn.style.display = tutorFilter ? 'inline-block' : 'none';
+
+  // Populate tutor filter
+  const tutorSel = document.getElementById('filter-tutor');
+  if (tutorSel && tutorSel.options.length <= 1) {
+    DATA.tutors.filter(t=>t.active==='TRUE').forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.tutor_id; opt.textContent = t.name;
+      tutorSel.appendChild(opt);
+    });
+  }
+
+  let sessions = filterByMonth([...DATA.sessions], 'date');
+  if (tutorFilter)  sessions = sessions.filter(s => s.tutor_id === tutorFilter);
+  if (statusFilter) sessions = sessions.filter(s => s.status === statusFilter);
+  sessions.sort((a,b) => {
+    const da=parseSessionDate(a.date)||new Date(0), db=parseSessionDate(b.date)||new Date(0);
+    if(da-db!==0) return da-db;
+    return (a.start_time||'').localeCompare(b.start_time||'');
+  });
+
+  const body = document.getElementById('schedule-body');
+  if (!sessions.length) {
+    body.innerHTML = `<tr><td colspan="9" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet — add your first enrollment'}</td></tr>`;
+    return;
+  }
+
+  // Hide revenue column when viewing single tutor
+  const showRevenue = !tutorFilter;
+
+  body.innerHTML = sessions.map(s => {
+    const tutor = getTutor(s.tutor_id);
+    const student = DATA.students.find(st => st.student_id === s.student_id);
+    const color = COLOR_MAP[tutor.color] || '#888';
+    const subject = getSubjectForSession(s);
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
+    const isCompleted = s.status === 'Completed' || s.status === 'Makeup';
+    const isLocked = isCompleted || isMonthLocked(s.date);
+    const isPastLocked = isMonthLocked(s.date) && !isCompleted;
+
+    const statusDropdown = isLocked
+      ? `${statusBadge(s.status)}${isPastLocked?`<span style="font-size:10px;color:var(--text3);margin-left:4px">🔒</span>`:''}`
+      : `<select onchange="updateSessionStatus('${s.session_id}', this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
+          <option value="Scheduled"  ${s.status==='Scheduled' ?'selected':''}>${lang==='th'?'กำหนดการ':'Scheduled'}</option>
+          <option value="Completed"  ${s.status==='Completed' ?'selected':''}>${lang==='th'?'สอนแล้ว':'Completed'}</option>
+          <option value="Missed"     ${s.status==='Missed'    ?'selected':''}>${lang==='th'?'ขาดเรียน':'Missed'}</option>
+          <option value="Cancelled"  ${s.status==='Cancelled' ?'selected':''}>${lang==='th'?'ยกเลิก':'Cancelled'}</option>
+        </select>`;
+
+    return `<tr>
+      <td><span class="dot" style="background:${color}"></span>${student?.nickname||s.student_id}</td>
+      <td>${tutor.name||s.tutor_id}</td>
+      <td>${subject}</td>
+      <td>${s.date||'—'}</td>
+      <td style="white-space:nowrap">${timeStr}</td>
+      <td>${s.hours||'—'}</td>
+      ${showRevenue ? `<td>฿${fmt(s.total_revenue)}</td>` : ''}
+      <td>${statusDropdown}</td>
+      <td>
+        ${isCompleted?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`
+          :isPastLocked?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'เดือนที่ผ่านมา':'Past month'}</span>`
+          :canMakeup?`<button class="btn btn-sm" onclick="openMakeupFromSchedule('${s.session_id}')">${lang==='th'?'นัดชดเชย':'Schedule makeup'}</button>`:'—'}
+        ${s.makeup_ref?`<span class="linked-tag" style="margin-left:4px">↩ ${s.makeup_ref}</span>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Update header - hide revenue column when single tutor
+  const thead = body.closest('table')?.querySelector('thead tr');
+  if (thead) {
+    const revTh = thead.querySelector('th[data-col="revenue"]');
+    if (revTh) revTh.style.display = showRevenue ? '' : 'none';
+  }
+}
 const SHEET_WRITE_URL = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
 
 async function updateSessionStatus(sessionId, newStatus) {
@@ -2010,15 +2100,17 @@ function renderCalEventPill(s, compact=false) {
   const student=DATA.students.find(st=>st.student_id===s.student_id);
   const name=student?.nickname||s.student_id;
   const subject=getSubjectForSession(s);
-  const time=s.start_time?formatTime(s.start_time):'';
+  const startFmt=s.start_time?formatTime(s.start_time):'';
+  const endFmt=s.end_time?formatTime(s.end_time):'';
+  const timeStr=startFmt&&endFmt?`${startFmt}–${endFmt}`:startFmt;
   const opacity=s.status==='Cancelled'?'0.45':s.status==='Missed'?'0.6':'1';
-  const title=`${name}${subject&&subject!=='—'?' · '+subject:''} ${time?'@ '+time:''}`;
+  const label=timeStr?`${name} ${timeStr}`:name;
   if(compact){
-    return `<div style="background:${color};opacity:${opacity};color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer" title="${title}">${name}</div>`;
+    return `<div style="background:${color};opacity:${opacity};color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer" title="${name} · ${subject} · ${timeStr}">${label}</div>`;
   }
-  return `<div style="background:${color};opacity:${opacity};color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer" title="${title}">
+  return `<div style="background:${color};opacity:${opacity};color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer">
     <div style="font-weight:500">${name}</div>
-    <div style="opacity:0.85">${time}${subject&&subject!=='—'?' · '+subject:''}</div>
+    <div style="opacity:0.85;font-size:10px">${timeStr}${subject&&subject!=='—'?' · '+subject:''}</div>
   </div>`;
 }
 
@@ -2029,32 +2121,105 @@ function renderCalendar() {
   const wdays=lang==='th'?WEEKDAYS_TH:WEEKDAYS_EN;
   const months=lang==='th'?MONTHS_TH:MONTHS_EN;
 
+  // ─── TIME GRID (Day & Week) ──────────────────────────────
+  const CAL_START_HOUR = 7;  // 7am
+  const CAL_END_HOUR   = 22; // 10pm
+  const HOUR_HEIGHT    = 60; // px per hour
+
+  function timeToMinutes(t) {
+    if (!t) return null;
+    const p = t.split(':');
+    return parseInt(p[0])*60 + parseInt(p[1]);
+  }
+
+  function renderTimeGrid(days) {
+    // days = array of { date, label, sessions }
+    const hours = [];
+    for (let h = CAL_START_HOUR; h <= CAL_END_HOUR; h++) hours.push(h);
+    const gridHeight = (CAL_END_HOUR - CAL_START_HOUR) * HOUR_HEIGHT;
+
+    const colW = days.length === 1 ? '100%' : `${Math.floor(100/days.length)}%`;
+
+    let html = `<div style="display:flex;overflow:hidden">`;
+    // Time gutter
+    html += `<div style="width:52px;flex-shrink:0;position:relative;height:${gridHeight+24}px">`;
+    hours.forEach((h,i) => {
+      const top = i * HOUR_HEIGHT;
+      const label = h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h-12} PM`;
+      html += `<div style="position:absolute;top:${top+20}px;right:8px;font-size:10px;color:var(--text3);text-align:right;line-height:1">${label}</div>`;
+    });
+    html += `</div>`;
+
+    // Day columns
+    html += `<div style="flex:1;display:flex;border-left:1px solid var(--border);overflow-x:auto">`;
+    days.forEach(day => {
+      html += `<div style="flex:1;min-width:${days.length>3?'120px':'0'};border-right:1px solid var(--border);position:relative">`;
+      // Day header
+      const isToday = day.date && isSameDay(day.date, new Date());
+      html += `<div style="position:sticky;top:0;background:var(--surface);z-index:2;padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);font-size:12px;font-weight:${isToday?'600':'400'};color:${isToday?'var(--teal)':'var(--text2)'}">
+        ${day.label}
+      </div>`;
+      // Hour lines
+      html += `<div style="position:relative;height:${gridHeight}px">`;
+      hours.forEach((h,i) => {
+        html += `<div style="position:absolute;top:${i*HOUR_HEIGHT}px;left:0;right:0;border-top:1px solid var(--border);opacity:0.4"></div>`;
+        if (i>0) html += `<div style="position:absolute;top:${i*HOUR_HEIGHT-HOUR_HEIGHT/2}px;left:0;right:0;border-top:1px dashed var(--border);opacity:0.25"></div>`;
+      });
+      // Current time indicator
+      if (day.date && isSameDay(day.date, new Date())) {
+        const now = new Date();
+        const nowMins = now.getHours()*60+now.getMinutes();
+        const top = (nowMins - CAL_START_HOUR*60) / 60 * HOUR_HEIGHT;
+        if (top >= 0 && top <= gridHeight) {
+          html += `<div style="position:absolute;top:${top}px;left:0;right:0;height:2px;background:var(--red);z-index:3">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--red);margin-top:-3px;margin-left:-4px"></div>
+          </div>`;
+        }
+      }
+      // Sessions
+      day.sessions.forEach(s => {
+        const startMins = timeToMinutes(s.start_time);
+        const endMins   = timeToMinutes(s.end_time) || (startMins ? startMins+60 : null);
+        if (startMins === null) return;
+        const top   = Math.max(0, (startMins - CAL_START_HOUR*60) / 60 * HOUR_HEIGHT);
+        const dur   = endMins ? Math.max(20, (endMins-startMins)/60*HOUR_HEIGHT) : 40;
+        const color = getEventColor(s);
+        const student = DATA.students.find(st=>st.student_id===s.student_id);
+        const name  = student?.nickname||s.student_id;
+        const subject = getSubjectForSession(s);
+        const startFmt = formatTime(s.start_time);
+        const endFmt   = s.end_time ? formatTime(s.end_time) : '';
+        const timeLabel = endFmt ? `${startFmt}–${endFmt}` : startFmt;
+        const opacity = s.status==='Cancelled'?0.4:s.status==='Missed'?0.6:1;
+        const isShort = dur < 40;
+        html += `<div style="position:absolute;top:${top+1}px;left:2px;right:2px;height:${dur-2}px;background:${color};opacity:${opacity};border-radius:6px;padding:${isShort?'2px 6px':'4px 8px'};overflow:hidden;cursor:pointer;z-index:1" title="${name} · ${subject} · ${timeLabel}">
+          <div style="color:#fff;font-size:${isShort?'10':'11'}px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+          ${!isShort?`<div style="color:rgba(255,255,255,0.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${timeLabel}${subject&&subject!=='—'?' · '+subject:''}</div>`:''}
+        </div>`;
+      });
+      html += `</div></div>`;
+    });
+    html += `</div></div>`;
+    return html;
+  }
+
   if(calView==='day') {
     title.textContent=`${wdays[calDate.getDay()]} ${calDate.getDate()} ${months[calDate.getMonth()]} ${calDate.getFullYear()}`;
     const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),calDate));
-    body.innerHTML=daySessions.length
-      ?daySessions.map(s=>renderCalEventPill(s,false)).join('')
-      :`<div class="empty">${lang==='th'?'ไม่มีคาบเรียนวันนี้':'No sessions today'}</div>`;
+    body.innerHTML=renderTimeGrid([{date:calDate, label:`${wdays[calDate.getDay()]} ${calDate.getDate()}`, sessions:daySessions}]);
   }
 
   else if(calView==='week') {
     const start=new Date(calDate);start.setDate(calDate.getDate()-calDate.getDay());
     const end=new Date(start);end.setDate(start.getDate()+6);
     title.textContent=`${start.getDate()} ${months[start.getMonth()]} – ${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
-    let html=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">`;
+    const days=[];
     for(let i=0;i<7;i++){
       const d=new Date(start);d.setDate(start.getDate()+i);
-      const isToday=isSameDay(d,new Date());
       const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),d));
-      html+=`<div style="min-height:120px">
-        <div style="font-size:12px;font-weight:500;margin-bottom:8px;color:${isToday?'var(--teal)':'var(--text2)'};text-align:center">
-          ${wdays[d.getDay()]}<br><span style="font-size:16px;color:${isToday?'var(--teal)':'var(--text)'}">${d.getDate()}</span>
-        </div>
-        ${daySessions.map(s=>renderCalEventPill(s,true)).join('')}
-      </div>`;
+      days.push({date:d, label:`${wdays[d.getDay()]} ${d.getDate()}`, sessions:daySessions});
     }
-    html+=`</div>`;
-    body.innerHTML=html;
+    body.innerHTML=renderTimeGrid(days);
   }
 
   else if(calView==='month') {
@@ -2068,7 +2233,7 @@ function renderCalendar() {
     for(let day=1;day<=daysInMonth;day++){
       const d=new Date(y,m,day);
       const isToday=isSameDay(d,new Date());
-      const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),d));
+        const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),d)).sort((a,b)=>(a.start_time||'').localeCompare(b.start_time||''));
       html+=`<div style="min-height:80px;border:1px solid var(--border);border-radius:8px;padding:6px;background:${isToday?'var(--teal-bg)':'var(--surface)'}">
         <div style="font-size:12px;font-weight:${isToday?'600':'400'};color:${isToday?'var(--teal)':'var(--text)'};margin-bottom:4px">${day}</div>
         ${daySessions.map(s=>renderCalEventPill(s,true)).join('')}
@@ -2252,6 +2417,121 @@ function getJaneCommissionRate() {
     .filter(s => janeCourseIds.includes(s.course_id) && (s.status==='Completed'||s.status==='Makeup'))
     .reduce((sum, s) => sum + Number(s.hours||0), 0);
   return janeHours > 250 ? 0.07 : 0.05;
+}
+
+// ─── AUTO END TIME ────────────────────────────────────────
+function autoEndTime(startInput) {
+  if (!startInput) return;
+  const row = startInput.closest('tr');
+  if (!row) return;
+  const hrsInput = row.querySelector('.sched-hrs');
+  const endInput = row.querySelector('.sched-end');
+  if (!hrsInput || !endInput) return;
+  const startVal = startInput.value;
+  const hrsVal = parseFloat(hrsInput.value);
+  if (!startVal || !hrsVal) return;
+  const [h, m] = startVal.split(':').map(Number);
+  const totalMins = h * 60 + m + Math.round(hrsVal * 60);
+  const endH = Math.floor(totalMins / 60) % 24;
+  const endM = totalMins % 60;
+  endInput.value = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
+  endInput.style.borderColor = 'var(--teal)';
+}
+
+// ─── DYNAMIC TUTOR LOADER ─────────────────────────────────
+function populateEnrollTutors() {
+  const sel = document.getElementById('enroll-tutor');
+  if (!sel || !DATA.tutors.length) return;
+  const current = sel.value;
+  sel.innerHTML = DATA.tutors
+    .filter(t => t.active === 'TRUE')
+    .map(t => `<option value="${t.tutor_id}" ${t.tutor_id===current?'selected':''}>${t.name}</option>`)
+    .join('');
+  suggestTutorRate();
+}
+
+function addScheduleRow() {
+  const tbody = document.getElementById('enroll-schedule-body');
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
+    <td><input type="time" class="sched-start" oninput="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
+    <td><input type="time" class="sched-end" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;background:var(--surface2)" readonly></td>
+    <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" placeholder="2" step="0.5" min="0.5"></td>
+    <td><button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button></td>`;
+  tbody.appendChild(row);
+}
+
+function submitEnrollment() {
+  alert(lang==='th'
+    ? 'ในเวอร์ชันนี้ กรุณาเพิ่มข้อมูลลงใน Google Sheet โดยตรง ฟีเจอร์บันทึกอัตโนมัติจะพร้อมใช้งานเมื่อตั้งค่า OAuth เสร็จสิ้น'
+    : 'In this version, please add the data directly to your Google Sheet. Auto-save will be available after OAuth setup is complete.');
+}
+
+// ─── DOWNLOAD SCHEDULE PDF ────────────────────────────────
+function downloadSchedulePDF() {
+  const tutorFilter = document.getElementById('filter-tutor')?.value || '';
+  if (!tutorFilter) {
+    showToast(lang==='th' ? 'กรุณาเลือกครูก่อนดาวน์โหลด' : 'Please select a tutor first'); return;
+  }
+  const tutor = getTutor(tutorFilter);
+  const monthSessions = filterByMonth(DATA.sessions, 'date')
+    .filter(s => s.tutor_id === tutorFilter)
+    .sort((a,b) => {
+      const da = parseSessionDate(a.date)||new Date(0), db = parseSessionDate(b.date)||new Date(0);
+      if (da - db !== 0) return da - db;
+      return (a.start_time||'').localeCompare(b.start_time||'');
+    });
+  const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
+  const monthStr = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
+  const statusTh = { Completed:'สอนแล้ว', Missed:'ขาดเรียน', Cancelled:'ยกเลิก', Makeup:'ชดเชย', Scheduled:'กำหนดการ' };
+  const rows = monthSessions.map((s,i) => {
+    const student = DATA.students.find(st => st.student_id === s.student_id);
+    const subject = getSubjectForSession(s);
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 10px">${i+1}</td>
+      <td style="padding:8px 10px">${student?.nickname||s.student_id}</td>
+      <td style="padding:8px 10px">${subject}</td>
+      <td style="padding:8px 10px">${s.date||'—'}</td>
+      <td style="padding:8px 10px">${timeStr}</td>
+      <td style="padding:8px 10px;text-align:center">${s.hours||'—'}</td>
+      <td style="padding:8px 10px;text-align:center">${s.num_students||'—'}</td>
+      <td style="padding:8px 10px;font-weight:500">฿${fmt(s.tutor_pay)}</td>
+      <td style="padding:8px 10px">${statusLabel}</td>
+    </tr>`;
+  }).join('');
+  const totalPay = monthSessions.filter(s=>s.status==='Completed'||s.status==='Makeup').reduce((sum,s)=>sum+Number(s.tutor_pay||0),0);
+  const vat = tutor.tutor_id !== 'T001' ? totalPay * 0.03 : 0;
+  const net = totalPay - vat;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${tutor.name} — ${monthStr}</title>
+    <style>body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#1a1a18;padding:32px;max-width:900px;margin:0 auto}
+    h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;font-weight:normal;color:#666;margin:0 0 24px}
+    table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid #eee}
+    .summary{margin-top:24px;padding:16px;background:#f7f6f3;border-radius:8px;display:flex;gap:40px}
+    .summary div label{font-size:11px;color:#888;text-transform:uppercase;display:block}
+    .summary div strong{font-size:20px;display:block;margin-top:2px}
+    .green{color:#1D9E75}footer{margin-top:24px;font-size:11px;color:#aaa}
+    @media print{body{padding:16px}}</style></head><body>
+    <h1>Poppadi's Studyo</h1>
+    <h2>${lang==='th'?'ตารางสอน':'Teaching Schedule'} — ${tutor.name} · ${monthStr}</h2>
+    <table><thead><tr>
+      <th>#</th><th>${lang==='th'?'นักเรียน':'Student'}</th><th>${lang==='th'?'วิชา':'Subject'}</th>
+      <th>${lang==='th'?'วันที่':'Date'}</th><th>${lang==='th'?'เวลา':'Time'}</th>
+      <th>${lang==='th'?'ชม.':'Hrs'}</th><th>${lang==='th'?'จำนวน':'Stu.'}</th>
+      <th>${lang==='th'?'ค่าสอน':'Tutor pay'}</th><th>${lang==='th'?'สถานะ':'Status'}</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <div class="summary">
+      <div><label>${lang==='th'?'ค่าสอนรวม':'Total tutor pay'}</label><strong>฿${fmt(totalPay)}</strong></div>
+      ${vat>0?`<div><label>${lang==='th'?'ภาษีหัก 3%':'VAT 3%'}</label><strong>฿${fmt(vat)}</strong></div>`:''}
+      <div><label>${lang==='th'?'ยอดโอน':'Net transfer'}</label><strong class="green">฿${fmt(net)}</strong></div>
+    </div>
+    <div class="footer">Generated ${new Date().toLocaleString()} · Poppadi's Studyo · ${lang==='th'?'เอกสารนี้ไม่รวมข้อมูลรายได้ของโรงเรียน':'This document does not include school revenue information'}</div>
+    <script>window.onload=()=>window.print()<\/script></body></html>`;
+  const blob = new Blob([html],{type:'text/html'});
+  window.open(URL.createObjectURL(blob),'_blank');
+  showToast(lang==='th'?'✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก':'✓ PDF opened — press Print to save as PDF');
 }
 
 // ─── INIT ─────────────────────────────────────────────────
