@@ -842,11 +842,18 @@
       <div class="card">
         <div class="card-title" data-en="Agreed schedule" data-th="ตารางที่ตกลงไว้">Agreed schedule</div>
         <div class="table-wrap">
-          <table>
+          <table style="table-layout:fixed;width:100%">
+            <colgroup>
+              <col style="width:28%">
+              <col style="width:22%">
+              <col style="width:22%">
+              <col style="width:12%">
+              <col style="width:16%">
+            </colgroup>
             <thead><tr>
               <th data-en="Date" data-th="วันที่">Date</th>
               <th data-en="Start" data-th="เริ่ม">Start</th>
-              <th data-en="End (auto from hrs)" data-th="สิ้นสุด (คำนวณจากชม.)">End (auto from hrs)</th>
+              <th data-en="End (auto)" data-th="สิ้นสุด (อัตโนมัติ)">End (auto)</th>
               <th data-en="Hours" data-th="ชั่วโมง">Hours</th>
               <th></th>
             </tr></thead>
@@ -2468,11 +2475,11 @@ function makeSchedRowHTML(isFirst) {
     : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button>`;
 
   return `
-    <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-    <td><select class="sched-start" onchange="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%">
+    <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box"></td>
+    <td><select class="sched-start" onchange="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box">
       ${generateTimeOptions(defaultStart)}
     </select></td>
-    <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" value="${defaultEnd}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;color:var(--teal)"></td>
+    <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" value="${defaultEnd}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;color:var(--teal);box-sizing:border-box"></td>
     <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" value="${defaultHrs}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" step="0.5" min="0.5"></td>
     <td>${btn}</td>`;
 }
