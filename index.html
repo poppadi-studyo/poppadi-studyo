@@ -3245,18 +3245,112 @@ function showMonthlySummary() {
 }
 
 function downloadMonthlySummaryPDF() {
-  // Trigger browser print on the modal content
-  const modal = document.querySelector('[style*="position:fixed"]');
-  if (!modal) return;
-  const content = modal.querySelector('div');
-  const win = window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <style>body{font-family:sans-serif;font-size:13px;padding:24px;max-width:780px;margin:0 auto}
-    table{width:100%;border-collapse:collapse}th,td{padding:8px 10px}
-    @media print{body{padding:8px}}</style></head><body>`);
-  win.document.write(content.innerHTML);
-  win.document.write(`<script>window.onload=()=>window.print()<\/script></body></html>`);
-  win.document.close();
+  const monthSessions = filterByMonth(DATA.sessions, 'date')
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
+  const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
+  const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
+
+  const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
+  const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+  const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
+  const totalExpenses   = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
+  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const netSchool       = schoolRemainder - totalExpenses - profitShare;
+
+  // Per-tutor breakdown
+  const tutorRows = DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
+    const sessions = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
+    if (!sessions.length) return '';
+    const pay = sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+    const hrs = sessions.reduce((s,x)=>s+Number(x.hours||0),0);
+    const wht = tutor.tutor_id !== 'T001' ? pay*0.03 : 0;
+    const net = pay - wht;
+    return `<tr><td>${tutor.name}</td><td style="text-align:center">${hrs}</td>
+      <td style="text-align:right">฿${fmt(pay)}</td>
+      <td style="text-align:right;color:#E24B4A">${tutor.tutor_id==='T001'?'Exempt':'฿'+fmt(wht)}</td>
+      <td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(net)}</td></tr>`;
+  }).join('');
+
+  // Commission breakdown
+  const commMap = {};
+  monthSessions.forEach(s => {
+    const who = s.commission_who || s.commission_to || 'none';
+    if (who === 'none' || !who) return;
+    commMap[who] = (commMap[who]||0) + Number(s.commission_amt||0);
+  });
+  const commRows = Object.entries(commMap).map(([who,amt]) => {
+    const wht = amt*0.03, net = amt-wht;
+    return `<tr><td>${who}</td><td style="text-align:right">฿${fmt(amt)}</td>
+      <td style="text-align:right;color:#E24B4A">฿${fmt(wht)}</td>
+      <td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(net)}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" style="color:#aaa;text-align:center">No commission this month</td></tr>';
+
+  const totalWHT = DATA.tutors.filter(t=>t.active==='TRUE'&&t.tutor_id!=='T001').map(tutor => {
+    const pay = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id).reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+    return pay*0.03;
+  }).reduce((a,b)=>a+b,0) + Object.values(commMap).reduce((s,x)=>s+x*0.03,0);
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Monthly Summary — ${monthStr}</title>
+  <style>
+    body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#1a1a18;padding:32px;max-width:800px;margin:0 auto}
+    h1{font-size:20px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 24px}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}
+    .metric{background:#f7f6f3;border-radius:8px;padding:12px}
+    .metric label{font-size:10px;color:#888;text-transform:uppercase;display:block;margin-bottom:4px}
+    .metric strong{font-size:17px;display:block}
+    .green{color:#1D9E75}.red{color:#E24B4A}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px}
+    th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid #eee}
+    td{padding:8px 10px;border-bottom:1px solid #eee}
+    tfoot td{font-weight:600;background:#f7f6f3;border-top:2px solid #eee}
+    h3{font-size:13px;font-weight:600;margin:0 0 8px}
+    footer{margin-top:24px;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px}
+    @media print{body{padding:16px}}
+  </style></head><body>
+  <h1>Poppadi's Studyo — Monthly Summary</h1>
+  <h2>${monthStr} · Generated ${new Date().toLocaleString()}</h2>
+
+  <div class="metrics">
+    <div class="metric"><label>Total Revenue</label><strong class="green">฿${fmt(totalRevenue)}</strong></div>
+    <div class="metric"><label>Tutor Payouts</label><strong>฿${fmt(totalTutorPay)}</strong></div>
+    <div class="metric"><label>Commission</label><strong>฿${fmt(totalCommission)}</strong></div>
+    <div class="metric"><label>Fixed Expenses</label><strong class="red">฿${fmt(totalExpenses)}</strong></div>
+    <div class="metric"><label>School Remainder</label><strong>฿${fmt(schoolRemainder)}</strong></div>
+    <div class="metric"><label>P'Pop 20% Share</label><strong style="color:#378ADD">฿${fmt(profitShare)}</strong></div>
+    <div class="metric"><label>Total WHT 3%</label><strong class="red">฿${fmt(totalWHT)}</strong></div>
+    <div class="metric"><label>Net to School</label><strong class="green">฿${fmt(netSchool)}</strong></div>
+    <div class="metric"><label>Sessions Taught</label><strong>${monthSessions.length}</strong></div>
+  </div>
+
+  <h3>Tutor Payouts with WHT 3%</h3>
+  <table>
+    <thead><tr><th>Tutor</th><th style="text-align:center">Hrs</th><th style="text-align:right">Gross Pay</th><th style="text-align:right">WHT 3%</th><th style="text-align:right">Net Transfer</th></tr></thead>
+    <tbody>${tutorRows}</tbody>
+  </table>
+
+  <h3>Commission Breakdown with WHT 3%</h3>
+  <table>
+    <thead><tr><th>Recipient</th><th style="text-align:right">Gross</th><th style="text-align:right">WHT 3%</th><th style="text-align:right">Net</th></tr></thead>
+    <tbody>${commRows}</tbody>
+  </table>
+
+  <footer>WHT = Withholding Tax 3% deducted from all tutor and commission transfers. P'Pop's tutor pay is exempt (owner). This document is confidential — for internal accounting use only.</footer>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank');
+  if (!win) {
+    // Popup blocked — fallback to download
+    const a = document.createElement('a');
+    a.href = url; a.download = `Poppadi_MonthlySummary_${selectedMonth}.html`; a.click();
+    showToast(lang==='th' ? '⬇ ดาวน์โหลดไฟล์แล้ว' : '⬇ File downloaded — open in browser then print');
+  } else {
+    showToast(lang==='th' ? '✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก' : '✓ PDF opened — press Print to save');
+  }
 }
 async function addExpense() {
   const name = document.getElementById('new-expense-name').value.trim();
@@ -3815,9 +3909,15 @@ function downloadEnrollmentPDF(data) {
     <p style="margin-top:16px;font-size:11px;color:#aaa">Generated ${new Date().toLocaleString()} · Poppadi's Studyo · Confidential — for tutor use only</p>
     <script>window.onload=()=>window.print()<\/script>
   </body></html>`;
-  const blob = new Blob([html],{type:'text/html'});
-  window.open(URL.createObjectURL(blob),'_blank');
-  showToast(lang==='th'?'✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก':'✓ PDF opened — press Print to save');
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url,'_blank');
+  if (!win) {
+    const a=document.createElement('a');a.href=url;a.download=`Poppadi_TutorSchedule.html`;a.click();
+    showToast(lang==='th'?'⬇ ดาวน์โหลดไฟล์แล้ว':'⬇ Downloaded — open in browser then print');
+  } else {
+    showToast(lang==='th'?'✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก':'✓ PDF opened — press Print to save');
+  }
 }
 
 // ─── DOWNLOAD SCHEDULE PDF ────────────────────────────────
@@ -3881,9 +3981,15 @@ function downloadSchedulePDF() {
     </div>
     <div class="footer">Generated ${new Date().toLocaleString()} · Poppadi's Studyo · ${lang==='th'?'เอกสารนี้ไม่รวมข้อมูลรายได้ของโรงเรียน':'This document does not include school revenue information'}</div>
     <script>window.onload=()=>window.print()<\/script></body></html>`;
-  const blob = new Blob([html],{type:'text/html'});
-  window.open(URL.createObjectURL(blob),'_blank');
-  showToast(lang==='th'?'✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก':'✓ PDF opened — press Print to save as PDF');
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url,'_blank');
+  if (!win) {
+    const a=document.createElement('a');a.href=url;a.download=`Poppadi_${tutor.name||tutorFilter}_${selectedMonth}.html`;a.click();
+    showToast(lang==='th'?'⬇ ดาวน์โหลดไฟล์แล้ว':'⬇ Downloaded — open in browser then print');
+  } else {
+    showToast(lang==='th'?'✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก':'✓ PDF opened — press Print to save as PDF');
+  }
 }
 
 // ─── INIT ─────────────────────────────────────────────────
