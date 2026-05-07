@@ -851,13 +851,6 @@
               <th></th>
             </tr></thead>
             <tbody id="enroll-schedule-body">
-              <tr>
-                <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-                <td><input type="time" class="sched-start" oninput="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-                <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-                <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" placeholder="2" step="0.5" min="0.5"></td>
-                <td><button class="btn btn-sm" onclick="addScheduleRow()">+ row</button></td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -2454,7 +2447,52 @@ function getJaneCommissionRate() {
   return janeHours > 250 ? 0.07 : 0.05;
 }
 
-// ─── AUTO END TIME ────────────────────────────────────────
+// ─── SCHEDULE ROW HELPER ─────────────────────────────────
+function getDefaultStartTime() {
+  // Default to next full hour :00
+  const now = new Date();
+  const nextHour = now.getHours() + 1;
+  return `${String(nextHour % 24).padStart(2,'0')}:00`;
+}
+
+function makeSchedRowHTML(isFirst) {
+  const defaultStart = getDefaultStartTime();
+  const defaultHrs   = 2;
+  // Pre-calculate end time: start + 2hrs
+  const [h, m] = defaultStart.split(':').map(Number);
+  const endH = (h + defaultHrs) % 24;
+  const defaultEnd = `${String(endH).padStart(2,'0')}:00`;
+
+  const btn = isFirst
+    ? `<button class="btn btn-sm" onclick="addScheduleRow()">+ row</button>`
+    : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button>`;
+
+  return `
+    <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
+    <td><select class="sched-start" onchange="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%">
+      ${generateTimeOptions(defaultStart)}
+    </select></td>
+    <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" value="${defaultEnd}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;color:var(--teal)"></td>
+    <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" value="${defaultHrs}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" step="0.5" min="0.5"></td>
+    <td>${btn}</td>`;
+}
+
+function generateTimeOptions(selectedVal) {
+  const options = [];
+  for (let h = 6; h <= 22; h++) {
+    for (let m of [0, 15, 30, 45]) {
+      const val = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const label = `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
+      const selected = val === selectedVal ? 'selected' : '';
+      options.push(`<option value="${val}" ${selected}>${label}</option>`);
+    }
+  }
+  return options.join('');
+}
+
+// Override autoEndTime to work with select element
 function autoEndTime(startInput) {
   if (!startInput) return;
   const row = startInput.closest('tr');
@@ -2470,10 +2508,9 @@ function autoEndTime(startInput) {
   const endH = Math.floor(totalMins / 60) % 24;
   const endM = totalMins % 60;
   endInput.value = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
-  endInput.style.borderColor = 'var(--teal)';
+  endInput.style.color = 'var(--teal)';
 }
 
-// If end time is typed manually, back-calculate hours
 function autoHoursFromTimes(endInput) {
   if (!endInput) return;
   const row = endInput.closest('tr');
@@ -2493,6 +2530,19 @@ function autoHoursFromTimes(endInput) {
   hrsInput.style.borderColor = 'var(--teal)';
 }
 
+function addScheduleRow() {
+  const tbody = document.getElementById('enroll-schedule-body');
+  const row = document.createElement('tr');
+  row.innerHTML = makeSchedRowHTML(false);
+  tbody.appendChild(row);
+}
+
+function initScheduleBody() {
+  const tbody = document.getElementById('enroll-schedule-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr>${makeSchedRowHTML(true)}</tr>`;
+}
+
 // ─── DYNAMIC TUTOR LOADER ─────────────────────────────────
 function populateEnrollTutors() {
   const sel = document.getElementById('enroll-tutor');
@@ -2508,12 +2558,7 @@ function populateEnrollTutors() {
 function addScheduleRow() {
   const tbody = document.getElementById('enroll-schedule-body');
   const row = document.createElement('tr');
-  row.innerHTML = `
-    <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-    <td><input type="time" class="sched-start" oninput="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-    <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-    <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" placeholder="2" step="0.5" min="0.5"></td>
-    <td><button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button></td>`;
+  row.innerHTML = makeSchedRowHTML(false);
   tbody.appendChild(row);
 }
 
@@ -2590,13 +2635,7 @@ async function submitEnrollment() {
     document.getElementById('enroll-fee').value     = '';
     document.getElementById('enroll-invoice').value = '';
     document.getElementById('enroll-date').value    = '';
-    document.getElementById('enroll-schedule-body').innerHTML = `<tr>
-      <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-      <td><input type="time" class="sched-start" oninput="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-      <td><input type="time" class="sched-end" oninput="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%"></td>
-      <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" placeholder="2" step="0.5" min="0.5"></td>
-      <td><button class="btn btn-sm" onclick="addScheduleRow()">+ row</button></td>
-    </tr>`;
+    initScheduleBody();
 
     await loadAllData();
 
@@ -2687,12 +2726,14 @@ function onAppReady() {
     if (langBtn) setLang(savedLang, langBtn);
   }
   loadAllData().then(() => {
-    // Restore page after data loads
     const savedPage = localStorage.getItem('poppadi_page');
     if (savedPage && document.getElementById('page-'+savedPage)) {
       showPage(savedPage);
     }
-    setTimeout(suggestTutorRate, 100);
+    setTimeout(() => {
+      suggestTutorRate();
+      initScheduleBody();
+    }, 100);
   });
 }
 
