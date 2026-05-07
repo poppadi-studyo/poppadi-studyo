@@ -855,7 +855,7 @@
           <div class="form-row">
             <div class="form-group">
               <label data-en="Student name" data-th="ชื่อนักเรียน">Student name</label>
-              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. N'Boss">
+              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. น้อง Boss">
               <datalist id="student-list"></datalist>
             </div>
             <div class="form-group">
@@ -2349,12 +2349,6 @@ function addScheduleRow() {
   tbody.appendChild(row);
 }
 
-function submitEnrollment() {
-  alert(lang==='th'
-    ? 'ในเวอร์ชันนี้ กรุณาเพิ่มข้อมูลลงใน Google Sheet โดยตรง ฟีเจอร์บันทึกอัตโนมัติจะพร้อมใช้งานในเฟส 2'
-    : 'In this version, please add the data directly to your Google Sheet. Auto-save to Sheet will be available in Phase 2 when we connect Google Apps Script.');
-}
-
 // ─── FALLBACK (when sheet is empty) ───────────────────────
 function renderFallback() {
   document.getElementById('overview-month').textContent = new Date().toLocaleString(lang==='th'?'th-TH':'en-US',{month:'long',year:'numeric'});
@@ -2952,52 +2946,59 @@ function addScheduleRow() {
 }
 
 async function submitEnrollment() {
-  const studentName = document.getElementById('enroll-student').value.trim();
-  const subject     = document.getElementById('enroll-subject').value.trim();
-  const tutorId     = document.getElementById('enroll-tutor').value;
-  const numStudents = parseInt(document.getElementById('enroll-num').value) || 1;
-  const paidHrs     = parseFloat(document.getElementById('enroll-hours').value) || 0;
-  const feePerHr    = parseFloat(document.getElementById('enroll-fee').value) || 0;
-  const tutorRate   = parseFloat(document.getElementById('enroll-rate').value) || 0;
-  const commTo      = document.getElementById('enroll-jane').value;
-  const invoiceRef  = document.getElementById('enroll-invoice').value.trim();
-  const payDate     = document.getElementById('enroll-date').value;
+  const studentName  = document.getElementById('enroll-student').value.trim();
+  const subject      = document.getElementById('enroll-subject').value.trim();
+  const tutorId      = document.getElementById('enroll-tutor').value;
+  const paidHrs      = parseFloat(document.getElementById('enroll-hours').value) || 0;
+  const feePerHr     = parseFloat(document.getElementById('enroll-fee').value) || 0;
+  const tutorRate    = parseFloat(document.getElementById('enroll-rate').value) || 0;
+  const commTo       = document.getElementById('enroll-jane').value;
+  const invoiceRef   = document.getElementById('enroll-invoice').value.trim();
+  const payDate      = document.getElementById('enroll-date').value;
+  const payStatus    = document.getElementById('enroll-payment-status')?.value || 'Paid';
+  const enrollmentType = enrollType || 'new';
 
   if (!studentName || !tutorId || !paidHrs || !feePerHr) {
-    alert(lang==='th' ? 'กรุณากรอกข้อมูลที่จำเป็น (ชื่อนักเรียน, ครู, ชั่วโมง, ค่าเรียน)' : 'Please fill in required fields (student name, tutor, hours, fee)');
+    alert(lang==='th'
+      ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
+      : 'Please fill in required fields:\n• Student name\n• Total paid hours\n• Fee per hour');
     return;
   }
 
   // Find or create student_id
-  let student = DATA.students.find(s => s.nickname === studentName || s.full_name === studentName);
+  const student  = DATA.students.find(s => s.nickname === studentName || s.full_name === studentName);
   const studentId = student?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
 
-  // Collect schedule rows
-  const rows = document.querySelectorAll('#enroll-schedule-body tr');
-  const sessions = [];
-  rows.forEach(row => {
-    const inputs = row.querySelectorAll('input');
-    if (inputs.length >= 3 && inputs[0].value) {
-      sessions.push({
-        date:       inputs[0].value,
-        start_time: inputs[1].value,
-        end_time:   inputs[2].value,
-        hours:      parseFloat(inputs[3]?.value) || paidHrs / rows.length
-      });
-    }
+  // Collect schedule rows — handle both select (start) and input (end, date)
+  const schedRows = document.querySelectorAll('#enroll-schedule-body tr');
+  const sessions  = [];
+  schedRows.forEach(row => {
+    const dateInput  = row.querySelector('input[type="date"]');
+    const startSel   = row.querySelector('.sched-start');
+    const endInput   = row.querySelector('.sched-end');
+    const hrsInput   = row.querySelector('.sched-hrs');
+    if (!dateInput?.value) return;
+    sessions.push({
+      date:       dateInput.value,
+      start_time: startSel?.value || '',
+      end_time:   endInput?.value  || '',
+      hours:      parseFloat(hrsInput?.value) || paidHrs / schedRows.length
+    });
   });
 
   if (sessions.length === 0) {
-    alert(lang==='th' ? 'กรุณาเพิ่มอย่างน้อย 1 คาบ' : 'Please add at least 1 session to the schedule');
+    alert(lang==='th' ? 'กรุณาเพิ่มอย่างน้อย 1 คาบพร้อมวันที่' : 'Please add at least 1 session with a date');
     return;
   }
 
-  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving enrollment...');
+  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving...');
 
   try {
+    const tutor = getTutor(tutorId);
     const result = await webAppWrite('addEnrollment', {
       course: {
         student_id: studentId,
+        student_name: studentName,
         tutor_id: tutorId,
         subject,
         total_paid_hrs: paidHrs,
@@ -3006,32 +3007,199 @@ async function submitEnrollment() {
         commission_to: commTo,
         invoice_ref: invoiceRef,
         payment_date: payDate,
+        payment_status: payStatus,
+        enrollment_type: enrollmentType,
         block_number: 1,
-        num_students: numStudents
+        num_students: 1
       },
       sessions
     });
 
     showToast(lang==='th'
-      ? `✓ ลงทะเบียนแล้ว — ${result.course_id} (${sessions.length} คาบ)`
-      : `✓ Enrolled — ${result.course_id} (${sessions.length} sessions)`
+      ? `✅ บันทึกแล้ว — ${result.course_id} (${sessions.length} คาบ)`
+      : `✅ Saved — ${result.course_id} (${sessions.length} sessions)`
     );
 
-    // Clear form
+    // Show post-save summary
+    showEnrollmentSummary({
+      studentName, subject, tutor: tutor.name||tutorId,
+      paidHrs, feePerHr, tutorRate, commTo,
+      invoiceRef, payDate, payStatus,
+      courseId: result.course_id, sessions
+    });
+
+    // Reset form
     document.getElementById('enroll-student').value = '';
     document.getElementById('enroll-subject').value = '';
     document.getElementById('enroll-hours').value   = '';
     document.getElementById('enroll-fee').value     = '';
     document.getElementById('enroll-invoice').value = '';
     document.getElementById('enroll-date').value    = '';
+    if (document.getElementById('enroll-payment-status'))
+      document.getElementById('enroll-payment-status').value = 'Paid';
     initScheduleBody();
-
     await loadAllData();
 
   } catch(err) {
     if (err.message.includes('Web App URL')) return;
     showToast('❌ ' + err.message);
+    console.error(err);
   }
+}
+
+// ─── POST-SAVE ENROLLMENT SUMMARY ────────────────────────
+function showEnrollmentSummary(data) {
+  const { studentName, subject, tutor, paidHrs, feePerHr, tutorRate,
+          commTo, invoiceRef, payDate, courseId, sessions } = data;
+  const commRate    = commTo !== 'none' ? 0.05 : 0;
+  const modal       = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  const sessionRows = sessions.map((s,i) => {
+    const timeStr = s.start_time && s.end_time
+      ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}`
+      : s.start_time ? formatTime(s.start_time) : '—';
+    const rev = feePerHr * s.hours;
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:6px 10px">${i+1}</td>
+      <td style="padding:6px 10px">${s.date}</td>
+      <td style="padding:6px 10px">${timeStr}</td>
+      <td style="padding:6px 10px;text-align:center">${s.hours}</td>
+      <td style="padding:6px 10px;text-align:right">฿${fmt(rev)}</td>
+    </tr>`;
+  }).join('');
+
+  const totalRev  = sessions.reduce((sum,s) => sum + feePerHr * s.hours, 0);
+  const totalPay  = sessions.reduce((sum,s) => sum + tutorRate * s.hours, 0);
+  const totalComm = totalRev * commRate;
+  const totalSchool = totalRev - totalPay - totalComm;
+
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;font-family:'DM Sans',sans-serif">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px">
+        <div>
+          <div style="font-size:18px;font-weight:600">✅ ${lang==='th'?'ลงทะเบียนสำเร็จ':'Enrollment saved'}</div>
+          <div style="font-size:13px;color:#888;margin-top:2px">${courseId} · ${studentName} · ${subject}</div>
+        </div>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">✕</button>
+      </div>
+
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+        <div style="flex:1;min-width:120px;padding:12px;background:#f7f6f3;border-radius:10px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase">Tutor</div>
+          <div style="font-weight:500;margin-top:2px">${tutor}</div>
+        </div>
+        <div style="flex:1;min-width:120px;padding:12px;background:#f7f6f3;border-radius:10px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase">Paid hours</div>
+          <div style="font-weight:500;margin-top:2px">${paidHrs} hrs</div>
+        </div>
+        <div style="flex:1;min-width:120px;padding:12px;background:#f7f6f3;border-radius:10px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase">Fee/hr</div>
+          <div style="font-weight:500;margin-top:2px">฿${fmt(feePerHr)}</div>
+        </div>
+        <div style="flex:1;min-width:120px;padding:12px;background:#f0faf6;border-radius:10px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase">Total revenue</div>
+          <div style="font-weight:600;color:#1D9E75;margin-top:2px">฿${fmt(totalRev)}</div>
+        </div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px">
+        <thead>
+          <tr style="border-bottom:2px solid #eee">
+            <th style="padding:6px 10px;text-align:left;font-size:11px;color:#888">#</th>
+            <th style="padding:6px 10px;text-align:left;font-size:11px;color:#888">DATE</th>
+            <th style="padding:6px 10px;text-align:left;font-size:11px;color:#888">TIME</th>
+            <th style="padding:6px 10px;text-align:center;font-size:11px;color:#888">HRS</th>
+            <th style="padding:6px 10px;text-align:right;font-size:11px;color:#888">REVENUE</th>
+          </tr>
+        </thead>
+        <tbody>${sessionRows}</tbody>
+      </table>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button onclick="copyEnrollmentSummary(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,invoiceRef,payDate,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⎘ ${lang==='th'?'คัดลอก':'Copy'}</button>
+        <button onclick="downloadEnrollmentPDF(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,invoiceRef,payDate,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⬇ PDF</button>
+        <button onclick="this.closest('[style*=fixed]').remove()" class="btn btn-primary">Done</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function copyEnrollmentSummary(data) {
+  const { studentName, subject, tutor, sessions, feePerHr, tutorRate, commTo, invoiceRef, payDate, courseId } = data;
+  const commRate = commTo !== 'none' ? 0.05 : 0;
+  let lines = [
+    `📚 NEW ENROLLMENT — ${courseId}`,
+    `Student: ${studentName}`,
+    `Subject: ${subject}`,
+    `Tutor: ${tutor}`,
+    `Fee/hr: ฿${fmt(feePerHr)}`,
+    `Tutor rate/hr: ฿${fmt(tutorRate)}`,
+    `Commission: ${commTo === 'none' ? 'None' : `${commTo} (5%)`}`,
+    invoiceRef ? `Invoice: ${invoiceRef}` : '',
+    payDate ? `Payment date: ${payDate}` : '',
+    '',
+    '📅 SCHEDULE',
+    '#\tDate\tTime\tHours\tRevenue',
+  ];
+  sessions.forEach((s,i) => {
+    const timeStr = s.start_time && s.end_time ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}` : s.start_time || '—';
+    const rev = feePerHr * s.hours;
+    lines.push(`${i+1}\t${s.date}\t${timeStr}\t${s.hours}\t฿${fmt(rev)}`);
+  });
+  const totalRev = sessions.reduce((sum,s)=>sum+feePerHr*s.hours,0);
+  lines.push('', `Total revenue: ฿${fmt(totalRev)}`);
+  const text = lines.filter(l=>l!==null).join('\n');
+  navigator.clipboard.writeText(text).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+  });
+  showToast(lang==='th'?'✓ คัดลอกแล้ว':'✓ Copied to clipboard');
+}
+
+function downloadEnrollmentPDF(data) {
+  const { studentName, subject, tutor, sessions, feePerHr, tutorRate, commTo, invoiceRef, payDate, courseId } = data;
+  const commRate = commTo !== 'none' ? 0.05 : 0;
+  const rows = sessions.map((s,i) => {
+    const timeStr = s.start_time && s.end_time ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}` : s.start_time || '—';
+    const rev = feePerHr * s.hours;
+    const tutorPay = tutorRate * s.hours;
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 10px">${i+1}</td>
+      <td style="padding:8px 10px">${s.date}</td>
+      <td style="padding:8px 10px">${timeStr}</td>
+      <td style="padding:8px 10px;text-align:center">${s.hours}</td>
+      <td style="padding:8px 10px;text-align:right">฿${fmt(tutorPay)}</td>
+    </tr>`;
+  }).join('');
+  const totalPay = sessions.reduce((sum,s)=>sum+tutorRate*s.hours,0);
+  const vat = 0; // P'Pop exempt, others 3%
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>${studentName} — ${subject}</title>
+    <style>body{font-family:sans-serif;font-size:13px;padding:32px;max-width:700px;margin:0 auto}
+    h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 24px}
+    table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid #eee}
+    .summary{margin-top:20px;padding:14px;background:#f7f6f3;border-radius:8px;display:flex;gap:32px}
+    .summary div label{font-size:11px;color:#888;display:block}
+    .summary div strong{font-size:17px;display:block;margin-top:2px}
+    @media print{body{padding:16px}}</style></head><body>
+    <h1>Poppadi's Studyo — ${lang==='th'?'ตารางสอน':'Teaching Schedule'}</h1>
+    <h2>${studentName} · ${subject} · ${tutor}${invoiceRef?' · '+invoiceRef:''}</h2>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Date</th><th>Time</th><th style="text-align:center">Hrs</th><th style="text-align:right">Tutor pay</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="summary">
+      <div><label>Total tutor pay</label><strong>฿${fmt(totalPay)}</strong></div>
+      <div><label>Sessions</label><strong>${sessions.length}</strong></div>
+    </div>
+    <p style="margin-top:16px;font-size:11px;color:#aaa">Generated ${new Date().toLocaleString()} · Poppadi's Studyo · Confidential — for tutor use only</p>
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+  const blob = new Blob([html],{type:'text/html'});
+  window.open(URL.createObjectURL(blob),'_blank');
+  showToast(lang==='th'?'✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก':'✓ PDF opened — press Print to save');
 }
 
 // ─── DOWNLOAD SCHEDULE PDF ────────────────────────────────
