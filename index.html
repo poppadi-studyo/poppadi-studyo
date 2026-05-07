@@ -855,7 +855,7 @@
           <div class="form-row">
             <div class="form-group">
               <label data-en="Student name" data-th="ชื่อนักเรียน">Student name</label>
-              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. N'Boss">
+              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. น้อง Boss">
               <datalist id="student-list"></datalist>
             </div>
             <div class="form-group">
@@ -2759,6 +2759,9 @@ function showPage(id, btn) {
     populateEnrollTutors();
     populateStudentDatalist();
     setEnrollType(enrollType || 'new');
+    // Set default fee if empty
+    const feeInput = document.getElementById('enroll-fee');
+    if (feeInput && !feeInput.value) feeInput.value = 1100;
   }
 }
 
@@ -2792,20 +2795,34 @@ const TUTOR_TIERS = {
 };
 
 function suggestTutorRate() {
-  const tutorId = document.getElementById('enroll-tutor').value;
-  const numStudents = parseInt(document.getElementById('enroll-num').value) || 1;
+  const tutorId = document.getElementById('enroll-tutor')?.value;
+  const numStudents = parseInt(document.getElementById('enroll-num')?.value) || 1;
+  const rateInput = document.getElementById('enroll-rate');
+  const feeInput  = document.getElementById('enroll-fee');
+  const hint      = document.getElementById('rate-hint');
+
+  // ── Auto-fill fee per hour — default ฿1,100, still editable ─
+  if (feeInput && !feeInput.value) {
+    feeInput.value = 1100;
+    feeInput.style.borderColor = '';
+  }
+
+  // ── Auto-suggest tutor rate ───────────────────────────────
+  if (!tutorId || !rateInput) return;
   const tier = TUTOR_TIERS[tutorId];
   if (!tier) return;
   const suggested = tier.base + (numStudents - 1) * tier.extra;
-  const rateInput = document.getElementById('enroll-rate');
   rateInput.value = suggested;
   rateInput.style.borderColor = 'var(--teal)';
-  const hint = document.getElementById('rate-hint');
+
   if (hint) {
     hint.textContent = numStudents > 1
-      ? `Base ฿${tier.base} + ${numStudents-1} extra student${numStudents>2?'s':''} × ฿${tier.extra} = ฿${suggested}/hr`
+      ? `Base ฿${tier.base} + ${numStudents-1} extra × ฿${tier.extra} = ฿${suggested}/hr`
       : `Base rate for 1 student = ฿${suggested}/hr`;
   }
+
+  updateEnrollPreview();
+  if (typeof updateGroupRateHint === 'function') updateGroupRateHint();
 }
 
 // ─── JANE COMMISSION TIER ─────────────────────────────────
