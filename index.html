@@ -985,23 +985,40 @@ async function webAppWrite(action, payload) {
   return data;
 }
 
+// ─── WEB APP SETTINGS (PIN protected) ────────────────────
+const SETTINGS_PIN = '2846'; // change this to your preferred PIN
+
 function openWebAppSettings() {
+  const pin = prompt(lang==='th'
+    ? '🔒 กรุณาใส่ PIN เพื่อเข้าถึงการตั้งค่า Web App:'
+    : '🔒 Enter PIN to access Web App settings:'
+  );
+  if (pin === null) return; // cancelled
+  if (pin !== SETTINGS_PIN) {
+    alert(lang==='th' ? '❌ PIN ไม่ถูกต้อง' : '❌ Incorrect PIN');
+    return;
+  }
   const current = localStorage.getItem('poppadi_webapp_url') || '';
   const msg = current
     ? `Current Web App URL:\n${current}\n\nPaste a new URL to update, or cancel to keep current:`
-    : `Paste your Google Apps Script Web App URL below:\n\n(Get it from: Google Sheet → Extensions → Apps Script → Deploy → Manage deployments)`;
+    : `Paste your Google Apps Script Web App URL below:\n\n(Google Sheet → Extensions → Apps Script → Deploy → Manage deployments)`;
   const url = prompt(msg, current);
-  if (url === null) return; // cancelled
+  if (url === null) return;
   if (url && url.includes('script.google.com')) {
     WEB_APP_URL = url.trim();
     localStorage.setItem('poppadi_webapp_url', WEB_APP_URL);
-    showToast('✅ Web App URL saved! All writes now go directly to Google Sheet.');
+    updateWebAppStatus();
+    showToast(lang==='th' ? '✅ บันทึก Web App URL แล้ว' : '✅ Web App URL saved!');
   } else if (url === '') {
     localStorage.removeItem('poppadi_webapp_url');
     WEB_APP_URL = '';
-    showToast('⚠️ Web App URL cleared.');
-  } else {
-    alert('That doesn\'t look like a valid Apps Script URL. It should start with:\nhttps://script.google.com/macros/s/...');
+    updateWebAppStatus();
+    showToast(lang==='th' ? '⚠️ ลบ Web App URL แล้ว' : '⚠️ Web App URL cleared.');
+  } else if (url) {
+    alert(lang==='th'
+      ? 'URL ไม่ถูกต้อง ต้องขึ้นต้นด้วย:\nhttps://script.google.com/macros/s/...'
+      : 'Invalid URL. It should start with:\nhttps://script.google.com/macros/s/...'
+    );
   }
 }
 
@@ -2352,21 +2369,7 @@ function renderFallback() {
 }
 
 // ─── PAGE MEMORY (persist on refresh) ────────────────────
-function showPage(id, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  if (btn) btn.classList.add('active');
-  else document.querySelectorAll('.nav-item').forEach(b => { if (b.textContent.toLowerCase().includes(id)) b.classList.add('active'); });
-  localStorage.setItem('poppadi_page', id);
-}
-
-function restorePage() {
-  const saved = localStorage.getItem('poppadi_page');
-  if (saved && document.getElementById('page-'+saved)) {
-    showPage(saved);
-  }
-}
+// restorePage is handled in onAppReady
 
 // ─── TIME FORMATTING ──────────────────────────────────────
 function formatTime(t) {
@@ -2749,6 +2752,14 @@ function showPage(id, btn) {
   if (btn) btn.classList.add('active');
   else document.querySelectorAll('.nav-item').forEach(b => { if (b.textContent.toLowerCase().includes(id)) b.classList.add('active'); });
   localStorage.setItem('poppadi_page', id);
+  // Initialize enrollment form whenever navigating to it
+  if (id === 'enroll') {
+    const tbody = document.getElementById('enroll-schedule-body');
+    if (tbody && tbody.children.length === 0) initScheduleBody();
+    populateEnrollTutors();
+    populateStudentDatalist();
+    setEnrollType(enrollType || 'new');
+  }
 }
 
 // ─── LANGUAGE ─────────────────────────────────────────────
