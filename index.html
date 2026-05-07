@@ -474,6 +474,7 @@
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <select id="month-picker" onchange="changeMonth(this.value)" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif"></select>
+          <button class="btn btn-sm" onclick="showMonthlySummary()" data-en="📊 Monthly summary" data-th="📊 สรุปรายเดือน">📊 Monthly summary</button>
           <button class="refresh-btn" onclick="loadAllData()">↻ Refresh</button>
         </div>
       </div>
@@ -854,9 +855,10 @@
         <div id="enroll-single-student">
           <div class="form-row">
             <div class="form-group">
-              <label data-en="Student name" data-th="ชื่อนักเรียน">Student name</label>
-              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. N'Boss">
+              <label data-en="Nickname" data-th="ชื่อเล่น">Nickname <span style="color:var(--red);font-size:11px">*</span></label>
+              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. N'Boss" oninput="onStudentNicknameInput()">
               <datalist id="student-list"></datalist>
+              <div id="student-match-hint" style="font-size:11px;color:var(--teal);margin-top:3px"></div>
             </div>
             <div class="form-group">
               <label data-en="Payment status" data-th="สถานะการชำระ">Payment status</label>
@@ -864,6 +866,25 @@
                 <option value="Paid" data-en="Paid ✅" data-th="ชำระแล้ว ✅">Paid ✅</option>
                 <option value="Pending" data-en="Payment Pending ⏳" data-th="รอการชำระ ⏳">Payment Pending ⏳</option>
               </select>
+            </div>
+          </div>
+          <div id="enroll-new-student-fields" style="display:none">
+            <div style="font-size:12px;color:var(--teal);margin-bottom:8px;padding:6px 10px;background:var(--teal-bg);border-radius:6px">
+              ✨ <span data-en="New student — fill in their details below" data-th="นักเรียนใหม่ — กรอกข้อมูลด้านล่าง">New student — fill in their details below</span>
+            </div>
+            <div class="form-row three">
+              <div class="form-group">
+                <label data-en="Full name" data-th="ชื่อเต็ม">Full name</label>
+                <input type="text" id="enroll-fullname" placeholder="e.g. Somchai Rakruen">
+              </div>
+              <div class="form-group">
+                <label data-en="Phone / LINE" data-th="เบอร์โทร / LINE">Phone / LINE</label>
+                <input type="text" id="enroll-phone" placeholder="e.g. 08x-xxx-xxxx">
+              </div>
+              <div class="form-group">
+                <label data-en="Notes" data-th="หมายเหตุ">Notes</label>
+                <input type="text" id="enroll-notes" placeholder="e.g. parent contact, referral">
+              </div>
             </div>
           </div>
         </div>
@@ -908,7 +929,7 @@
           <div class="form-group">
             <label data-en="Commission to?" data-th="คอมมิชชั่นให้ใคร?">Commission to?</label>
             <select id="enroll-jane">
-              <option value="none" data-en="None" data-th="ไม่มี">None</option>
+              <option value="none" data-en="None" data-th="ไม่มี" selected>None</option>
               <option value="ppop" data-en="P'Pop (5%)" data-th="พี่ป๊อป (5%)">P'Pop (5%)</option>
               <option value="jane" data-en="Jane (5%)" data-th="เจน (5%)">Jane (5%)</option>
               <option value="eye" data-en="N'Eye (5%)" data-th="น้องอาย (5%)">N'Eye (5%)</option>
@@ -949,9 +970,38 @@
             <tbody id="enroll-schedule-body"></tbody>
           </table>
         </div>
+        <div style="margin-top:8px">
+          <button class="btn btn-sm" onclick="addScheduleRow()" style="width:100%;padding:8px;border:2px dashed var(--border-strong);background:transparent;color:var(--text2);border-radius:8px;cursor:pointer;font-size:13px">
+            + <span data-en="Add row" data-th="เพิ่มแถว">Add row</span>
+          </button>
+        </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
           <button class="btn" data-en="Save draft" data-th="บันทึกร่าง">Save draft</button>
           <button class="btn btn-primary" onclick="submitEnrollment()" data-en="Save & add to sheet ↗" data-th="บันทึกและเพิ่มลงชีต ↗">Save & add to sheet ↗</button>
+        </div>
+      </div>
+
+      <!-- PENDING PAYMENTS SECTION -->
+      <div class="card" id="pending-payments-section" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div class="card-title" style="margin:0;color:var(--amber)" data-en="⏳ Pending payments" data-th="⏳ รอการชำระเงิน">⏳ Pending payments</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px" data-en="These enrollments are awaiting payment confirmation" data-th="รายการเหล่านี้รอการยืนยันการชำระเงิน">These enrollments are awaiting payment confirmation</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th data-en="Student" data-th="นักเรียน">Student</th>
+              <th data-en="Subject" data-th="วิชา">Subject</th>
+              <th data-en="Tutor" data-th="ครู">Tutor</th>
+              <th data-en="Invoice" data-th="ใบแจ้งหนี้">Invoice</th>
+              <th data-en="Hrs" data-th="ชม.">Hrs</th>
+              <th data-en="Fee/hr" data-th="ค่าเรียน/ชม.">Fee/hr</th>
+              <th data-en="Action" data-th="การดำเนินการ">Action</th>
+            </tr></thead>
+            <tbody id="pending-payments-body"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -2028,7 +2078,78 @@ function updateEnrollPreview() {
   }
 }
 
-// ─── POPULATE STUDENT DATALIST ────────────────────────────
+// ─── STUDENT NICKNAME SMART DETECTION ────────────────────
+function onStudentNicknameInput() {
+  const val = document.getElementById('enroll-student')?.value.trim();
+  const hint = document.getElementById('student-match-hint');
+  const newFields = document.getElementById('enroll-new-student-fields');
+  if (!val) {
+    if (hint) hint.textContent = '';
+    if (newFields) newFields.style.display = 'none';
+    return;
+  }
+  // Check if student already exists
+  const existing = DATA.students.find(s =>
+    (s.nickname||'').toLowerCase() === val.toLowerCase() ||
+    (s.full_name||'').toLowerCase() === val.toLowerCase()
+  );
+  if (existing) {
+    if (hint) hint.textContent = `✓ ${lang==='th'?'พบนักเรียนเดิม':'Existing student found'}: ${existing.nickname} (${existing.student_id})`;
+    if (newFields) newFields.style.display = 'none';
+  } else {
+    if (hint) hint.textContent = lang==='th' ? '✨ นักเรียนใหม่ — จะสร้าง ID ใหม่อัตโนมัติ' : '✨ New student — a new ID will be created automatically';
+    if (newFields) newFields.style.display = 'block';
+  }
+}
+
+// ─── PENDING PAYMENTS SECTION ────────────────────────────
+function renderPendingPayments() {
+  const pending = DATA.courses.filter(c => (c.payment_status||'Paid') === 'Pending');
+  const section = document.getElementById('pending-payments-section');
+  const body    = document.getElementById('pending-payments-body');
+  if (!section || !body) return;
+
+  if (!pending.length) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  body.innerHTML = pending.map(course => {
+    const student = DATA.students.find(s => s.student_id === course.student_id);
+    const tutor   = getTutor(course.tutor_id);
+    const name    = student?.nickname || course.student_name || course.student_id;
+    return `<tr>
+      <td>${name}</td>
+      <td>${course.subject||'—'}</td>
+      <td>${tutor.name||course.tutor_id}</td>
+      <td>${course.invoice_ref||'—'}</td>
+      <td>${course.total_paid_hrs||'—'}</td>
+      <td>฿${fmt(course.fee_per_hr)}</td>
+      <td>
+        <button class="btn btn-sm" onclick="confirmPayment('${course.course_id}')" style="color:var(--teal)">
+          ✅ ${lang==='th'?'ยืนยันการชำระ':'Confirm paid'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function confirmPayment(courseId) {
+  if (!confirm(lang==='th' ? 'ยืนยันว่าได้รับการชำระเงินแล้ว?' : 'Confirm payment received?')) return;
+  try {
+    await webAppWrite('updateCourseStatus', { courseId, paymentStatus: 'Paid' });
+    const course = DATA.courses.find(c => c.course_id === courseId);
+    if (course) course.payment_status = 'Paid';
+    renderPendingPayments();
+    renderStudents();
+    showToast(lang==='th' ? '✅ อัปเดตสถานะการชำระแล้ว' : '✅ Payment confirmed');
+  } catch(e) {
+    if (e.message.includes('Web App URL')) return;
+    showToast('❌ ' + e.message);
+  }
+}
+
 function populateStudentDatalist() {
   const dl = document.getElementById('student-list');
   if (!dl) return;
@@ -2683,7 +2804,172 @@ function renderCalendar() {
   }
 }
 
-// ─── EXPENSE WRITE TO SHEET ───────────────────────────────
+// ─── MONTHLY SUMMARY MODAL ────────────────────────────────
+function showMonthlySummary() {
+  const monthSessions = filterByMonth(DATA.sessions, 'date')
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
+  const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
+  const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
+
+  // ── Totals ───────────────────────────────────────────────
+  const totalRevenue   = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
+  const totalTutorPay  = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+  const totalCommission= monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
+  const totalExpenses  = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const schoolRemainder= totalRevenue - totalTutorPay - totalCommission;
+  const profitShare    = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const netSchool      = schoolRemainder - totalExpenses - profitShare;
+
+  // ── Per-tutor breakdown ──────────────────────────────────
+  const tutorBreakdown = DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
+    const sessions = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
+    if (!sessions.length) return null;
+    const pay  = sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+    const wht  = tutor.tutor_id !== 'T001' ? pay*0.03 : 0; // P'Pop exempt
+    const net  = pay - wht;
+    const hrs  = sessions.reduce((s,x)=>s+Number(x.hours||0),0);
+    const color= COLOR_MAP[tutor.color]||'#888';
+    return { tutor, pay, wht, net, hrs, color };
+  }).filter(Boolean);
+
+  // ── Commission breakdown ─────────────────────────────────
+  const commBreakdown = {};
+  monthSessions.forEach(s => {
+    const who = s.commission_who || s.commission_to || 'none';
+    if (who === 'none' || !who) return;
+    if (!commBreakdown[who]) commBreakdown[who] = 0;
+    commBreakdown[who] += Number(s.commission_amt||0);
+  });
+
+  // ── WHT on commission ────────────────────────────────────
+  const commRows = Object.entries(commBreakdown).map(([who, amt]) => {
+    const wht = amt * 0.03;
+    const net = amt - wht;
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 10px;font-weight:500">${who}</td>
+      <td style="padding:8px 10px;text-align:right">฿${fmt(amt)}</td>
+      <td style="padding:8px 10px;text-align:right;color:#E24B4A">฿${fmt(wht)}</td>
+      <td style="padding:8px 10px;text-align:right;color:#1D9E75;font-weight:500">฿${fmt(net)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="4" style="padding:8px 10px;color:#aaa;text-align:center">No commission this month</td></tr>`;
+
+  // ── Tutor rows ───────────────────────────────────────────
+  const tutorRows = tutorBreakdown.map(({tutor,pay,wht,net,hrs,color}) =>
+    `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 10px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:6px"></span>${tutor.name}</td>
+      <td style="padding:8px 10px;text-align:center">${hrs}</td>
+      <td style="padding:8px 10px;text-align:right">฿${fmt(pay)}</td>
+      <td style="padding:8px 10px;text-align:right;color:#E24B4A">${tutor.tutor_id==='T001'?'Exempt':'฿'+fmt(wht)}</td>
+      <td style="padding:8px 10px;text-align:right;color:#1D9E75;font-weight:500">฿${fmt(net)}</td>
+    </tr>`
+  ).join('');
+
+  // ── Total WHT ────────────────────────────────────────────
+  const totalWHT     = tutorBreakdown.reduce((s,x)=>s+x.wht,0)
+                     + Object.values(commBreakdown).reduce((s,x)=>s+x*0.03,0);
+  const totalNetPay  = tutorBreakdown.reduce((s,x)=>s+x.net,0);
+  const totalNetComm = Object.values(commBreakdown).reduce((s,x)=>s+x*0.97,0);
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:780px;width:100%;max-height:92vh;overflow-y:auto;font-family:'DM Sans',sans-serif">
+
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px">
+        <div>
+          <div style="font-size:20px;font-weight:700">📊 Monthly Summary</div>
+          <div style="font-size:14px;color:#888;margin-top:2px">${monthStr}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="downloadMonthlySummaryPDF()" style="font-size:12px;padding:7px 14px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:#fff">⬇ PDF</button>
+          <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1">✕</button>
+        </div>
+      </div>
+
+      <!-- Top metrics -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+        ${[
+          ['Total revenue','รายได้รวม', totalRevenue, '#1D9E75'],
+          ['Tutor payouts','ค่าสอนรวม', totalTutorPay, '#333'],
+          ['Commission','คอมมิชชั่นรวม', totalCommission, '#333'],
+          ['Fixed expenses','ค่าใช้จ่ายคงที่', totalExpenses, '#E24B4A'],
+          ['School remainder','คงเหลือโรงเรียน', schoolRemainder, '#333'],
+          ["P'Pop 20% share","ส่วนแบ่ง 20%", profitShare, '#378ADD'],
+          ['Total WHT 3%','ภาษีหัก ณ ที่จ่าย 3%', totalWHT, '#E24B4A'],
+          ['Net to school','รายได้สุทธิ', netSchool, '#1D9E75'],
+          ['Sessions taught','คาบที่สอน', monthSessions.length, '#333'],
+        ].map(([en,th,val,color])=>`
+          <div style="background:#f7f6f3;border-radius:10px;padding:12px 14px">
+            <div style="font-size:10px;color:#888;text-transform:uppercase">${lang==='th'?th:en}</div>
+            <div style="font-size:18px;font-weight:600;color:${color};margin-top:3px">${typeof val==='number'&&val>99?'฿'+fmt(val):val}</div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Tutor breakdown -->
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">Tutor payouts with WHT 3%</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
+        <thead><tr style="border-bottom:2px solid #eee">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">TUTOR</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;color:#888">HRS</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">GROSS PAY</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">WHT 3%</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">NET TRANSFER</th>
+        </tr></thead>
+        <tbody>${tutorRows}</tbody>
+        <tfoot><tr style="border-top:2px solid #eee;font-weight:600;background:#f7f6f3">
+          <td style="padding:8px 10px">Total</td>
+          <td style="padding:8px 10px;text-align:center">${tutorBreakdown.reduce((s,x)=>s+x.hrs,0)}</td>
+          <td style="padding:8px 10px;text-align:right">฿${fmt(totalTutorPay)}</td>
+          <td style="padding:8px 10px;text-align:right;color:#E24B4A">฿${fmt(tutorBreakdown.reduce((s,x)=>s+x.wht,0))}</td>
+          <td style="padding:8px 10px;text-align:right;color:#1D9E75">฿${fmt(totalNetPay)}</td>
+        </tr></tfoot>
+      </table>
+
+      <!-- Commission breakdown -->
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">Commission breakdown with WHT 3%</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
+        <thead><tr style="border-bottom:2px solid #eee">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">RECIPIENT</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">GROSS</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">WHT 3%</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">NET</th>
+        </tr></thead>
+        <tbody>${commRows}</tbody>
+        <tfoot><tr style="border-top:2px solid #eee;font-weight:600;background:#f7f6f3">
+          <td style="padding:8px 10px">Total</td>
+          <td style="padding:8px 10px;text-align:right">฿${fmt(totalCommission)}</td>
+          <td style="padding:8px 10px;text-align:right;color:#E24B4A">฿${fmt(Object.values(commBreakdown).reduce((s,x)=>s+x*0.03,0))}</td>
+          <td style="padding:8px 10px;text-align:right;color:#1D9E75">฿${fmt(totalNetComm)}</td>
+        </tr></tfoot>
+      </table>
+
+      <!-- Footer note -->
+      <div style="font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px">
+        WHT = Withholding Tax 3% deducted from all tutor payouts and commission transfers. P'Pop's tutor pay is exempt (owner). Generated ${new Date().toLocaleString()}.
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  // Store data for PDF download
+  modal._summaryData = { monthStr, totalRevenue, totalTutorPay, totalCommission,
+    totalExpenses, schoolRemainder, profitShare, totalWHT, netSchool,
+    tutorBreakdown, commBreakdown, monthSessions };
+}
+
+function downloadMonthlySummaryPDF() {
+  // Trigger browser print on the modal content
+  const modal = document.querySelector('[style*="position:fixed"]');
+  if (!modal) return;
+  const content = modal.querySelector('div');
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>body{font-family:sans-serif;font-size:13px;padding:24px;max-width:780px;margin:0 auto}
+    table{width:100%;border-collapse:collapse}th,td{padding:8px 10px}
+    @media print{body{padding:8px}}</style></head><body>`);
+  win.document.write(content.innerHTML);
+  win.document.write(`<script>window.onload=()=>window.print()<\/script></body></html>`);
+  win.document.close();
+}
 async function addExpense() {
   const name = document.getElementById('new-expense-name').value.trim();
   const amt  = document.getElementById('new-expense-amt').value.trim();
@@ -2764,6 +3050,7 @@ function showPage(id, btn) {
     populateEnrollTutors();
     populateStudentDatalist();
     populateSubjectDatalist();
+    renderPendingPayments();
     setEnrollType(enrollType || 'new');
     // Set default fee if empty
     const feeInput = document.getElementById('enroll-fee');
@@ -2859,7 +3146,7 @@ function makeSchedRowHTML(isFirst) {
   const defaultEnd = `${String(endH).padStart(2,'0')}:00`;
 
   const btn = isFirst
-    ? `<button class="btn btn-sm" onclick="addScheduleRow()">+ row</button>`
+    ? `<span></span>`
     : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button>`;
 
   return `
@@ -2984,9 +3271,16 @@ async function submitEnrollment() {
     return;
   }
 
-  // Find or create student_id
-  const student  = DATA.students.find(s => s.nickname === studentName || s.full_name === studentName);
-  const studentId = student?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
+  // Find or create student
+  const existingStudent = DATA.students.find(s =>
+    (s.nickname||'').toLowerCase() === studentName.toLowerCase() ||
+    (s.full_name||'').toLowerCase() === studentName.toLowerCase()
+  );
+  const isNewStudent = !existingStudent;
+  const studentId    = existingStudent?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
+  const fullName     = document.getElementById('enroll-fullname')?.value.trim() || '';
+  const phone        = document.getElementById('enroll-phone')?.value.trim()    || '';
+  const notes        = document.getElementById('enroll-notes')?.value.trim()    || '';
 
   // Collect schedule rows — handle both select (start) and input (end, date)
   const schedRows = document.querySelectorAll('#enroll-schedule-body tr');
@@ -3015,6 +3309,14 @@ async function submitEnrollment() {
   try {
     const tutor = getTutor(tutorId);
     const result = await webAppWrite('addEnrollment', {
+      student: {
+        student_id:   studentId,
+        nickname:     studentName,
+        full_name:    fullName,
+        phone,
+        notes,
+        is_new:       isNewStudent
+      },
       course: {
         student_id: studentId,
         student_name: studentName,
@@ -3058,6 +3360,7 @@ async function submitEnrollment() {
       document.getElementById('enroll-payment-status').value = 'Paid';
     initScheduleBody();
     await loadAllData();
+    renderPendingPayments();
 
   } catch(err) {
     if (err.message.includes('Web App URL')) return;
