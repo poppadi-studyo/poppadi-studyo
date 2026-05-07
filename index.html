@@ -700,6 +700,22 @@
       <!-- Course list -->
       <div id="students-list-view">
         <div class="card" style="padding:0">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <select id="student-filter-status" onchange="renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <option value="" data-en="All statuses" data-th="ทุกสถานะ">All statuses</option>
+              <option value="Active" data-en="Active" data-th="กำลังเรียน">Active</option>
+              <option value="Pending" data-en="Payment Pending ⏳" data-th="รอชำระ ⏳">Payment Pending ⏳</option>
+              <option value="Renewed-Invoiced" data-en="Renewed — Invoiced" data-th="ต่อแล้ว — ส่งใบแล้ว">Renewed — Invoiced</option>
+              <option value="Renewed-Pending" data-en="Renewed — Pending Invoice" data-th="ต่อแล้ว — รอส่งใบ">Renewed — Pending Invoice</option>
+              <option value="Graduated" data-en="Graduated 🎓" data-th="จบคอร์ส 🎓">Graduated 🎓</option>
+              <option value="Pending-Decision" data-en="Pending Decision" data-th="รอตัดสินใจ">Pending Decision</option>
+            </select>
+            <select id="student-filter-payment" onchange="renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <option value="" data-en="All payments" data-th="ทุกการชำระ">All payments</option>
+              <option value="Paid" data-en="Paid ✅" data-th="ชำระแล้ว ✅">Paid ✅</option>
+              <option value="Pending" data-en="Payment Pending ⏳" data-th="รอชำระ ⏳">Payment Pending ⏳</option>
+            </select>
+          </div>
           <div class="table-wrap">
             <table>
               <thead><tr>
@@ -707,10 +723,12 @@
                 <th data-en="Tutor" data-th="ครู">Tutor</th>
                 <th data-en="Subject" data-th="วิชา">Subject</th>
                 <th data-en="Block" data-th="บล็อก">Block</th>
+                <th data-en="Payment" data-th="การชำระ">Payment</th>
                 <th data-en="Paid hrs" data-th="ชม.ที่จ่าย">Paid hrs</th>
                 <th data-en="Taught" data-th="สอนแล้ว">Taught</th>
                 <th data-en="Remaining" data-th="คงเหลือ">Remaining</th>
                 <th data-en="Progress" data-th="ความคืบหน้า">Progress</th>
+                <th data-en="Lifecycle" data-th="สถานะ">Lifecycle</th>
                 <th data-en="Alert" data-th="แจ้งเตือน">Alert</th>
               </tr></thead>
               <tbody id="students-body"></tbody>
@@ -799,31 +817,93 @@
           <div class="page-sub" data-en="Add a new student course and agreed schedule" data-th="เพิ่มนักเรียนและตารางที่ตกลงไว้">Add a new student course and agreed schedule</div>
         </div>
       </div>
+
+      <!-- STEP 1: Enrollment type -->
       <div class="card">
-        <div class="card-title" data-en="Student & course details" data-th="รายละเอียดนักเรียนและคอร์ส">Student & course details</div>
+        <div class="card-title" data-en="Enrollment type" data-th="ประเภทการลงทะเบียน">Enrollment type</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--border-strong);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-new" onclick="setEnrollType('new')">
+            <input type="radio" name="enroll-type" value="new" checked style="display:none">
+            <span style="font-size:18px">✨</span>
+            <div><div style="font-weight:500" data-en="New student" data-th="นักเรียนใหม่">New student</div><div style="font-size:11px;color:var(--text3)" data-en="First course ever" data-th="คอร์สแรก">First course ever</div></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--border-strong);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-renew" onclick="setEnrollType('renew')">
+            <input type="radio" name="enroll-type" value="renew" style="display:none">
+            <span style="font-size:18px">🔄</span>
+            <div><div style="font-weight:500" data-en="Current — Renewed" data-th="นักเรียนเดิม — ต่อวิชาเดิม">Current — Renewed</div><div style="font-size:11px;color:var(--text3)" data-en="Same subject, new block" data-th="วิชาเดิม บล็อกใหม่">Same subject, new block</div></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--border-strong);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-newsubject" onclick="setEnrollType('newsubject')">
+            <input type="radio" name="enroll-type" value="newsubject" style="display:none">
+            <span style="font-size:18px">📚</span>
+            <div><div style="font-weight:500" data-en="Current — New subject" data-th="นักเรียนเดิม — วิชาใหม่">Current — New subject</div><div style="font-size:11px;color:var(--text3)" data-en="Different course" data-th="วิชาใหม่">Different course</div></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--border-strong);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-group" onclick="setEnrollType('group')">
+            <input type="radio" name="enroll-type" value="group" style="display:none">
+            <span style="font-size:18px">👥</span>
+            <div><div style="font-weight:500" data-en="Group course" data-th="คอร์สกลุ่ม">Group course</div><div style="font-size:11px;color:var(--text3)" data-en="Multiple students, one tutor" data-th="หลายคน ครูเดียว">Multiple students, one tutor</div></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- STEP 2: Course details -->
+      <div class="card">
+        <div class="card-title" data-en="Course details" data-th="รายละเอียดคอร์ส">Course details</div>
+
+        <!-- SINGLE STUDENT (default) -->
+        <div id="enroll-single-student">
+          <div class="form-row">
+            <div class="form-group">
+              <label data-en="Student name" data-th="ชื่อนักเรียน">Student name</label>
+              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. น้อง Boss">
+              <datalist id="student-list"></datalist>
+            </div>
+            <div class="form-group">
+              <label data-en="Payment status" data-th="สถานะการชำระ">Payment status</label>
+              <select id="enroll-payment-status" style="width:100%">
+                <option value="Paid" data-en="Paid ✅" data-th="ชำระแล้ว ✅">Paid ✅</option>
+                <option value="Pending" data-en="Payment Pending ⏳" data-th="รอการชำระ ⏳">Payment Pending ⏳</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROUP STUDENTS -->
+        <div id="enroll-group-students" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:13px;font-weight:500" data-en="Students in group" data-th="นักเรียนในกลุ่ม">Students in group</div>
+            <button class="btn btn-sm" onclick="addGroupStudentRow()">+ <span data-en="Add student" data-th="เพิ่มนักเรียน">Add student</span></button>
+          </div>
+          <div id="group-students-body">
+            <!-- rows added dynamically -->
+          </div>
+          <div id="group-rate-hint" style="margin-top:8px;font-size:12px;color:var(--teal);background:var(--teal-bg);padding:8px 12px;border-radius:8px;display:none"></div>
+        </div>
+
+        <div style="height:1px;background:var(--border);margin:16px 0"></div>
+
         <div class="form-row">
-          <div class="form-group"><label data-en="Student name" data-th="ชื่อนักเรียน">Student name</label><input type="text" id="enroll-student" placeholder="e.g. น้อง Boss"></div>
           <div class="form-group"><label data-en="Subject" data-th="วิชา">Subject</label><input type="text" id="enroll-subject" placeholder="e.g. IELTS"></div>
+          <div class="form-group">
+            <label data-en="Tutor" data-th="ครู">Tutor</label>
+            <select id="enroll-tutor" onchange="suggestTutorRate()"></select>
+          </div>
         </div>
         <div class="form-row three">
           <div class="form-group">
-            <label data-en="Tutor" data-th="ครู">Tutor</label>
-            <select id="enroll-tutor" onchange="suggestTutorRate()">
-              <option value="T001">P'Pop</option>
-              <option value="T002">P'Steven</option>
-              <option value="T003">Dr.Poon</option>
-              <option value="T004">AJ'Koi</option>
-              <option value="T005">AJ'Sumi</option>
-              <option value="T006">T'Noey</option>
-              <option value="T007">T'Nicha</option>
-            </select>
+            <label data-en="Total paid hours" data-th="ชั่วโมงที่จ่าย">Total paid hours</label>
+            <input type="number" id="enroll-hours" placeholder="e.g. 20">
           </div>
-          <div class="form-group"><label data-en="No. of students" data-th="จำนวนนักเรียน">No. of students</label><input type="number" id="enroll-num" placeholder="1" min="1" value="1" onchange="suggestTutorRate()"></div>
-          <div class="form-group"><label data-en="Total paid hours" data-th="จำนวนชั่วโมงที่จ่าย">Total paid hours</label><input type="number" id="enroll-hours" placeholder="e.g. 20"></div>
+          <div class="form-group">
+            <label data-en="Fee per hour (฿)" data-th="ค่าเรียน/ชม. (฿)">Fee per hour (฿) <span style="font-size:10px;color:var(--text3)" data-en="per student" data-th="ต่อคน">per student</span></label>
+            <input type="number" id="enroll-fee" placeholder="e.g. 700">
+          </div>
+          <div class="form-group">
+            <label data-en="Tutor rate per hour (฿)" data-th="ค่าสอน/ชม. (฿)">Tutor rate/hr (฿) <span style="color:var(--teal);font-size:10px" data-en="auto-suggested" data-th="แนะนำอัตโนมัติ">auto-suggested</span></label>
+            <input type="number" id="enroll-rate" placeholder="e.g. 650">
+            <div id="rate-hint" style="font-size:11px;color:var(--text3);margin-top:3px"></div>
+          </div>
         </div>
         <div class="form-row three">
-          <div class="form-group"><label data-en="Fee per hour (฿)" data-th="ค่าเรียน/ชม. (฿)">Fee per hour (฿)</label><input type="number" id="enroll-fee" placeholder="e.g. 950"></div>
-          <div class="form-group"><label data-en="Tutor rate per hour (฿)" data-th="ค่าสอนครู/ชม. (฿)">Tutor rate per hour (฿) <span style="color:var(--teal);font-size:10px" data-en="auto-suggested" data-th="แนะนำอัตโนมัติ">auto-suggested</span></label><input type="number" id="enroll-rate" placeholder="e.g. 650"><div id="rate-hint" style="font-size:11px;color:var(--text3);margin-top:3px"></div></div>
           <div class="form-group">
             <label data-en="Commission to?" data-th="คอมมิชชั่นให้ใคร?">Commission to?</label>
             <select id="enroll-jane">
@@ -833,22 +913,30 @@
               <option value="eye" data-en="N'Eye (5%)" data-th="น้องอาย (5%)">N'Eye (5%)</option>
             </select>
           </div>
+          <div class="form-group">
+            <label data-en="Invoice reference" data-th="เลขที่ใบแจ้งหนี้">Invoice reference</label>
+            <input type="text" id="enroll-invoice" placeholder="e.g. INV-2026-045">
+          </div>
+          <div class="form-group">
+            <label data-en="Payment received date" data-th="วันที่รับชำระ">Payment received date</label>
+            <input type="date" id="enroll-date">
+          </div>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label data-en="Invoice reference" data-th="เลขที่ใบแจ้งหนี้">Invoice reference</label><input type="text" id="enroll-invoice" placeholder="e.g. INV-2026-045"></div>
-          <div class="form-group"><label data-en="Payment received date" data-th="วันที่รับชำระ">Payment received date</label><input type="date" id="enroll-date"></div>
+
+        <!-- Revenue preview -->
+        <div id="enroll-preview" style="margin-top:12px;padding:12px 16px;background:var(--surface2);border-radius:10px;font-size:12px;display:none">
+          <div style="font-weight:500;margin-bottom:6px;color:var(--text2)" data-en="Revenue preview (per session)" data-th="ตัวอย่างรายได้ (ต่อคาบ)">Revenue preview (per session)</div>
+          <div id="enroll-preview-body" style="display:flex;gap:24px;flex-wrap:wrap"></div>
         </div>
       </div>
+
+      <!-- STEP 3: Schedule -->
       <div class="card">
         <div class="card-title" data-en="Agreed schedule" data-th="ตารางที่ตกลงไว้">Agreed schedule</div>
         <div class="table-wrap">
           <table style="table-layout:fixed;width:100%">
             <colgroup>
-              <col style="width:28%">
-              <col style="width:22%">
-              <col style="width:22%">
-              <col style="width:12%">
-              <col style="width:16%">
+              <col style="width:28%"><col style="width:22%"><col style="width:22%"><col style="width:12%"><col style="width:16%">
             </colgroup>
             <thead><tr>
               <th data-en="Date" data-th="วันที่">Date</th>
@@ -857,8 +945,7 @@
               <th data-en="Hours" data-th="ชั่วโมง">Hours</th>
               <th></th>
             </tr></thead>
-            <tbody id="enroll-schedule-body">
-            </tbody>
+            <tbody id="enroll-schedule-body"></tbody>
           </table>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
@@ -1791,33 +1878,279 @@ function downloadTutorExcel() {
   downloadTableAsCSV(tableId,`Poppadi_${tutorName}_${selectedMonth}.csv`);
 }
 
+// ─── ENROLLMENT TYPE ──────────────────────────────────────
+let enrollType = 'new';
+
+function setEnrollType(type) {
+  enrollType = type;
+  const types = ['new','renew','newsubject','group'];
+  types.forEach(t => {
+    const el = document.getElementById('etype-'+t);
+    if (el) el.style.border = t===type ? '2px solid var(--teal)' : '2px solid var(--border-strong)';
+  });
+  const isGroup = type === 'group';
+  document.getElementById('enroll-single-student').style.display = isGroup ? 'none' : 'block';
+  document.getElementById('enroll-group-students').style.display = isGroup ? 'block' : 'none';
+  if (isGroup && document.getElementById('group-students-body').children.length === 0) {
+    addGroupStudentRow();
+    addGroupStudentRow();
+  }
+  updateEnrollPreview();
+}
+
+// ─── GROUP STUDENT ROWS ───────────────────────────────────
+function addGroupStudentRow() {
+  const body = document.getElementById('group-students-body');
+  const idx  = body.children.length + 1;
+  const div  = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap';
+  div.innerHTML = `
+    <div style="flex:2;min-width:140px">
+      <input type="text" list="student-list" placeholder="${lang==='th'?'ชื่อนักเรียน':'Student name'} ${idx}" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif">
+    </div>
+    <div style="flex:1;min-width:100px">
+      <input type="number" placeholder="฿/hr" title="Fee per hour" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif" oninput="updateEnrollPreview()">
+    </div>
+    <div style="flex:1;min-width:120px">
+      <input type="text" placeholder="INV-ref" title="Invoice ref" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif">
+    </div>
+    <div style="min-width:130px">
+      <select title="Payment status" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif">
+        <option value="Paid">Paid ✅</option>
+        <option value="Pending">Pending ⏳</option>
+      </select>
+    </div>
+    <button onclick="this.closest('div').remove();updateGroupRateHint()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:4px">✕</button>`;
+  body.appendChild(div);
+  updateGroupRateHint();
+}
+
+function updateGroupRateHint() {
+  const count = document.getElementById('group-students-body').children.length;
+  const tutorId = document.getElementById('enroll-tutor').value;
+  const tutor = getTutor(tutorId);
+  const hint = document.getElementById('group-rate-hint');
+  if (!hint) return;
+  if (count > 0) {
+    const extra = Math.max(0, count - 1);
+    let base = 650;
+    if (tutorId === 'T001' || tutorId === 'T005') base = 700;
+    if (tutorId === 'T006' || tutorId === 'T007') base = 350;
+    const extraPer = (tutorId === 'T006' || tutorId === 'T007') ? 50 : 100;
+    const rate = base + extra * extraPer;
+    hint.style.display = 'block';
+    hint.textContent = `${count} ${lang==='th'?'คน':'students'} → ${lang==='th'?'ค่าสอนครู':'Tutor rate'}: ฿${base} + ฿${extraPer}×${extra} = ฿${rate}/hr`;
+    document.getElementById('enroll-rate').value = rate;
+  } else {
+    hint.style.display = 'none';
+  }
+  updateEnrollPreview();
+}
+
+// ─── REVENUE PREVIEW ──────────────────────────────────────
+function updateEnrollPreview() {
+  const preview = document.getElementById('enroll-preview');
+  const body    = document.getElementById('enroll-preview-body');
+  if (!preview || !body) return;
+  const hrs     = parseFloat(document.getElementById('enroll-hours')?.value) || 2;
+  const rate    = parseFloat(document.getElementById('enroll-rate')?.value)  || 0;
+  const commTo  = document.getElementById('enroll-jane')?.value || 'none';
+  const commRate= commTo !== 'none' ? 0.05 : 0;
+
+  if (enrollType === 'group') {
+    const rows = document.getElementById('group-students-body').children;
+    if (!rows.length) { preview.style.display='none'; return; }
+    let totalRev = 0;
+    Array.from(rows).forEach(row => {
+      const feeInput = row.querySelectorAll('input')[1];
+      totalRev += (parseFloat(feeInput?.value)||0) * hrs;
+    });
+    const tutorPay = rate * hrs;
+    const comm     = totalRev * commRate;
+    const school   = totalRev - tutorPay - comm;
+    preview.style.display = 'block';
+    body.innerHTML = `
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'รายได้รวม':'Total revenue'}</div><div style="font-weight:600;color:var(--teal)">฿${fmt(totalRev)}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'ค่าสอน':'Tutor pay'}</div><div style="font-weight:600">฿${fmt(tutorPay)}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'คอมมิชชั่น':'Commission'}</div><div style="font-weight:600">฿${fmt(comm)}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div><div style="font-weight:600">฿${fmt(school)}</div></div>`;
+  } else {
+    const fee = parseFloat(document.getElementById('enroll-fee')?.value) || 0;
+    if (!fee || !hrs) { preview.style.display='none'; return; }
+    const rev    = fee * hrs;
+    const tutorPay = rate * hrs;
+    const comm   = rev * commRate;
+    const school = rev - tutorPay - comm;
+    preview.style.display = 'block';
+    body.innerHTML = `
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'รายได้':'Revenue'}</div><div style="font-weight:600;color:var(--teal)">฿${fmt(rev)}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'ค่าสอน':'Tutor pay'}</div><div style="font-weight:600">฿${fmt(tutorPay)}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'คอมมิชชั่น':'Commission'}</div><div style="font-weight:600">฿${fmt(comm)}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div><div style="font-weight:600">฿${fmt(school)}</div></div>`;
+  }
+}
+
+// ─── POPULATE STUDENT DATALIST ────────────────────────────
+function populateStudentDatalist() {
+  const dl = document.getElementById('student-list');
+  if (!dl) return;
+  dl.innerHTML = DATA.students.map(s =>
+    `<option value="${s.nickname||s.full_name}">${s.nickname} (${s.student_id})</option>`
+  ).join('');
+}
+
+// ─── LIFECYCLE STATUS BADGE ───────────────────────────────
+function lifecycleBadge(status, courseId) {
+  const opts = [
+    {v:'Active',           en:'Active',                   th:'กำลังเรียน',        color:'var(--teal)'},
+    {v:'Renewed-Invoiced', en:'Renewed — Invoiced',       th:'ต่อแล้ว — ส่งใบแล้ว', color:'var(--blue)'},
+    {v:'Renewed-Pending',  en:'Renewed — Pending Invoice',th:'ต่อแล้ว — รอส่งใบ', color:'var(--amber)'},
+    {v:'Graduated',        en:'Graduated 🎓',              th:'จบคอร์ส 🎓',         color:'var(--text3)'},
+    {v:'Pending-Decision', en:'Pending Decision',          th:'รอตัดสินใจ',        color:'var(--amber)'},
+  ];
+  return `<select onchange="updateCourseLifecycle('${courseId}',this.value)" onclick="event.stopPropagation()" style="font-size:11px;padding:3px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;max-width:160px">
+    ${opts.map(o=>`<option value="${o.v}" ${o.v===status?'selected':''}>${lang==='th'?o.th:o.en}</option>`).join('')}
+  </select>`;
+}
+
+async function updateCourseLifecycle(courseId, newStatus) {
+  try {
+    await webAppWrite('updateCourseStatus', { courseId, lifecycleStatus: newStatus });
+    const course = DATA.courses.find(c=>c.course_id===courseId);
+    if (course) course.lifecycle_status = newStatus;
+    showToast(lang==='th'?'✓ อัปเดตสถานะแล้ว':'✓ Status updated');
+  } catch(e) {
+    if (e.message.includes('Web App URL')) return;
+    showToast('❌ '+e.message);
+  }
+}
+
 // ─── STUDENTS ─────────────────────────────────────────────
 function renderStudents() {
   const body = document.getElementById('students-body');
   if (!DATA.courses.length) {
-    body.innerHTML=`<tr><td colspan="9" class="empty">${lang==='th'?'ยังไม่มีคอร์ส':'No courses yet — use New Enrollment to add one'}</td></tr>`;
+    body.innerHTML=`<tr><td colspan="11" class="empty">${lang==='th'?'ยังไม่มีคอร์ส':'No courses yet'}</td></tr>`;
     return;
   }
-  body.innerHTML = DATA.courses.map(course=>{
-    const student=DATA.students.find(s=>s.student_id===course.student_id);
-    const tutor=getTutor(course.tutor_id);
-    const color=COLOR_MAP[tutor.color]||'#888';
-    const paid=Number(course.total_paid_hrs||0);
-    const taught=DATA.sessions.filter(s=>s.course_id===course.course_id&&(s.status==='Completed'||s.status==='Makeup')).reduce((sum,s)=>sum+Number(s.hours||0),0);
-    const remaining=Math.max(0,paid-taught);
-    const pct=paid>0?Math.round((taught/paid)*100):0;
-    const progressClass=remaining<=2?'danger':remaining<=3?'warn':'';
-    const alertBadge=remaining<=2?`<span class="badge badge-alert-high">${lang==='th'?`เหลือ ${remaining} — ส่งใบ`:`${remaining} left — invoice`}</span>`:remaining<=3?`<span class="badge badge-alert-med">${lang==='th'?`เหลือ ${remaining} — เตรียม`:`${remaining} left — prepare`}</span>`:'—';
-    return `<tr style="cursor:pointer" onclick="openStudentDetail('${course.course_id}')" title="${lang==='th'?'คลิกเพื่อดูรายละเอียด':'Click to view details'}">
+
+  const statusFilter  = document.getElementById('student-filter-status')?.value  || '';
+  const paymentFilter = document.getElementById('student-filter-payment')?.value || '';
+
+  // Group courses by group_id (for group courses)
+  const groupMap = {};
+  const soloRows = [];
+
+  DATA.courses.forEach(course => {
+    if (course.group_id) {
+      if (!groupMap[course.group_id]) groupMap[course.group_id] = [];
+      groupMap[course.group_id].push(course);
+    } else {
+      soloRows.push(course);
+    }
+  });
+
+  let html = '';
+
+  // Render group rows
+  Object.entries(groupMap).forEach(([groupId, courses]) => {
+    const firstCourse = courses[0];
+    const tutor = getTutor(firstCourse.tutor_id);
+    const color = COLOR_MAP[tutor.color]||'#888';
+    const subject = firstCourse.subject||'—';
+    const anyPending = courses.some(c=>(c.payment_status||'Paid')==='Pending');
+    const groupBg = anyPending ? 'background:rgba(245,158,11,0.06)' : '';
+
+    html += `<tr style="cursor:pointer;${groupBg}" onclick="toggleGroup('${groupId}')">
+      <td colspan="3">
+        <span style="font-size:11px;margin-right:6px" id="group-arrow-${groupId}">▶</span>
+        <span class="dot" style="background:${color}"></span>
+        <strong>${subject}</strong>
+        <span style="font-size:11px;color:var(--text3);margin-left:8px">👥 ${lang==='th'?'กลุ่ม':'Group'} · ${courses.length} ${lang==='th'?'คน':'students'}</span>
+        ${anyPending?`<span style="font-size:11px;color:var(--amber);margin-left:8px">⏳ ${lang==='th'?'รอชำระบางคน':'Some pending'}</span>`:''}
+      </td>
+      <td>${tutor.name||firstCourse.tutor_id}</td>
+      <td>—</td>
+      <td>${courses.reduce((s,c)=>s+Number(c.total_paid_hrs||0),0)}</td>
+      <td colspan="5"></td>
+    </tr>`;
+
+    // Individual student rows inside group (hidden by default)
+    courses.forEach(course => {
+      const student = DATA.students.find(s=>s.student_id===course.student_id);
+      const paid = Number(course.total_paid_hrs||0);
+      const taught = DATA.sessions.filter(s=>s.course_id===course.course_id&&(s.status==='Completed'||s.status==='Makeup')).reduce((sum,s)=>sum+Number(s.hours||0),0);
+      const remaining = Math.max(0,paid-taught);
+      const pct = paid>0?Math.round((taught/paid)*100):0;
+      const isComplete = pct>=100;
+      const lifecycle = course.lifecycle_status||'Active';
+      const payStatus = course.payment_status||'Paid';
+      const needsAttention = isComplete && lifecycle==='Active';
+      const rowBg = needsAttention?'background:rgba(226,75,74,0.06)':payStatus==='Pending'?'background:rgba(245,158,11,0.06)':'';
+      const progressColor = needsAttention?'danger':remaining<=2?'danger':remaining<=3?'warn':'';
+      const alertBadge = needsAttention
+        ? `<span class="badge badge-alert-high">${lang==='th'?'🔴 ต้องดำเนินการ':'🔴 Needs attention'}</span>`
+        : remaining<=2?`<span class="badge badge-alert-high">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`
+        : remaining<=3?`<span class="badge badge-alert-med">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`:'—';
+
+      html += `<tr class="group-row-${groupId}" style="display:none;cursor:pointer;${rowBg}" onclick="openStudentDetail('${course.course_id}')">
+        <td style="padding-left:32px"><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_id}</td>
+        <td>${tutor.name||course.tutor_id}</td>
+        <td>${subject}</td>
+        <td>${course.block_number||1}</td>
+        <td>${payStatus==='Pending'?`<span style="color:var(--amber)">⏳ ${lang==='th'?'รอชำระ':'Pending'}</span>`:`<span style="color:var(--teal)">✅ ${lang==='th'?'ชำระแล้ว':'Paid'}</span>`}</td>
+        <td>${paid}</td><td>${taught}</td><td>${remaining}</td>
+        <td><div style="font-size:11px;color:${needsAttention?'var(--red)':'var(--text3)'}">${pct}%</div><div class="progress-wrap"><div class="progress-fill ${progressColor}" style="width:${pct}%"></div></div></td>
+        <td onclick="event.stopPropagation()">${lifecycleBadge(lifecycle,course.course_id)}</td>
+        <td>${alertBadge}</td>
+      </tr>`;
+    });
+  });
+
+  // Render solo rows
+  soloRows.forEach(course => {
+    const student = DATA.students.find(s=>s.student_id===course.student_id);
+    const tutor = getTutor(course.tutor_id);
+    const color = COLOR_MAP[tutor.color]||'#888';
+    const paid = Number(course.total_paid_hrs||0);
+    const taught = DATA.sessions.filter(s=>s.course_id===course.course_id&&(s.status==='Completed'||s.status==='Makeup')).reduce((sum,s)=>sum+Number(s.hours||0),0);
+    const remaining = Math.max(0,paid-taught);
+    const pct = paid>0?Math.round((taught/paid)*100):0;
+    const lifecycle = course.lifecycle_status||'Active';
+    const payStatus = course.payment_status||'Paid';
+    const needsAttention = pct>=100 && lifecycle==='Active';
+    const rowBg = needsAttention?'background:rgba(226,75,74,0.06)':payStatus==='Pending'?'background:rgba(245,158,11,0.06)':'';
+    const progressColor = needsAttention?'danger':remaining<=2?'danger':remaining<=3?'warn':'';
+    const alertBadge = needsAttention
+      ? `<span class="badge badge-alert-high">${lang==='th'?'🔴 ต้องดำเนินการ':'🔴 Needs attention'}</span>`
+      : remaining<=2?`<span class="badge badge-alert-high">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`
+      : remaining<=3?`<span class="badge badge-alert-med">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`:'—';
+
+    // Apply filters
+    if (statusFilter && lifecycle !== statusFilter && !(statusFilter==='Pending'&&payStatus==='Pending')) return;
+    if (paymentFilter && payStatus !== paymentFilter) return;
+
+    html += `<tr style="cursor:pointer;${rowBg}" onclick="openStudentDetail('${course.course_id}')">
       <td><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_id}</td>
       <td>${tutor.name||course.tutor_id}</td>
       <td>${course.subject||'—'}</td>
-      <td>${course.block_number||'1'}</td>
+      <td>${course.block_number||1}</td>
+      <td>${payStatus==='Pending'?`<span style="color:var(--amber)">⏳ ${lang==='th'?'รอชำระ':'Pending'}</span>`:`<span style="color:var(--teal)">✅ ${lang==='th'?'ชำระแล้ว':'Paid'}</span>`}</td>
       <td>${paid}</td><td>${taught}</td><td>${remaining}</td>
-      <td style="min-width:100px"><div style="font-size:11px;color:var(--text3)">${pct}%</div><div class="progress-wrap"><div class="progress-fill ${progressClass}" style="width:${pct}%"></div></div></td>
+      <td><div style="font-size:11px;color:${needsAttention?'var(--red)':'var(--text3)'}">${pct}%</div><div class="progress-wrap"><div class="progress-fill ${progressColor}" style="width:${pct}%"></div></div></td>
+      <td onclick="event.stopPropagation()">${lifecycleBadge(lifecycle,course.course_id)}</td>
       <td>${alertBadge}</td>
     </tr>`;
-  }).join('');
+  });
+
+  body.innerHTML = html || `<tr><td colspan="11" class="empty">${lang==='th'?'ไม่พบคอร์สที่ตรงกับตัวกรอง':'No courses match the selected filter'}</td></tr>`;
+}
+
+function toggleGroup(groupId) {
+  const rows = document.querySelectorAll(`.group-row-${groupId}`);
+  const arrow = document.getElementById(`group-arrow-${groupId}`);
+  const isHidden = rows[0]?.style.display === 'none';
+  rows.forEach(r => r.style.display = isHidden ? '' : 'none');
+  if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
 }
 
 // ─── STUDENT DETAIL VIEW ──────────────────────────────────
@@ -2740,6 +3073,13 @@ function onAppReady() {
     setTimeout(() => {
       suggestTutorRate();
       initScheduleBody();
+      populateStudentDatalist();
+      setEnrollType('new');
+      // Wire up preview updates
+      ['enroll-fee','enroll-hours','enroll-rate','enroll-jane'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateEnrollPreview);
+      });
     }, 100);
   });
 }
