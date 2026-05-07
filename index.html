@@ -753,6 +753,8 @@
           <div style="display:flex;gap:8px">
             <button onclick="copyStudentDetail()" class="btn btn-sm">⎘ <span data-en="Copy for LINE/email" data-th="คัดลอกสำหรับ LINE">Copy for LINE/email</span></button>
             <button onclick="downloadStudentExcel()" class="btn btn-sm">⬇ <span data-en="Download Excel" data-th="ดาวน์โหลด Excel">Download Excel</span></button>
+            <button onclick="downloadStudentPDFForTutor()" class="btn btn-sm">⬇ <span data-en="PDF for tutor" data-th="PDF สำหรับครู">PDF for tutor</span></button>
+            <button onclick="downloadStudentPDFForStudent()" class="btn btn-sm">⬇ <span data-en="PDF for student" data-th="PDF สำหรับนักเรียน">PDF for student</span></button>
           </div>
         </div>
 
@@ -2793,6 +2795,152 @@ function downloadStudentExcel() {
   downloadTableAsCSV('detail-sessions-table',`Poppadi_${student?.nickname||course.student_id}_Block${course.block_number||1}.csv`);
 }
 
+// ─── PDF FOR TUTOR (from student detail) ─────────────────
+// Shows: date, time, hrs, status — no revenue, no fees
+function downloadStudentPDFForTutor() {
+  const course   = currentDetailCourse;
+  if (!course) return;
+  const student  = DATA.students.find(s => s.student_id === course.student_id);
+  const tutor    = getTutor(course.tutor_id);
+  const sessions = DATA.sessions.filter(s => s.course_id === course.course_id)
+    .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
+
+  const rows = sessions.map((s,i) => {
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
+    const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
+    const tutorPay = s.status==='Completed'||s.status==='Makeup' ? `฿${fmt(s.tutor_pay)}` : '—';
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:7px 10px">${i+1}</td>
+      <td style="padding:7px 10px">${s.date||'—'}</td>
+      <td style="padding:7px 10px">${timeStr}</td>
+      <td style="padding:7px 10px;text-align:center">${s.hours||'—'}</td>
+      <td style="padding:7px 10px">${statusLabel}</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:500">${tutorPay}</td>
+    </tr>`;
+  }).join('');
+
+  const totalPay = sessions.filter(s=>s.status==='Completed'||s.status==='Makeup')
+    .reduce((sum,s)=>sum+Number(s.tutor_pay||0),0);
+  const vat = tutor.tutor_id !== 'T001' ? totalPay * 0.03 : 0;
+  const net = totalPay - vat;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${lang==='th'?'ตารางสอน':'Teaching Schedule'} — ${student?.nickname||course.student_id}</title>
+  <style>body{font-family:sans-serif;font-size:13px;padding:32px;max-width:700px;margin:0 auto}
+  h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 24px}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px;border-bottom:2px solid #eee}
+  .summary{margin-top:20px;padding:14px;background:#f7f6f3;border-radius:8px;display:flex;gap:32px}
+  .summary div label{font-size:11px;color:#888;display:block}
+  .summary div strong{font-size:17px;display:block;margin-top:2px}
+  .green{color:#1D9E75}footer{margin-top:20px;font-size:11px;color:#aaa}
+  @media print{body{padding:16px}}</style></head><body>
+  <h1>Poppadi's Studyo — ${lang==='th'?'ตารางสอน':'Teaching Schedule'}</h1>
+  <h2>${student?.nickname||course.student_id} · ${course.subject||'—'} · ${tutor.name||course.tutor_id} · Block ${course.block_number||1}</h2>
+  <table>
+    <thead><tr>
+      <th>#</th>
+      <th>${lang==='th'?'วันที่':'Date'}</th>
+      <th>${lang==='th'?'เวลา':'Time'}</th>
+      <th style="text-align:center">${lang==='th'?'ชม.':'Hrs'}</th>
+      <th>${lang==='th'?'สถานะ':'Status'}</th>
+      <th style="text-align:right">${lang==='th'?'ค่าสอน':'Tutor pay'}</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="summary">
+    <div><label>${lang==='th'?'ค่าสอนรวม':'Total tutor pay'}</label><strong>฿${fmt(totalPay)}</strong></div>
+    ${vat>0?`<div><label>WHT 3%</label><strong>฿${fmt(vat)}</strong></div>`:''}
+    <div><label>${lang==='th'?'ยอดโอน':'Net transfer'}</label><strong class="green">฿${fmt(net)}</strong></div>
+  </div>
+  <div class="footer">Generated ${new Date().toLocaleString()} · Poppadi's Studyo · ${lang==='th'?'เอกสารนี้ไม่รวมข้อมูลค่าเรียนของนักเรียน':'This document does not include student fee information'}</div>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url,'_blank');
+  if (!win) { const a=document.createElement('a');a.href=url;a.download=`Tutor_${student?.nickname||course.student_id}.html`;a.click(); }
+  showToast(lang==='th'?'✓ PDF สำหรับครู — กด Print เพื่อบันทึก':'✓ Tutor PDF — press Print to save');
+}
+
+// ─── PDF FOR STUDENT (from student detail) ────────────────
+// Shows: date, time, hrs, status — no revenue, no tutor pay
+function downloadStudentPDFForStudent() {
+  const course   = currentDetailCourse;
+  if (!course) return;
+  const student  = DATA.students.find(s => s.student_id === course.student_id);
+  const tutor    = getTutor(course.tutor_id);
+  const sessions = DATA.sessions.filter(s => s.course_id === course.course_id)
+    .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
+
+  const paid    = Number(course.total_paid_hrs||0);
+  const taught  = sessions.filter(s=>s.status==='Completed'||s.status==='Makeup')
+    .reduce((sum,s)=>sum+Number(s.hours||0),0);
+  const remaining = Math.max(0, paid - taught);
+
+  let sessionNum = 0;
+  const rows = sessions.map((s) => {
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
+    const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
+    if (s.status==='Completed'||s.status==='Makeup') sessionNum++;
+    const num = s.status==='Scheduled' ? '—' : String(sessionNum);
+    let hrsStudied = '—';
+    if (s.status==='Completed') hrsStudied = s.hours;
+    else if (s.status==='Makeup') hrsStudied = s.hours;
+    else if (s.status==='Missed'||s.status==='Cancelled') hrsStudied = '0';
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:7px 10px">${num}</td>
+      <td style="padding:7px 10px">${s.date||'—'}</td>
+      <td style="padding:7px 10px">${timeStr}</td>
+      <td style="padding:7px 10px;text-align:center">${s.hours||'—'}</td>
+      <td style="padding:7px 10px;text-align:center">${hrsStudied}</td>
+      <td style="padding:7px 10px">${statusLabel}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${lang==='th'?'สรุปการเรียน':'Course Summary'} — ${student?.nickname||course.student_id}</title>
+  <style>body{font-family:sans-serif;font-size:13px;padding:32px;max-width:700px;margin:0 auto}
+  h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 24px}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px;border-bottom:2px solid #eee}
+  .summary{margin-top:20px;padding:14px;background:#f7f6f3;border-radius:8px;display:flex;gap:32px;flex-wrap:wrap}
+  .summary div label{font-size:11px;color:#888;display:block}
+  .summary div strong{font-size:17px;display:block;margin-top:2px}
+  .green{color:#1D9E75}footer{margin-top:20px;font-size:11px;color:#aaa}
+  @media print{body{padding:16px}}</style></head><body>
+  <h1>Poppadi's Studyo — ${lang==='th'?'สรุปการเรียน':'Course Summary'}</h1>
+  <h2>${student?.nickname||course.student_id} · ${course.subject||'—'} · ${lang==='th'?'สอนโดย':'Taught by'} ${tutor.name||course.tutor_id} · Block ${course.block_number||1}</h2>
+  <table>
+    <thead><tr>
+      <th>#</th>
+      <th>${lang==='th'?'วันที่':'Date'}</th>
+      <th>${lang==='th'?'เวลา':'Time'}</th>
+      <th style="text-align:center">${lang==='th'?'ชม./คาบ':'Hrs/session'}</th>
+      <th style="text-align:center">${lang==='th'?'ชม.เรียน':'Hrs studied'}</th>
+      <th>${lang==='th'?'สถานะ':'Status'}</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="summary">
+    <div><label>${lang==='th'?'ชม.ที่ซื้อ':'Paid hours'}</label><strong>${paid}</strong></div>
+    <div><label>${lang==='th'?'ชม.ที่เรียนแล้ว':'Hours studied'}</label><strong>${taught}</strong></div>
+    <div><label>${lang==='th'?'ชม.คงเหลือ':'Remaining'}</label><strong class="green">${remaining}</strong></div>
+  </div>
+  <div class="footer">Generated ${new Date().toLocaleString()} · Poppadi's Studyo</div>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url,'_blank');
+  if (!win) { const a=document.createElement('a');a.href=url;a.download=`Student_${student?.nickname||course.student_id}.html`;a.click(); }
+  showToast(lang==='th'?'✓ PDF สำหรับนักเรียน — กด Print เพื่อบันทึก':'✓ Student PDF — press Print to save');
+}
+
 // ─── EXPENSES ─────────────────────────────────────────────
 function renderExpenses() {
   const body = document.getElementById('expenses-body');
@@ -3602,10 +3750,11 @@ function makeSchedRowHTML(isFirst) {
   const endTotalMins = h * 60 + m + defaultHrs * 60;
   const endH         = Math.floor(endTotalMins / 60) % 24;
   const endM         = endTotalMins % 60;
-  // Snap end to nearest :00 or :30
+  // Snap end to nearest :00 or :30, cap at 23:00
   const snappedM     = endM < 15 ? 0 : endM < 45 ? 30 : 0;
-  const snappedH     = endM >= 45 ? (endH + 1) % 24 : endH;
-  const defaultEnd   = `${String(snappedH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
+  const rawH         = endM >= 45 ? (endH + 1) % 24 : endH;
+  const capH         = rawH > 23 ? 23 : rawH;
+  const defaultEnd   = `${String(capH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
 
   const btn = isFirst
     ? `<span></span>`
@@ -3625,10 +3774,11 @@ function makeSchedRowHTML(isFirst) {
 
 function generateTimeOptions(selectedVal) {
   const options = [];
-  for (let h = 6; h <= 22; h++) {
+  for (let h = 6; h <= 23; h++) {
     for (let m of [0, 30]) {
+      if (h === 23 && m === 30) continue; // stop at 11:00 PM
       const val      = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-      const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      const displayH = h > 12 ? h - 12 : h === 12 ? 12 : h;
       const ampm     = h >= 12 ? 'PM' : 'AM';
       const label    = `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
       const sel      = val === selectedVal ? 'selected' : '';
@@ -3649,15 +3799,22 @@ function autoEndTime(startInput) {
   const startVal = startInput.value;
   const hrsVal   = parseFloat(hrsInput.value);
   if (!startVal || !hrsVal) return;
-  const [h, m]     = startVal.split(':').map(Number);
-  const totalMins  = h * 60 + m + Math.round(hrsVal * 60);
-  const endH       = Math.floor(totalMins / 60) % 24;
-  const endM       = totalMins % 60;
-  // Snap to nearest :00 or :30
-  const snappedM   = endM < 15 ? 0 : endM < 45 ? 30 : 0;
-  const snappedH   = endM >= 45 ? (endH + 1) % 24 : endH;
-  const endVal     = `${String(snappedH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
-  endSel.value     = endVal;
+  const [h, m]    = startVal.split(':').map(Number);
+  const totalMins = h * 60 + m + Math.round(hrsVal * 60);
+  const endH      = Math.floor(totalMins / 60) % 24;
+  const endM      = totalMins % 60;
+  // Snap to :00 or :30
+  const snappedM  = endM < 15 ? 0 : endM < 45 ? 30 : 0;
+  const snappedH  = endM >= 45 ? (endH + 1) % 24 : endH;
+  const endVal    = `${String(snappedH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
+  // Only set if the value exists in the dropdown
+  const exists = Array.from(endSel.options).some(o => o.value === endVal);
+  if (exists) {
+    endSel.value = endVal;
+  } else {
+    // Past 11PM — pick last available option
+    endSel.selectedIndex = endSel.options.length - 1;
+  }
   endSel.style.color       = 'var(--teal)';
   endSel.style.borderColor = 'var(--teal)';
 }
