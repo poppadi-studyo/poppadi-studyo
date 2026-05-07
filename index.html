@@ -977,7 +977,7 @@
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
           <button class="btn" data-en="Save draft" data-th="บันทึกร่าง">Save draft</button>
-          <button class="btn btn-primary" onclick="submitEnrollment()" data-en="Save & add to sheet ↗" data-th="บันทึกและเพิ่มลงชีต ↗">Save & add to sheet ↗</button>
+          <button class="btn btn-primary" id="enroll-save-btn" onclick="if(!isSaving){isSaving=true;submitEnrollment()}" data-en="Save & add to sheet ↗" data-th="บันทึกและเพิ่มลงชีต ↗">Save & add to sheet ↗</button>
         </div>
       </div>
 
@@ -2102,7 +2102,279 @@ function onStudentNicknameInput() {
   }
 }
 
-// ─── PENDING PAYMENTS SECTION ────────────────────────────
+// ─── SAVE WITH PROGRESS BAR ──────────────────────────────
+let isSaving = false;
+
+function setSaveProgress(pct, msg) {
+  const btn = document.getElementById('enroll-save-btn');
+  if (!btn) return;
+  btn.textContent = `⏳ ${pct}% — ${msg}`;
+  btn.style.opacity = '0.7';
+  btn.disabled = true;
+}
+
+function resetSaveBtn() {
+  const btn = document.getElementById('enroll-save-btn');
+  if (!btn) return;
+  btn.textContent = lang==='th' ? 'Save & add to sheet ↗' : 'Save & add to sheet ↗';
+  btn.style.opacity = '1';
+  btn.disabled = false;
+  isSaving = false;
+}
+
+// ─── PENDING PAYMENT DETAIL VIEW ─────────────────────────
+let editingCourse = null;
+
+function openPendingDetail(courseId) {
+  const course  = DATA.courses.find(c => c.course_id === courseId);
+  if (!course) return;
+  editingCourse = { ...course }; // clone for editing
+
+  const student  = DATA.students.find(s => s.student_id === course.student_id);
+  const tutor    = getTutor(course.tutor_id);
+  const sessions = DATA.sessions.filter(s => s.course_id === courseId)
+    .sort((a,b) => (parseSessionDate(a.date)||new Date(0)) - (parseSessionDate(b.date)||new Date(0)));
+
+  const modal = document.createElement('div');
+  modal.id = 'pending-detail-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  const sessionRows = sessions.map((s,i) => {
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const isLocked = s.status === 'Completed' || s.status === 'Makeup';
+    return `<tr>
+      <td style="padding:8px 10px">${i+1}</td>
+      <td style="padding:8px 10px">${s.date||'—'}</td>
+      <td style="padding:8px 10px">${timeStr}</td>
+      <td style="padding:8px 10px;text-align:center">${s.hours||'—'}</td>
+      <td style="padding:8px 10px">${statusBadge(s.status)}</td>
+      <td style="padding:8px 10px">
+        ${!isLocked ? `<button onclick="cancelPendingSession('${s.session_id}','${modal.id}')"
+          style="font-size:11px;padding:3px 8px;border:1px solid var(--red);color:var(--red);background:none;border-radius:6px;cursor:pointer">
+          ✕ ${lang==='th'?'ยกเลิก':'Cancel'}
+        </button>` : '🔒'}
+      </td>
+    </tr>`;
+  }).join('');
+
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:760px;width:100%;max-height:92vh;overflow-y:auto;font-family:'DM Sans',sans-serif">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px">
+        <div>
+          <div style="font-size:18px;font-weight:700">⏳ ${lang==='th'?'รอการชำระ':'Pending payment'}</div>
+          <div style="font-size:13px;color:#888;margin-top:2px">${course.course_id} · ${student?.nickname||course.student_id} · ${course.subject||'—'}</div>
+        </div>
+        <button onclick="this.closest('[id=pending-detail-modal]').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888">✕</button>
+      </div>
+
+      <!-- Edit course fields -->
+      <div style="background:#f7f6f3;border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:#888;margin-bottom:10px;text-transform:uppercase">Edit course details</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div>
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Fee/hr (฿)</label>
+            <input type="number" id="edit-fee" value="${course.fee_per_hr||''}"
+              style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Tutor rate/hr (฿)</label>
+            <input type="number" id="edit-rate" value="${course.tutor_rate_per_hr||''}"
+              style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Commission to</label>
+            <select id="edit-comm"
+              style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+              <option value="none" ${(course.commission_to||'none')==='none'?'selected':''}>None</option>
+              <option value="ppop" ${course.commission_to==='ppop'?'selected':''}>P'Pop (5%)</option>
+              <option value="jane" ${course.commission_to==='jane'?'selected':''}>Jane (5%)</option>
+              <option value="eye"  ${course.commission_to==='eye' ?'selected':''}>N'Eye (5%)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Invoice ref</label>
+            <input type="text" id="edit-invoice" value="${course.invoice_ref||''}"
+              style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Payment date</label>
+            <input type="date" id="edit-paydate" value="${course.payment_date||''}"
+              style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Total paid hrs</label>
+            <input type="number" id="edit-hrs" value="${course.total_paid_hrs||''}"
+              style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+          </div>
+        </div>
+      </div>
+
+      <!-- Session table -->
+      <div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;text-transform:uppercase">Schedule</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">
+        <thead><tr style="border-bottom:2px solid #eee">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">#</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">DATE</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">TIME</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;color:#888">HRS</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">STATUS</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">ACTION</th>
+        </tr></thead>
+        <tbody id="pending-session-rows">${sessionRows}</tbody>
+      </table>
+
+      <!-- Buttons -->
+      <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">
+        <div style="display:flex;gap:8px">
+          <button onclick="downloadPendingPDF('${courseId}')" class="btn btn-sm">⬇ PDF for tutor</button>
+          <button onclick="copyPendingForLine('${courseId}')" class="btn btn-sm">⎘ Copy for LINE</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="cancelEntireEnrollment('${courseId}')"
+            style="font-size:12px;padding:7px 14px;border:1px solid var(--red);color:var(--red);background:none;border-radius:8px;cursor:pointer">
+            ✕ ${lang==='th'?'ยกเลิกทั้งหมด':'Cancel enrollment'}
+          </button>
+          <button onclick="confirmPaymentFromDetail('${courseId}')"
+            style="font-size:12px;padding:7px 14px;border:none;background:var(--teal);color:#fff;border-radius:8px;cursor:pointer;font-weight:500">
+            ✅ ${lang==='th'?'ยืนยันการชำระ':'Confirm paid'}
+          </button>
+          <button id="save-course-edits-btn" onclick="saveCourseEdits('${courseId}')"
+            style="font-size:12px;padding:7px 14px;border:none;background:var(--text);color:#fff;border-radius:8px;cursor:pointer;font-weight:500">
+            💾 ${lang==='th'?'บันทึกการแก้ไข':'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+}
+
+async function saveCourseEdits(courseId) {
+  const btn = document.getElementById('save-course-edits-btn');
+  if (btn) { btn.textContent = '⏳ Saving...'; btn.disabled = true; }
+
+  const updates = {
+    fee_per_hr:        parseFloat(document.getElementById('edit-fee')?.value)     || undefined,
+    tutor_rate_per_hr: parseFloat(document.getElementById('edit-rate')?.value)    || undefined,
+    commission_to:     document.getElementById('edit-comm')?.value                || undefined,
+    invoice_ref:       document.getElementById('edit-invoice')?.value?.trim()     || undefined,
+    payment_date:      document.getElementById('edit-paydate')?.value             || undefined,
+    total_paid_hrs:    parseFloat(document.getElementById('edit-hrs')?.value)     || undefined,
+  };
+  // Remove undefined keys
+  Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
+
+  try {
+    await webAppWrite('updateCourse', { courseId, updates });
+    // Update local data
+    const course = DATA.courses.find(c => c.course_id === courseId);
+    if (course) Object.assign(course, updates);
+    showToast(lang==='th' ? '✅ บันทึกการแก้ไขแล้ว' : '✅ Changes saved to sheet');
+    await loadAllData();
+    document.getElementById('pending-detail-modal')?.remove();
+    renderPendingPayments();
+  } catch(e) {
+    if (e.message.includes('Web App URL')) return;
+    showToast('❌ ' + e.message);
+    if (btn) { btn.textContent = '💾 Save changes'; btn.disabled = false; }
+  }
+}
+
+async function cancelPendingSession(sessionId, modalId) {
+  if (!confirm(lang==='th' ? 'ยืนยันการยกเลิกคาบนี้?' : 'Cancel this session?')) return;
+  try {
+    await webAppWrite('updateSessionStatus', {
+      sessionId, newStatus: 'Cancelled', userEmail: currentUser?.email
+    });
+    const s = DATA.sessions.find(x => x.session_id === sessionId);
+    if (s) s.status = 'Cancelled';
+    showToast(lang==='th' ? '✓ ยกเลิกคาบแล้ว' : '✓ Session cancelled');
+    await loadAllData();
+    // Refresh modal session rows
+    document.getElementById('pending-detail-modal')?.remove();
+    openPendingDetail(DATA.sessions.find(x=>x.session_id===sessionId)?.course_id);
+  } catch(e) {
+    if (e.message.includes('Web App URL')) return;
+    showToast('❌ ' + e.message);
+  }
+}
+
+async function cancelEntireEnrollment(courseId) {
+  if (!confirm(lang==='th'
+    ? '⚠️ ยืนยันการยกเลิกทั้งหมด?\n\nคาบที่ยังไม่เริ่มทั้งหมดจะถูกยกเลิก'
+    : '⚠️ Cancel entire enrollment?\n\nAll scheduled sessions will be cancelled.')) return;
+
+  try {
+    await webAppWrite('cancelEnrollment', { courseId, userEmail: currentUser?.email });
+    showToast(lang==='th' ? '✓ ยกเลิกการลงทะเบียนแล้ว' : '✓ Enrollment cancelled');
+    await loadAllData();
+    document.getElementById('pending-detail-modal')?.remove();
+    renderPendingPayments();
+    renderStudents();
+  } catch(e) {
+    if (e.message.includes('Web App URL')) return;
+    showToast('❌ ' + e.message);
+  }
+}
+
+async function confirmPaymentFromDetail(courseId) {
+  if (!confirm(lang==='th' ? 'ยืนยันว่าได้รับการชำระเงินแล้ว?' : 'Confirm payment received?')) return;
+  try {
+    await webAppWrite('updateCourseStatus', { courseId, paymentStatus: 'Paid' });
+    const course = DATA.courses.find(c => c.course_id === courseId);
+    if (course) course.payment_status = 'Paid';
+    showToast(lang==='th' ? '✅ ยืนยันการชำระแล้ว' : '✅ Payment confirmed');
+    await loadAllData();
+    document.getElementById('pending-detail-modal')?.remove();
+    renderPendingPayments();
+    renderStudents();
+  } catch(e) {
+    if (e.message.includes('Web App URL')) return;
+    showToast('❌ ' + e.message);
+  }
+}
+
+function downloadPendingPDF(courseId) {
+  const course   = DATA.courses.find(c => c.course_id === courseId);
+  if (!course) return;
+  const student  = DATA.students.find(s => s.student_id === course.student_id);
+  const tutor    = getTutor(course.tutor_id);
+  const sessions = DATA.sessions.filter(s => s.course_id === courseId)
+    .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
+  downloadEnrollmentPDF({
+    studentName: student?.nickname || course.student_id,
+    subject:     course.subject || '—',
+    tutor:       tutor.name || course.tutor_id,
+    sessions,
+    feePerHr:    Number(course.fee_per_hr||0),
+    tutorRate:   Number(course.tutor_rate_per_hr||0),
+    commTo:      course.commission_to || 'none',
+    invoiceRef:  course.invoice_ref || '',
+    payDate:     course.payment_date || '',
+    courseId
+  });
+}
+
+function copyPendingForLine(courseId) {
+  const course   = DATA.courses.find(c => c.course_id === courseId);
+  if (!course) return;
+  const student  = DATA.students.find(s => s.student_id === course.student_id);
+  const tutor    = getTutor(course.tutor_id);
+  const sessions = DATA.sessions.filter(s => s.course_id === courseId)
+    .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
+  copyEnrollmentSummary({
+    studentName: student?.nickname || course.student_id,
+    subject:     course.subject || '—',
+    tutor:       tutor.name || course.tutor_id,
+    sessions,
+    feePerHr:    Number(course.fee_per_hr||0),
+    tutorRate:   Number(course.tutor_rate_per_hr||0),
+    commTo:      course.commission_to || 'none',
+    invoiceRef:  course.invoice_ref || '',
+    payDate:     course.payment_date || '',
+    courseId
+  });
+}
 function renderPendingPayments() {
   const pending = DATA.courses.filter(c => (c.payment_status||'Paid') === 'Pending');
   const section = document.getElementById('pending-payments-section');
@@ -2119,14 +2391,14 @@ function renderPendingPayments() {
     const student = DATA.students.find(s => s.student_id === course.student_id);
     const tutor   = getTutor(course.tutor_id);
     const name    = student?.nickname || course.student_name || course.student_id;
-    return `<tr>
+    return `<tr style="cursor:pointer" onclick="openPendingDetail('${course.course_id}')">
       <td>${name}</td>
       <td>${course.subject||'—'}</td>
       <td>${tutor.name||course.tutor_id}</td>
       <td>${course.invoice_ref||'—'}</td>
       <td>${course.total_paid_hrs||'—'}</td>
       <td>฿${fmt(course.fee_per_hr)}</td>
-      <td>
+      <td onclick="event.stopPropagation()">
         <button class="btn btn-sm" onclick="confirmPayment('${course.course_id}')" style="color:var(--teal)">
           ✅ ${lang==='th'?'ยืนยันการชำระ':'Confirm paid'}
         </button>
@@ -3304,10 +3576,14 @@ async function submitEnrollment() {
     return;
   }
 
-  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving...');
+  setSaveProgress(10, lang==='th'?'กำลังตรวจสอบ...':'Validating...');
 
   try {
     const tutor = getTutor(tutorId);
+    setSaveProgress(30, lang==='th'?'กำลังบันทึกนักเรียน...':'Writing student...');
+
+    setSaveProgress(60, lang==='th'?'กำลังสร้างคาบเรียน...':'Creating sessions...');
+
     const result = await webAppWrite('addEnrollment', {
       student: {
         student_id:   studentId,
@@ -3336,6 +3612,8 @@ async function submitEnrollment() {
       sessions
     });
 
+    setSaveProgress(90, lang==='th'?'กำลังโหลดข้อมูล...':'Loading data...');
+
     showToast(lang==='th'
       ? `✅ บันทึกแล้ว — ${result.course_id} (${sessions.length} คาบ)`
       : `✅ Saved — ${result.course_id} (${sessions.length} sessions)`
@@ -3359,12 +3637,14 @@ async function submitEnrollment() {
     if (document.getElementById('enroll-payment-status'))
       document.getElementById('enroll-payment-status').value = 'Paid';
     initScheduleBody();
+    resetSaveBtn();
     await loadAllData();
     renderPendingPayments();
 
   } catch(err) {
-    if (err.message.includes('Web App URL')) return;
+    if (err.message.includes('Web App URL')) { resetSaveBtn(); return; }
     showToast('❌ ' + err.message);
+    resetSaveBtn();
     console.error(err);
   }
 }
