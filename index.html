@@ -2441,12 +2441,9 @@ function downloadPendingPDFStudent(courseId) {
   const sessions = DATA.sessions.filter(s => s.course_id === courseId)
     .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
   const paid      = Number(course.total_paid_hrs||0);
-  const dayNames  = lang==='th' ? ['อา','จ','อ','พ','พฤ','ศ','ส'] : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const rows = sessions.map((s,i) => {
     const timeStr = formatTimeRange(s.start_time, s.end_time);
-    const dateObj = parseSessionDate(s.date);
-    const dayLabel = dateObj ? dayNames[dateObj.getDay()] : '';
-    const dateDisplay = s.date ? `${dayLabel} ${s.date}` : '—';
+    const dateDisplay = s.date || '—';
     const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
     const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
     return `<tr style="border-bottom:1px solid #eee">
@@ -2963,12 +2960,7 @@ function downloadStudentPDFForStudent() {
     if (s.status==='Completed') hrsStudied = s.hours;
     else if (s.status==='Makeup') hrsStudied = s.hours;
     else if (s.status==='Missed'||s.status==='Cancelled') hrsStudied = '0';
-    const dateObj  = parseSessionDate(s.date);
-    const dayNames = lang==='th'
-      ? ['อา','จ','อ','พ','พฤ','ศ','ส']
-      : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    const dayLabel = dateObj ? dayNames[dateObj.getDay()] : '';
-    const dateDisplay = s.date ? `${dayLabel} ${s.date}` : '—';
+    const dateDisplay = s.date || '—';
 
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:7px 10px">${num}</td>
