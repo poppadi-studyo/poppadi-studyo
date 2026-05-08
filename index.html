@@ -602,8 +602,8 @@
             <div id="makeup-fields" style="display:none">
               <div id="makeup-selected-info" style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px"></div>
               <div class="form-group" style="margin-bottom:10px"><label data-en="New date" data-th="วันที่ใหม่">New date</label><input type="date" id="makeup-date" style="width:100%"></div>
-              <div class="form-group" style="margin-bottom:10px"><label data-en="Start time" data-th="เวลาเริ่ม">Start time</label><input type="time" id="makeup-start" style="width:100%"></div>
-              <div class="form-group" style="margin-bottom:10px"><label data-en="End time" data-th="เวลาสิ้นสุด">End time</label><input type="time" id="makeup-end" style="width:100%"></div>
+              <div class="form-group" style="margin-bottom:10px"><label data-en="Start time" data-th="เวลาเริ่ม">Start time</label><select id="makeup-start" style="width:100%;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px"></select></div>
+              <div class="form-group" style="margin-bottom:10px"><label data-en="End time" data-th="เวลาสิ้นสุด">End time</label><select id="makeup-end" style="width:100%;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px"></select></div>
               <div class="form-group" style="margin-bottom:14px"><label data-en="Notes" data-th="หมายเหตุ">Notes</label><input type="text" id="makeup-notes" placeholder="e.g. confirmed via LINE" style="width:100%"></div>
               <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
                 <button class="btn btn-sm" onclick="clearMakeup()" data-en="Cancel" data-th="ยกเลิก">Cancel</button>
@@ -1766,7 +1766,7 @@ function renderMakeupQueue() {
     return `<div class="makeup-item" id="mitem-${s.session_id}" onclick="selectMakeup('${s.session_id}')">
       <div class="makeup-top">
         <div>
-          <div class="makeup-name"><span class="dot" style="background:${color}"></span>${s.student_id}</div>
+          <div class="makeup-name"><span class="dot" style="background:${color}"></span>${DATA.students.find(st=>st.student_id===s.student_id)?.nickname||s.student_id}</div>
           <div class="makeup-meta">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${s.date||''}</div>
         </div>
         <span class="badge ${isMiss?'badge-miss':'badge-cancel'}">${isMiss?(lang==='th'?'ชดเชย 50%':'50% makeup'):(lang==='th'?'ชดเชยเต็ม':'Full makeup')}</span>
@@ -1781,12 +1781,22 @@ function selectMakeup(sessionId) {
   const s = DATA.sessions.find(x => x.session_id === sessionId);
   if (!s) return;
   selectedMakeup = s;
-  const tutor = getTutor(s.tutor_id);
+  const tutor   = getTutor(s.tutor_id);
+  const student = DATA.students.find(st => st.student_id === s.student_id);
+  const name    = student?.nickname || s.student_id;
+
   document.getElementById('makeup-placeholder').style.display = 'none';
   document.getElementById('makeup-done').style.display = 'none';
   document.getElementById('makeup-fields').style.display = 'block';
+
+  // Populate time dropdowns with :00/:30 options
+  const startSel = document.getElementById('makeup-start');
+  const endSel   = document.getElementById('makeup-end');
+  if (startSel && !startSel.options.length) startSel.innerHTML = generateTimeOptions('');
+  if (endSel   && !endSel.options.length)   endSel.innerHTML   = generateTimeOptions('');
+
   document.getElementById('makeup-selected-info').innerHTML = `
-    <div style="font-weight:500">${s.student_id}</div>
+    <div style="font-weight:500">${name}</div>
     <div style="font-size:12px;color:var(--text2);margin-top:2px">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${s.date||''}</div>
     <div style="margin-top:6px"><span class="badge ${s.status==='Missed'?'badge-miss':'badge-cancel'}">${s.status==='Missed'?(lang==='th'?'ขาดเรียน — ชดเชย 50%':'Missed — 50% makeup'):(lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup')}</span></div>
   `;
@@ -1891,7 +1901,7 @@ function renderTutorAll() {
       pay=sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0),
       comm=sessions.reduce((s,x)=>s+Number(x.commission_amt||0),0),
       rem=sessions.reduce((s,x)=>s+Number(x.school_remainder||0),0),
-      vat=tutor.tutor_id!=='T001'?pay*0.03:0,net=pay-vat,color=COLOR_MAP[tutor.color]||'#888';
+      vat=pay*0.03,net=pay-vat,color=COLOR_MAP[tutor.color]||'#888';
     gB+=billed;gP+=pay;gC+=comm;gR+=rem;gV+=vat;gN+=net;
     return `<tr><td><span class="dot" style="background:${color}"></span><strong>${tutor.name}</strong></td><td>${count}</td><td>฿${fmt(billed)}</td><td>฿${fmt(pay)}</td><td>฿${fmt(comm)}</td><td>฿${fmt(rem)}</td><td>฿${fmt(vat)}</td><td style="color:var(--teal);font-weight:500">฿${fmt(net)}</td></tr>`;
   }).filter(Boolean);
@@ -1920,7 +1930,7 @@ function renderTutorDetail() {
         tP=done.reduce((s,x)=>s+Number(x.tutor_pay||0),0),
         tC=done.reduce((s,x)=>s+Number(x.commission_amt||0),0),
         tR=done.reduce((s,x)=>s+Number(x.school_remainder||0),0),
-        vat=tutorId!=='T001'?tP*0.03:0,net=tP-vat;
+        vat=tP*0.03,net=tP-vat;
   document.getElementById('tutor-metrics').innerHTML=`
     <div class="metric"><div class="metric-label">${lang==='th'?'ยอดรวม':'Total billed'}</div><div class="metric-value">฿${fmt(tB)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'ค่าสอน':'Tutor pay'}</div><div class="metric-value">฿${fmt(tP)}</div></div>
@@ -2822,7 +2832,7 @@ function downloadStudentPDFForTutor() {
 
   const totalPay = sessions.filter(s=>s.status==='Completed'||s.status==='Makeup')
     .reduce((sum,s)=>sum+Number(s.tutor_pay||0),0);
-  const vat = tutor.tutor_id !== 'T001' ? totalPay * 0.03 : 0;
+  const vat = totalPay * 0.03;
   const net = totalPay - vat;
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -2891,9 +2901,16 @@ function downloadStudentPDFForStudent() {
     if (s.status==='Completed') hrsStudied = s.hours;
     else if (s.status==='Makeup') hrsStudied = s.hours;
     else if (s.status==='Missed'||s.status==='Cancelled') hrsStudied = '0';
+    const dateObj  = parseSessionDate(s.date);
+    const dayNames = lang==='th'
+      ? ['อา','จ','อ','พ','พฤ','ศ','ส']
+      : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const dayLabel = dateObj ? dayNames[dateObj.getDay()] : '';
+    const dateDisplay = s.date ? `${dayLabel} ${s.date}` : '—';
+
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:7px 10px">${num}</td>
-      <td style="padding:7px 10px">${s.date||'—'}</td>
+      <td style="padding:7px 10px">${dateDisplay}</td>
       <td style="padding:7px 10px">${timeStr}</td>
       <td style="padding:7px 10px;text-align:center">${s.hours||'—'}</td>
       <td style="padding:7px 10px;text-align:center">${hrsStudied}</td>
@@ -2976,20 +2993,6 @@ function addExpense() {
   document.getElementById('new-expense-amt').value  = '';
   renderExpenses();
   renderOverview();
-}
-
-// ─── ENROLLMENT ───────────────────────────────────────────
-function addScheduleRow() {
-  const tbody = document.getElementById('enroll-schedule-body');
-  const row = document.createElement('tr');
-  row.innerHTML = `
-    <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif"></td>
-    <td><input type="time" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif"></td>
-    <td><input type="time" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif"></td>
-    <td><input type="number" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:60px;font-family:'DM Sans',sans-serif" placeholder="2"></td>
-    <td><button class="btn btn-sm" style="color:#A32D2D" onclick="this.closest('tr').remove()">Remove</button></td>
-  `;
-  tbody.appendChild(row);
 }
 
 // ─── FALLBACK (when sheet is empty) ───────────────────────
@@ -3336,7 +3339,7 @@ function showMonthlySummary() {
     const sessions = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
     if (!sessions.length) return null;
     const pay  = sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
-    const wht  = tutor.tutor_id !== 'T001' ? pay*0.03 : 0; // P'Pop exempt
+    const wht  = pay*0.03; // P'Pop exempt
     const net  = pay - wht;
     const hrs  = sessions.reduce((s,x)=>s+Number(x.hours||0),0);
     const color= COLOR_MAP[tutor.color]||'#888';
@@ -3370,7 +3373,7 @@ function showMonthlySummary() {
       <td style="padding:8px 10px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:6px"></span>${tutor.name}</td>
       <td style="padding:8px 10px;text-align:center">${hrs}</td>
       <td style="padding:8px 10px;text-align:right">฿${fmt(pay)}</td>
-      <td style="padding:8px 10px;text-align:right;color:#E24B4A">${tutor.tutor_id==='T001'?'Exempt':'฿'+fmt(wht)}</td>
+      <td style="padding:8px 10px;text-align:right;color:#E24B4A">${'฿'+fmt(wht)}</td>
       <td style="padding:8px 10px;text-align:right;color:#1D9E75;font-weight:500">฿${fmt(net)}</td>
     </tr>`
   ).join('');
@@ -3457,7 +3460,7 @@ function showMonthlySummary() {
 
       <!-- Footer note -->
       <div style="font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px">
-        WHT = Withholding Tax 3% deducted from all tutor payouts and commission transfers. P'Pop's tutor pay is exempt (owner). Generated ${new Date().toLocaleString()}.
+        WHT = Withholding Tax 3% deducted from all tutor payouts and commission transfers. Generated ${new Date().toLocaleString()}.
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -3487,11 +3490,11 @@ function downloadMonthlySummaryPDF() {
     if (!sessions.length) return '';
     const pay = sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
     const hrs = sessions.reduce((s,x)=>s+Number(x.hours||0),0);
-    const wht = tutor.tutor_id !== 'T001' ? pay*0.03 : 0;
+    const wht = pay*0.03;
     const net = pay - wht;
     return `<tr><td>${tutor.name}</td><td style="text-align:center">${hrs}</td>
       <td style="text-align:right">฿${fmt(pay)}</td>
-      <td style="text-align:right;color:#E24B4A">${tutor.tutor_id==='T001'?'Exempt':'฿'+fmt(wht)}</td>
+      <td style="text-align:right;color:#E24B4A">${'฿'+fmt(wht)}</td>
       <td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(net)}</td></tr>`;
   }).join('');
 
@@ -3509,7 +3512,7 @@ function downloadMonthlySummaryPDF() {
       <td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(net)}</td></tr>`;
   }).join('') || '<tr><td colspan="4" style="color:#aaa;text-align:center">No commission this month</td></tr>';
 
-  const totalWHT = DATA.tutors.filter(t=>t.active==='TRUE'&&t.tutor_id!=='T001').map(tutor => {
+  const totalWHT = DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
     const pay = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id).reduce((s,x)=>s+Number(x.tutor_pay||0),0);
     return pay*0.03;
   }).reduce((a,b)=>a+b,0) + Object.values(commMap).reduce((s,x)=>s+x*0.03,0);
@@ -3559,7 +3562,7 @@ function downloadMonthlySummaryPDF() {
     <tbody>${commRows}</tbody>
   </table>
 
-  <footer>WHT = Withholding Tax 3% deducted from all tutor and commission transfers. P'Pop's tutor pay is exempt (owner). This document is confidential — for internal accounting use only.</footer>
+  <footer>WHT = Withholding Tax 3% deducted from all tutor and commission transfers. This document is confidential — for internal accounting use only.</footer>
   <script>window.onload=()=>window.print()<\/script>
   </body></html>`;
 
@@ -4192,7 +4195,7 @@ function downloadSchedulePDF() {
     </tr>`;
   }).join('');
   const totalPay = monthSessions.filter(s=>s.status==='Completed'||s.status==='Makeup').reduce((sum,s)=>sum+Number(s.tutor_pay||0),0);
-  const vat = tutor.tutor_id !== 'T001' ? totalPay * 0.03 : 0;
+  const vat = totalPay * 0.03;
   const net = totalPay - vat;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${tutor.name} — ${monthStr}</title>
     <style>body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#1a1a18;padding:32px;max-width:900px;margin:0 auto}
