@@ -2325,6 +2325,7 @@ function openPendingDetail(courseId) {
       <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">
         <div style="display:flex;gap:8px">
           <button onclick="downloadPendingPDF('${courseId}')" class="btn btn-sm">⬇ PDF for tutor</button>
+          <button onclick="downloadPendingPDFStudent('${courseId}')" class="btn btn-sm">⬇ PDF for student</button>
           <button onclick="copyPendingForLine('${courseId}')" class="btn btn-sm">⎘ Copy for LINE</button>
         </div>
         <div style="display:flex;gap:8px">
@@ -2430,6 +2431,67 @@ async function confirmPaymentFromDetail(courseId) {
     if (e.message.includes('Web App URL')) return;
     showToast('❌ ' + e.message);
   }
+}
+
+function downloadPendingPDFStudent(courseId) {
+  const course   = DATA.courses.find(c => c.course_id === courseId);
+  if (!course) return;
+  const student  = DATA.students.find(s => s.student_id === course.student_id);
+  const tutor    = getTutor(course.tutor_id);
+  const sessions = DATA.sessions.filter(s => s.course_id === courseId)
+    .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
+  const paid      = Number(course.total_paid_hrs||0);
+  const dayNames  = lang==='th' ? ['อา','จ','อ','พ','พฤ','ศ','ส'] : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const rows = sessions.map((s,i) => {
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const dateObj = parseSessionDate(s.date);
+    const dayLabel = dateObj ? dayNames[dateObj.getDay()] : '';
+    const dateDisplay = s.date ? `${dayLabel} ${s.date}` : '—';
+    const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
+    const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:7px 10px">${i+1}</td>
+      <td style="padding:7px 10px">${dateDisplay}</td>
+      <td style="padding:7px 10px">${timeStr}</td>
+      <td style="padding:7px 10px;text-align:center">${s.hours||'—'}</td>
+      <td style="padding:7px 10px">${statusLabel}</td>
+    </tr>`;
+  }).join('');
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${lang==='th'?'ตารางเรียน':'Schedule'} — ${student?.nickname||course.student_id}</title>
+  <style>body{font-family:sans-serif;font-size:13px;padding:32px;max-width:680px;margin:0 auto}
+  h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 24px}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px;border-bottom:2px solid #eee}
+  .summary{margin-top:20px;padding:14px;background:#f7f6f3;border-radius:8px;display:flex;gap:32px}
+  .summary div label{font-size:11px;color:#888;display:block}
+  .summary div strong{font-size:17px;display:block;margin-top:2px}
+  footer{margin-top:20px;font-size:11px;color:#aaa}
+  @media print{body{padding:16px}}</style></head><body>
+  <h1>Poppadi's Studyo — ${lang==='th'?'ตารางเรียน':'Schedule'}</h1>
+  <h2>${student?.nickname||course.student_id} · ${course.subject||'—'} · ${lang==='th'?'สอนโดย':'Taught by'} ${tutor.name||course.tutor_id}</h2>
+  <table>
+    <thead><tr>
+      <th>#</th>
+      <th>${lang==='th'?'วันที่':'Date'}</th>
+      <th>${lang==='th'?'เวลา':'Time'}</th>
+      <th style="text-align:center">${lang==='th'?'ชม.':'Hrs'}</th>
+      <th>${lang==='th'?'สถานะ':'Status'}</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="summary">
+    <div><label>${lang==='th'?'ชม.ทั้งหมด':'Total hours'}</label><strong>${paid}</strong></div>
+    <div><label>${lang==='th'?'จำนวนคาบ':'Sessions'}</label><strong>${sessions.length}</strong></div>
+  </div>
+  <div class="footer">Generated ${new Date().toLocaleString()} · Poppadi's Studyo</div>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url,'_blank');
+  if (!win) { const a=document.createElement('a');a.href=url;a.download=`Schedule_${student?.nickname||courseId}.html`;a.click(); }
+  showToast(lang==='th'?'✓ PDF สำหรับนักเรียน':'✓ Student PDF — press Print to save');
 }
 
 function downloadPendingPDF(courseId) {
