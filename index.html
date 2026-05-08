@@ -1121,9 +1121,11 @@ function filterByMonth(arr, dateField) {
   return arr.filter(item => {
     const d = item[dateField] || '';
     if (!d) return false;
+    // Handle YYYY-MM-DD format
     if (d.match(/^\d{4}-\d{2}-\d{2}/)) {
       return d.startsWith(selectedMonth);
     }
+    // Handle M/D/YYYY or MM/DD/YYYY format (Google Sheets default)
     if (d.includes('/')) {
       const parts = d.split('/');
       if (parts.length >= 3) {
@@ -1132,6 +1134,7 @@ function filterByMonth(arr, dateField) {
         return y === year && m === month;
       }
     }
+    // Handle D/M/YYYY format
     if (d.includes('-')) {
       const parts = d.split('-');
       if (parts.length >= 3) {
@@ -1140,6 +1143,7 @@ function filterByMonth(arr, dateField) {
         return y === year && m === month;
       }
     }
+    // Fallback — try Date parsing
     try {
       const parsed = new Date(d);
       return parsed.getFullYear() === year && (parsed.getMonth()+1) === month;
@@ -1173,6 +1177,7 @@ function parseSheet(rows) {
 }
 
 async function loadAllData() {
+  // Don't show overview loading if we're restoring to a different page
   const savedPage = localStorage.getItem('poppadi_page');
   const showingOverview = !savedPage || savedPage === 'overview';
   if (showingOverview) {
@@ -1181,6 +1186,7 @@ async function loadAllData() {
   }
   document.getElementById('overview-error').innerHTML = '';
 
+  // Try loading from cache first for instant display
   const cached = localStorage.getItem(CACHE_KEY);
   if (cached) {
     try {
@@ -1195,6 +1201,7 @@ async function loadAllData() {
     } catch(e) { localStorage.removeItem(CACHE_KEY); }
   }
 
+  // Fetch fresh data from Sheets in background
   try {
     const [tutorRows, studentRows, courseRows, sessionRows, expenseRows, invoiceRows] = await Promise.all([
       fetchSheet('Tutors!A:F'),
@@ -1287,6 +1294,7 @@ function renderOverview() {
   document.getElementById('overview-month').textContent =
     lang==='th' ? (monthLabel?.labelTh || selectedMonth) : (monthLabel?.label || selectedMonth);
 
+  // Filter sessions by selected month
   const monthSessions = filterByMonth(DATA.sessions, 'date');
   const monthExpenses = DATA.expenses.filter(e => (e.month||'').startsWith(selectedMonth));
 
@@ -1297,11 +1305,12 @@ function renderOverview() {
   const predictedIncome   = monthSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
   const schoolRemainder   = completedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
   const totalExpenses     = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0)
-                          || DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
+                          || DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0); // fallback to all expenses
 
   const gap = totalExpenses - schoolRemainder;
   const gapCovered = gap <= 0;
 
+  // Cache hit info
   const cached = localStorage.getItem(CACHE_KEY);
   let cacheInfo = '';
   if (cached) {
@@ -1341,6 +1350,7 @@ function renderOverview() {
     </div>
   `;
 
+  // Coverage bars
   const realizedPct  = totalExpenses > 0 ? Math.min(100, Math.round((schoolRemainder/totalExpenses)*100)) : 0;
   const predictedPct = totalExpenses > 0 ? Math.min(100, Math.round((predictedIncome/totalExpenses)*100)) : 0;
   document.getElementById('coverage-bars').innerHTML = `
@@ -1434,6 +1444,7 @@ function renderTutorChart(monthSessions) {
 }
 
 // ─── MONTH LOCK RULE ──────────────────────────────────────
+// Sessions from previous months are locked after the 11th
 function isMonthLocked(sessionDateStr) {
   if (!sessionDateStr) return false;
   const now = new Date();
@@ -1441,22 +1452,35 @@ function isMonthLocked(sessionDateStr) {
   const sessionDate = new Date(sessionDateStr);
   const sessionMonth = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth()+1).padStart(2,'0')}`;
   const currentMonth = getCurrentMonthStr();
+
+  // If the session is in the current month — never locked
   if (sessionMonth === currentMonth) return false;
+
+  // If today is the 11th or later — previous months are locked
   if (today >= 11) return true;
+
+  // If today is before the 11th — previous month still editable (grace period)
   const prevDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
   const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
   if (sessionMonth === prevMonth && today < 11) return false;
+
+  // Anything older than previous month = always locked
   return true;
 }
 
 // ─── GOOGLE OAUTH LOGIN ───────────────────────────────────
+// Allowed Google accounts — add your team's emails here
 const ALLOWED_EMAILS = [
-  'st.gerdphol@gmail.com',
+  'st.gerdphol@gmail.com', // Steven (CEO)
+  // Add more team emails below when ready:
+  // 'jane@email.com',
+  // 'eye@email.com',
 ];
 
 let currentUser = null;
 
 function initAuth() {
+  // Check if already logged in from session storage
   const stored = sessionStorage.getItem('poppadi_user');
   if (stored) {
     try {
@@ -1465,6 +1489,7 @@ function initAuth() {
       return;
     } catch(e) { sessionStorage.removeItem('poppadi_user'); }
   }
+  // Show login screen
   showLogin();
 }
 
@@ -1474,11 +1499,13 @@ function showLogin() {
 }
 
 function handleGoogleLogin(response) {
+  // Decode JWT from Google
   const payload = JSON.parse(atob(response.credential.split('.')[1]));
   const email = payload.email;
   const name  = payload.name;
   const picture = payload.picture;
 
+  // Check if email is allowed (if list is empty, allow all)
   if (ALLOWED_EMAILS.length > 0 && !ALLOWED_EMAILS.includes(email)) {
     document.getElementById('login-error').textContent =
       lang==='th'
@@ -1505,6 +1532,7 @@ function renderSchedule() {
   const pdfBtn = document.getElementById('pdf-download-btn');
   if (pdfBtn) pdfBtn.style.display = tutorFilter ? 'inline-block' : 'none';
 
+  // Populate tutor filter
   const tutorSel = document.getElementById('filter-tutor');
   if (tutorSel && tutorSel.options.length <= 1) {
     DATA.tutors.filter(t=>t.active==='TRUE').forEach(t => {
@@ -1529,6 +1557,7 @@ function renderSchedule() {
     return;
   }
 
+  // Hide revenue column when viewing single tutor
   const showRevenue = !tutorFilter;
 
   body.innerHTML = sessions.map(s => {
@@ -1569,6 +1598,7 @@ function renderSchedule() {
     </tr>`;
   }).join('');
 
+  // Update header - hide revenue column when single tutor
   const thead = body.closest('table')?.querySelector('thead tr');
   if (thead) {
     const revTh = thead.querySelector('th[data-col="revenue"]');
@@ -1644,6 +1674,83 @@ function showToast(msg) {
   setTimeout(() => { toast.style.opacity = '0'; }, 3000);
 }
 
+// ─── SCHEDULE ─────────────────────────────────────────────
+function renderSchedule() {
+  const tutorFilter  = document.getElementById('filter-tutor')?.value  || '';
+  const statusFilter = document.getElementById('filter-status')?.value || '';
+
+  // Populate tutor filter
+  const tutorSel = document.getElementById('filter-tutor');
+  if (tutorSel && tutorSel.options.length <= 1) {
+    DATA.tutors.filter(t=>t.active==='TRUE').forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.tutor_id; opt.textContent = t.name;
+      tutorSel.appendChild(opt);
+    });
+  }
+
+  let sessions = filterByMonth([...DATA.sessions], 'date');
+  if (tutorFilter)  sessions = sessions.filter(s => s.tutor_id === tutorFilter);
+  if (statusFilter) sessions = sessions.filter(s => s.status === statusFilter);
+
+  // Sort by date
+  sessions.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  const body = document.getElementById('schedule-body');
+  if (!sessions.length) {
+    body.innerHTML = `<tr><td colspan="9" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet — add your first enrollment'}</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = sessions.map(s => {
+    const tutor = getTutor(s.tutor_id);
+    const student = DATA.students.find(st => st.student_id === s.student_id);
+    const color = COLOR_MAP[tutor.color] || '#888';
+    const subject = getSubjectForSession(s);
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
+    const isCompleted = s.status === 'Completed' || s.status === 'Makeup';
+    const isLocked = isCompleted || isMonthLocked(s.date);
+    const isPastLocked = isMonthLocked(s.date) && !isCompleted;
+
+    // Status dropdown
+    const statusDropdown = isLocked
+      ? `${statusBadge(s.status)}${isPastLocked ? `<span style="font-size:10px;color:var(--text3);margin-left:4px">🔒</span>` : ''}`
+      : `<select
+          onchange="updateSessionStatus('${s.session_id}', this.value)"
+          style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer"
+        >
+          <option value="Scheduled"  ${s.status==='Scheduled' ?'selected':''} >${lang==='th'?'กำหนดการ':'Scheduled'}</option>
+          <option value="Completed"  ${s.status==='Completed' ?'selected':''} >${lang==='th'?'สอนแล้ว':'Completed'}</option>
+          <option value="Missed"     ${s.status==='Missed'    ?'selected':''} >${lang==='th'?'ขาดเรียน':'Missed'}</option>
+          <option value="Cancelled"  ${s.status==='Cancelled' ?'selected':''} >${lang==='th'?'ยกเลิก':'Cancelled'}</option>
+        </select>`;
+
+    return `<tr>
+      <td><span class="dot" style="background:${color}"></span>${student?.nickname||s.student_id}</td>
+      <td>${tutor.name||s.tutor_id}</td>
+      <td>${subject}</td>
+      <td>${s.date||'—'}</td>
+      <td style="white-space:nowrap">${timeStr}</td>
+      <td>${s.hours||'—'}</td>
+      <td>฿${fmt(s.total_revenue)}</td>
+      <td>${statusDropdown}</td>
+      <td>
+        ${isCompleted
+          ? `<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`
+          : isPastLocked
+            ? `<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'เดือนที่ผ่านมา':'Past month'}</span>`
+            : canMakeup
+              ? `<button class="btn btn-sm" onclick="openMakeupFromSchedule('${s.session_id}')">${lang==='th'?'นัดชดเชย':'Schedule makeup'}</button>`
+              : '—'
+        }
+        ${s.makeup_ref ? `<span class="linked-tag" style="margin-left:4px">↩ ${s.makeup_ref}</span>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+
 // ─── MAKEUP ───────────────────────────────────────────────
 function renderMakeupQueue() {
   const pending = DATA.sessions.filter(s => s.status === 'Cancelled' || s.status === 'Missed');
@@ -1682,6 +1789,7 @@ function selectMakeup(sessionId) {
   document.getElementById('makeup-done').style.display = 'none';
   document.getElementById('makeup-fields').style.display = 'block';
 
+  // Populate time dropdowns with :00/:30 options
   const startSel = document.getElementById('makeup-start');
   const endSel   = document.getElementById('makeup-end');
   if (startSel && !startSel.options.length) startSel.innerHTML = generateTimeOptions('');
@@ -1761,6 +1869,7 @@ function setTutorView(mode) {
   if (mode==='all') {
     renderTutorAll();
   } else {
+    // Populate dropdown if empty
     const sel = document.getElementById('tutor-select');
     if (sel.options.length === 0) {
       sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
@@ -1776,6 +1885,7 @@ function renderTutorSelect() {
   sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
     `<option value="${t.tutor_id}">${t.name}</option>`
   ).join('');
+  // Default to all tutors view
   setTutorView('all');
 }
 
@@ -1811,6 +1921,7 @@ function renderTutorDetail() {
   const tutor   = getTutor(tutorId);
   const color   = COLOR_MAP[tutor.color]||'#888';
 
+  // Show tutor name header
   const header = document.getElementById('tutor-single-header');
   if (header) header.innerHTML = `<span class="dot" style="background:${color}"></span><strong>${tutor.name||tutorId}</strong> — ${lang==='th'?'รายละเอียดการสอนเดือนนี้':'Teaching breakdown for selected month'}`;
   const monthSessions = filterByMonth(DATA.sessions,'date');
@@ -1891,12 +2002,14 @@ async function saveSessionDateTime(sessionId) {
       userEmail: currentUser?.email
     });
 
+    // Update local data
     const s = DATA.sessions.find(x => x.session_id === sessionId);
     if (s) { s.date = newDate; s.start_time = newStart; s.end_time = newEnd; }
 
     showToast(lang==='th' ? '✅ อัปเดตวันที่และเวลาแล้ว' : '✅ Date & time updated across system');
     document.querySelector('[style*="position:fixed"]')?.remove();
     await loadAllData();
+    // Re-open student detail if it was open
     if (currentDetailCourse) openStudentDetail(currentDetailCourse.course_id);
   } catch(e) {
     if (e.message.includes('Web App URL')) { if(btn){btn.textContent='💾 Save';btn.disabled=false;} return; }
@@ -1985,6 +2098,7 @@ function addGroupStudentRow() {
 function updateGroupRateHint() {
   const count = document.getElementById('group-students-body').children.length;
   const tutorId = document.getElementById('enroll-tutor').value;
+  const tutor = getTutor(tutorId);
   const hint = document.getElementById('group-rate-hint');
   if (!hint) return;
   if (count > 0) {
@@ -2056,6 +2170,7 @@ function onStudentNicknameInput() {
     if (newFields) newFields.style.display = 'none';
     return;
   }
+  // Check if student already exists
   const existing = DATA.students.find(s =>
     (s.nickname||'').toLowerCase() === val.toLowerCase() ||
     (s.full_name||'').toLowerCase() === val.toLowerCase()
@@ -2090,11 +2205,14 @@ function resetSaveBtn() {
 }
 
 // ─── PAYMENT STATUS HELPER ────────────────────────────────
+// Empty = unknown, treat as Paid for display (existing data)
+// Explicit 'Pending' = pending
+// Explicit 'Paid' = paid
 function getPayStatus(course) {
   const raw = (course.payment_status || '').trim();
   if (raw === 'Pending') return 'Pending';
   if (raw === 'Cancelled') return 'Cancelled';
-  return 'Paid';
+  return 'Paid'; // 'Paid' or empty = paid
 }
 
 function payStatusBadge(course) {
@@ -2108,7 +2226,7 @@ let editingCourse = null;
 function openPendingDetail(courseId) {
   const course  = DATA.courses.find(c => c.course_id === courseId);
   if (!course) return;
-  editingCourse = { ...course };
+  editingCourse = { ...course }; // clone for editing
 
   const student  = DATA.students.find(s => s.student_id === course.student_id);
   const tutor    = getTutor(course.tutor_id);
@@ -2242,10 +2360,12 @@ async function saveCourseEdits(courseId) {
     payment_date:      document.getElementById('edit-paydate')?.value             || undefined,
     total_paid_hrs:    parseFloat(document.getElementById('edit-hrs')?.value)     || undefined,
   };
+  // Remove undefined keys
   Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
 
   try {
     await webAppWrite('updateCourse', { courseId, updates });
+    // Update local data
     const course = DATA.courses.find(c => c.course_id === courseId);
     if (course) Object.assign(course, updates);
     showToast(lang==='th' ? '✅ บันทึกการแก้ไขแล้ว' : '✅ Changes saved to sheet');
@@ -2269,6 +2389,7 @@ async function cancelPendingSession(sessionId, modalId) {
     if (s) s.status = 'Cancelled';
     showToast(lang==='th' ? '✓ ยกเลิกคาบแล้ว' : '✓ Session cancelled');
     await loadAllData();
+    // Refresh modal session rows
     document.getElementById('pending-detail-modal')?.remove();
     openPendingDetail(DATA.sessions.find(x=>x.session_id===sessionId)?.course_id);
   } catch(e) {
@@ -2312,7 +2433,6 @@ async function confirmPaymentFromDetail(courseId) {
   }
 }
 
-// ─── PDF FOR STUDENT (pending) — FIX: no day prefix ──────
 function downloadPendingPDFStudent(courseId) {
   const course   = DATA.courses.find(c => c.course_id === courseId);
   if (!course) return;
@@ -2320,10 +2440,10 @@ function downloadPendingPDFStudent(courseId) {
   const tutor    = getTutor(course.tutor_id);
   const sessions = DATA.sessions.filter(s => s.course_id === courseId)
     .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
-  const paid = Number(course.total_paid_hrs||0);
+  const paid      = Number(course.total_paid_hrs||0);
   const rows = sessions.map((s,i) => {
     const timeStr = formatTimeRange(s.start_time, s.end_time);
-    const dateDisplay = s.date || '—';  // ← FIX: use date directly, no day prefix
+    const dateDisplay = s.date || '—';
     const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
     const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
     return `<tr style="border-bottom:1px solid #eee">
@@ -2412,7 +2532,6 @@ function copyPendingForLine(courseId) {
     courseId
   });
 }
-
 function renderPendingPayments() {
   const pending = DATA.courses.filter(c => getPayStatus(c) === 'Pending');
   const section = document.getElementById('pending-payments-section');
@@ -2471,7 +2590,9 @@ function populateStudentDatalist() {
 function populateSubjectDatalist() {
   const dl = document.getElementById('subject-list');
   if (!dl) return;
+  // Get unique subjects from existing courses
   const subjects = [...new Set(DATA.courses.map(c => c.subject).filter(Boolean))];
+  // Add common defaults if not already present
   const defaults = ['IELTS', 'TOEFL', 'SAT W&R', 'SAT Math', 'Grammar for English', 'Conversation', 'TOEIC'];
   const all = [...new Set([...subjects, ...defaults])].sort();
   dl.innerHTML = all.map(s => `<option value="${s}">`).join('');
@@ -2514,6 +2635,7 @@ function renderStudents() {
   const statusFilter  = document.getElementById('student-filter-status')?.value  || '';
   const paymentFilter = document.getElementById('student-filter-payment')?.value || '';
 
+  // Group courses by group_id (for group courses)
   const groupMap = {};
   const soloRows = [];
 
@@ -2528,6 +2650,7 @@ function renderStudents() {
 
   let html = '';
 
+  // Render group rows
   Object.entries(groupMap).forEach(([groupId, courses]) => {
     const firstCourse = courses[0];
     const tutor = getTutor(firstCourse.tutor_id);
@@ -2550,6 +2673,7 @@ function renderStudents() {
       <td colspan="5"></td>
     </tr>`;
 
+    // Individual student rows inside group (hidden by default)
     courses.forEach(course => {
       const student = DATA.students.find(s=>s.student_id===course.student_id);
       const paid = Number(course.total_paid_hrs||0);
@@ -2581,6 +2705,7 @@ function renderStudents() {
     });
   });
 
+  // Render solo rows
   soloRows.forEach(course => {
     const student = DATA.students.find(s=>s.student_id===course.student_id);
     const tutor = getTutor(course.tutor_id);
@@ -2599,6 +2724,7 @@ function renderStudents() {
       : remaining<=2?`<span class="badge badge-alert-high">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`
       : remaining<=3?`<span class="badge badge-alert-med">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`:'—';
 
+    // Apply filters
     if (statusFilter && lifecycle !== statusFilter && !(statusFilter==='Pending'&&payStatus==='Pending')) return;
     if (paymentFilter && payStatus !== paymentFilter) return;
 
@@ -2643,6 +2769,7 @@ function openStudentDetail(courseId) {
   const paid     = Number(course.total_paid_hrs||0);
   const sessions = DATA.sessions.filter(s=>s.course_id===courseId).sort((a,b)=>new Date(a.date)-new Date(b.date));
 
+  // Calculate totals
   let totalCharged=0, totalStudied=0, totalRevenue=0;
   sessions.forEach(s=>{
     const hrs = Number(s.hours||0);
@@ -2672,7 +2799,7 @@ function openStudentDetail(courseId) {
     else if (s.status==='Cancelled'){hrsCharged=0;hrsStudied=0;notes=lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup';}
     else{hrsCharged='—';hrsStudied='—';}
     const num = s.status==='Scheduled'?'—':sessionNum||'—';
-    const isEditable = s.status === 'Scheduled';
+    const isEditable = s.status === 'Scheduled'; // Only scheduled sessions can have date/time edited
     return `<tr>
       <td>${num}</td>
       <td>${s.date||'—'}</td>
@@ -2738,6 +2865,7 @@ function downloadStudentExcel() {
 }
 
 // ─── PDF FOR TUTOR (from student detail) ─────────────────
+// Shows: date, time, hrs, status — no revenue, no fees
 function downloadStudentPDFForTutor() {
   const course   = currentDetailCourse;
   if (!course) return;
@@ -2806,7 +2934,8 @@ function downloadStudentPDFForTutor() {
   showToast(lang==='th'?'✓ PDF สำหรับครู — กด Print เพื่อบันทึก':'✓ Tutor PDF — press Print to save');
 }
 
-// ─── PDF FOR STUDENT (from student detail) — FIX: no day prefix ──
+// ─── PDF FOR STUDENT (from student detail) ────────────────
+// Shows: date, time, hrs, status — no revenue, no tutor pay
 function downloadStudentPDFForStudent() {
   const course   = currentDetailCourse;
   if (!course) return;
@@ -2831,7 +2960,7 @@ function downloadStudentPDFForStudent() {
     if (s.status==='Completed') hrsStudied = s.hours;
     else if (s.status==='Makeup') hrsStudied = s.hours;
     else if (s.status==='Missed'||s.status==='Cancelled') hrsStudied = '0';
-    const dateDisplay = s.date || '—';  // ← FIX: use date directly, no day prefix
+    const dateDisplay = s.date || '—';
 
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:7px 10px">${num}</td>
@@ -2909,31 +3038,18 @@ function renderExpenses() {
   `;
 }
 
-async function addExpense() {
+function addExpense() {
   const name = document.getElementById('new-expense-name').value.trim();
   const amt  = document.getElementById('new-expense-amt').value.trim();
   if (!name || !amt) return;
-
-  const month = new Date().toISOString().slice(0,7);
-  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving...');
-
-  try {
-    const result = await webAppWrite('addExpense', {
-      itemName: name, amount: Number(amt), category: 'other', month
-    });
-    DATA.expenses.push({ expense_id: result.expense_id, month, item_name: name, amount: amt, category: 'other' });
-    document.getElementById('new-expense-name').value = '';
-    document.getElementById('new-expense-amt').value  = '';
-    renderExpenses();
-    renderOverview();
-    showToast(lang==='th' ? '✓ เพิ่มค่าใช้จ่ายแล้ว' : '✓ Expense added to sheet');
-  } catch(err) {
-    if (err.message.includes('Web App URL')) return;
-    showToast('❌ ' + err.message);
-  }
+  DATA.expenses.push({ expense_id: 'E'+(DATA.expenses.length+1).toString().padStart(3,'0'), month: new Date().toISOString().slice(0,7), item_name: name, amount: amt, category: 'other' });
+  document.getElementById('new-expense-name').value = '';
+  document.getElementById('new-expense-amt').value  = '';
+  renderExpenses();
+  renderOverview();
 }
 
-// ─── FALLBACK ─────────────────────────────────────────────
+// ─── FALLBACK (when sheet is empty) ───────────────────────
 function renderFallback() {
   document.getElementById('overview-month').textContent = new Date().toLocaleString(lang==='th'?'th-TH':'en-US',{month:'long',year:'numeric'});
   document.getElementById('overview-metrics').innerHTML = `<div class="metric"><div class="metric-label">${lang==='th'?'สถานะ':'Status'}</div><div class="metric-value" style="font-size:16px">${lang==='th'?'เชื่อมต่อชีตแล้ว':'Sheet connected'}</div><div class="metric-sub">${lang==='th'?'เพิ่มข้อมูลใน Google Sheet เพื่อดูตัวเลข':'Add data to your Google Sheet to see live numbers'}</div></div>`;
@@ -2946,9 +3062,13 @@ function renderFallback() {
   document.getElementById('expenses-metrics').innerHTML = '';
 }
 
+// ─── PAGE MEMORY (persist on refresh) ────────────────────
+// restorePage is handled in onAppReady
+
 // ─── TIME FORMATTING ──────────────────────────────────────
 function formatTime(t) {
   if (!t) return '—';
+  // Handle HH:MM:SS or HH:MM
   const parts = t.split(':');
   if (parts.length < 2) return t;
   let h = parseInt(parts[0]), m = parseInt(parts[1]);
@@ -2966,11 +3086,14 @@ function formatTimeRange(start, end) {
 // ─── SUBJECT LOOKUP ───────────────────────────────────────
 function getSubjectForSession(session) {
   if (!session) return '—';
+  // First check if session itself has a subject field
   if (session.subject && session.subject !== '—' && session.subject !== '') return session.subject;
+  // Look up from Courses tab via course_id
   if (session.course_id) {
     const course = DATA.courses.find(c => c.course_id === session.course_id);
     if (course?.subject && course.subject !== '') return course.subject;
   }
+  // Last resort: look up by student_id and tutor_id
   if (session.student_id && session.tutor_id) {
     const course = DATA.courses.find(c =>
       c.student_id === session.student_id && c.tutor_id === session.tutor_id
@@ -2998,7 +3121,7 @@ function setScheduleView(mode) {
 }
 
 // ─── CALENDAR ─────────────────────────────────────────────
-let calView = 'week';
+let calView = 'week'; // day | week | month | year
 let calDate = new Date();
 
 const WEEKDAYS_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -3042,11 +3165,13 @@ function getCalSessions() {
 function getEventColor(session) {
   const tutorFilter = document.getElementById('cal-filter-tutor')?.value || '';
   if (tutorFilter) {
+    // Single tutor view — color by course/paid block
     const colors = ['#1D9E75','#378ADD','#7F77DD','#D85A30','#D4537E','#BA7517','#888780','#E24B4A','#2196F3','#9C27B0'];
     const courses = DATA.courses.filter(c=>c.tutor_id===tutorFilter);
     const idx = courses.findIndex(c=>c.course_id===session.course_id);
     return colors[Math.max(0,idx) % colors.length];
   } else {
+    // All tutors — color by tutor
     const tutor = getTutor(session.tutor_id);
     return COLOR_MAP[tutor.color]||'#888';
   }
@@ -3054,6 +3179,7 @@ function getEventColor(session) {
 
 function parseSessionDate(dateStr) {
   if (!dateStr) return null;
+  // Handle M/D/YYYY
   if (dateStr.includes('/')) {
     const p=dateStr.split('/');
     if(p.length>=3) return new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1]));
@@ -3091,9 +3217,10 @@ function renderCalendar() {
   const wdays=lang==='th'?WEEKDAYS_TH:WEEKDAYS_EN;
   const months=lang==='th'?MONTHS_TH:MONTHS_EN;
 
-  const CAL_START_HOUR = 7;
-  const CAL_END_HOUR   = 22;
-  const HOUR_HEIGHT    = 60;
+  // ─── TIME GRID (Day & Week) ──────────────────────────────
+  const CAL_START_HOUR = 7;  // 7am
+  const CAL_END_HOUR   = 22; // 10pm
+  const HOUR_HEIGHT    = 60; // px per hour
 
   function timeToMinutes(t) {
     if (!t) return null;
@@ -3102,12 +3229,15 @@ function renderCalendar() {
   }
 
   function renderTimeGrid(days) {
+    // days = array of { date, label, sessions }
     const hours = [];
     for (let h = CAL_START_HOUR; h <= CAL_END_HOUR; h++) hours.push(h);
     const gridHeight = (CAL_END_HOUR - CAL_START_HOUR) * HOUR_HEIGHT;
+
     const colW = days.length === 1 ? '100%' : `${Math.floor(100/days.length)}%`;
 
     let html = `<div style="display:flex;overflow:hidden">`;
+    // Time gutter
     html += `<div style="width:52px;flex-shrink:0;position:relative;height:${gridHeight+24}px">`;
     hours.forEach((h,i) => {
       const top = i * HOUR_HEIGHT;
@@ -3116,18 +3246,22 @@ function renderCalendar() {
     });
     html += `</div>`;
 
+    // Day columns
     html += `<div style="flex:1;display:flex;border-left:1px solid var(--border);overflow-x:auto">`;
     days.forEach(day => {
       html += `<div style="flex:1;min-width:${days.length>3?'120px':'0'};border-right:1px solid var(--border);position:relative">`;
+      // Day header
       const isToday = day.date && isSameDay(day.date, new Date());
       html += `<div style="position:sticky;top:0;background:var(--surface);z-index:2;padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);font-size:12px;font-weight:${isToday?'600':'400'};color:${isToday?'var(--teal)':'var(--text2)'}">
         ${day.label}
       </div>`;
+      // Hour lines
       html += `<div style="position:relative;height:${gridHeight}px">`;
       hours.forEach((h,i) => {
         html += `<div style="position:absolute;top:${i*HOUR_HEIGHT}px;left:0;right:0;border-top:1px solid var(--border);opacity:0.4"></div>`;
         if (i>0) html += `<div style="position:absolute;top:${i*HOUR_HEIGHT-HOUR_HEIGHT/2}px;left:0;right:0;border-top:1px dashed var(--border);opacity:0.25"></div>`;
       });
+      // Current time indicator
       if (day.date && isSameDay(day.date, new Date())) {
         const now = new Date();
         const nowMins = now.getHours()*60+now.getMinutes();
@@ -3138,6 +3272,7 @@ function renderCalendar() {
           </div>`;
         }
       }
+      // Sessions
       day.sessions.forEach(s => {
         const startMins = timeToMinutes(s.start_time);
         const endMins   = timeToMinutes(s.end_time) || (startMins ? startMins+60 : null);
@@ -3194,7 +3329,7 @@ function renderCalendar() {
     for(let day=1;day<=daysInMonth;day++){
       const d=new Date(y,m,day);
       const isToday=isSameDay(d,new Date());
-      const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),d)).sort((a,b)=>(a.start_time||'').localeCompare(b.start_time||''));
+        const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),d)).sort((a,b)=>(a.start_time||'').localeCompare(b.start_time||''));
       html+=`<div style="min-height:80px;border:1px solid var(--border);border-radius:8px;padding:6px;background:${isToday?'var(--teal-bg)':'var(--surface)'}">
         <div style="font-size:12px;font-weight:${isToday?'600':'400'};color:${isToday?'var(--teal)':'var(--text)'};margin-bottom:4px">${day}</div>
         ${daySessions.map(s=>renderCalEventPill(s,true)).join('')}
@@ -3207,6 +3342,7 @@ function renderCalendar() {
   else if(calView==='year') {
     const y=calDate.getFullYear();
     title.textContent=String(y);
+    // Monthly revenue bars
     const monthlyData=Array.from({length:12},(_,mi)=>{
       const monthSessions=sessions.filter(s=>{
         const d=parseSessionDate(s.date);
@@ -3243,6 +3379,7 @@ function showMonthlySummary() {
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
+  // ── Totals ───────────────────────────────────────────────
   const totalRevenue   = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
   const totalTutorPay  = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission= monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
@@ -3251,17 +3388,19 @@ function showMonthlySummary() {
   const profitShare    = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool      = schoolRemainder - totalExpenses - profitShare;
 
+  // ── Per-tutor breakdown ──────────────────────────────────
   const tutorBreakdown = DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
     const sessions = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
     if (!sessions.length) return null;
     const pay  = sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
-    const wht  = pay*0.03;
+    const wht  = pay*0.03; // P'Pop exempt
     const net  = pay - wht;
     const hrs  = sessions.reduce((s,x)=>s+Number(x.hours||0),0);
     const color= COLOR_MAP[tutor.color]||'#888';
     return { tutor, pay, wht, net, hrs, color };
   }).filter(Boolean);
 
+  // ── Commission breakdown ─────────────────────────────────
   const commBreakdown = {};
   monthSessions.forEach(s => {
     const who = s.commission_who || s.commission_to || 'none';
@@ -3270,6 +3409,7 @@ function showMonthlySummary() {
     commBreakdown[who] += Number(s.commission_amt||0);
   });
 
+  // ── WHT on commission ────────────────────────────────────
   const commRows = Object.entries(commBreakdown).map(([who, amt]) => {
     const wht = amt * 0.03;
     const net = amt - wht;
@@ -3281,6 +3421,7 @@ function showMonthlySummary() {
     </tr>`;
   }).join('') || `<tr><td colspan="4" style="padding:8px 10px;color:#aaa;text-align:center">No commission this month</td></tr>`;
 
+  // ── Tutor rows ───────────────────────────────────────────
   const tutorRows = tutorBreakdown.map(({tutor,pay,wht,net,hrs,color}) =>
     `<tr style="border-bottom:1px solid #eee">
       <td style="padding:8px 10px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:6px"></span>${tutor.name}</td>
@@ -3291,6 +3432,7 @@ function showMonthlySummary() {
     </tr>`
   ).join('');
 
+  // ── Total WHT ────────────────────────────────────────────
   const totalWHT     = tutorBreakdown.reduce((s,x)=>s+x.wht,0)
                      + Object.values(commBreakdown).reduce((s,x)=>s+x*0.03,0);
   const totalNetPay  = tutorBreakdown.reduce((s,x)=>s+x.net,0);
@@ -3300,6 +3442,8 @@ function showMonthlySummary() {
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
   modal.innerHTML = `
     <div style="background:#fff;border-radius:16px;padding:28px;max-width:780px;width:100%;max-height:92vh;overflow-y:auto;font-family:'DM Sans',sans-serif">
+
+      <!-- Header -->
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px">
         <div>
           <div style="font-size:20px;font-weight:700">📊 Monthly Summary</div>
@@ -3311,6 +3455,7 @@ function showMonthlySummary() {
         </div>
       </div>
 
+      <!-- Top metrics -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
         ${[
           ['Total revenue','รายได้รวม', totalRevenue, '#1D9E75'],
@@ -3329,6 +3474,7 @@ function showMonthlySummary() {
           </div>`).join('')}
       </div>
 
+      <!-- Tutor breakdown -->
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">Tutor payouts with WHT 3%</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
         <thead><tr style="border-bottom:2px solid #eee">
@@ -3348,6 +3494,7 @@ function showMonthlySummary() {
         </tr></tfoot>
       </table>
 
+      <!-- Commission breakdown -->
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">Commission breakdown with WHT 3%</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
         <thead><tr style="border-bottom:2px solid #eee">
@@ -3365,15 +3512,831 @@ function showMonthlySummary() {
         </tr></tfoot>
       </table>
 
+      <!-- Footer note -->
       <div style="font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px">
         WHT = Withholding Tax 3% deducted from all tutor payouts and commission transfers. Generated ${new Date().toLocaleString()}.
       </div>
     </div>`;
   document.body.appendChild(modal);
+  // Store data for PDF download
+  modal._summaryData = { monthStr, totalRevenue, totalTutorPay, totalCommission,
+    totalExpenses, schoolRemainder, profitShare, totalWHT, netSchool,
+    tutorBreakdown, commBreakdown, monthSessions };
 }
 
 function downloadMonthlySummaryPDF() {
   const monthSessions = filterByMonth(DATA.sessions, 'date')
     .filter(s => s.status === 'Completed' || s.status === 'Makeup');
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
-  const monthStr   = lang=
+  const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
+
+  const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
+  const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+  const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
+  const totalExpenses   = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
+  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const netSchool       = schoolRemainder - totalExpenses - profitShare;
+
+  // Per-tutor breakdown
+  const tutorRows = DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
+    const sessions = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
+    if (!sessions.length) return '';
+    const pay = sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+    const hrs = sessions.reduce((s,x)=>s+Number(x.hours||0),0);
+    const wht = pay*0.03;
+    const net = pay - wht;
+    return `<tr><td>${tutor.name}</td><td style="text-align:center">${hrs}</td>
+      <td style="text-align:right">฿${fmt(pay)}</td>
+      <td style="text-align:right;color:#E24B4A">${'฿'+fmt(wht)}</td>
+      <td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(net)}</td></tr>`;
+  }).join('');
+
+  // Commission breakdown
+  const commMap = {};
+  monthSessions.forEach(s => {
+    const who = s.commission_who || s.commission_to || 'none';
+    if (who === 'none' || !who) return;
+    commMap[who] = (commMap[who]||0) + Number(s.commission_amt||0);
+  });
+  const commRows = Object.entries(commMap).map(([who,amt]) => {
+    const wht = amt*0.03, net = amt-wht;
+    return `<tr><td>${who}</td><td style="text-align:right">฿${fmt(amt)}</td>
+      <td style="text-align:right;color:#E24B4A">฿${fmt(wht)}</td>
+      <td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(net)}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" style="color:#aaa;text-align:center">No commission this month</td></tr>';
+
+  const totalWHT = DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
+    const pay = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id).reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+    return pay*0.03;
+  }).reduce((a,b)=>a+b,0) + Object.values(commMap).reduce((s,x)=>s+x*0.03,0);
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Monthly Summary — ${monthStr}</title>
+  <style>
+    body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#1a1a18;padding:32px;max-width:800px;margin:0 auto}
+    h1{font-size:20px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 24px}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}
+    .metric{background:#f7f6f3;border-radius:8px;padding:12px}
+    .metric label{font-size:10px;color:#888;text-transform:uppercase;display:block;margin-bottom:4px}
+    .metric strong{font-size:17px;display:block}
+    .green{color:#1D9E75}.red{color:#E24B4A}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px}
+    th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid #eee}
+    td{padding:8px 10px;border-bottom:1px solid #eee}
+    tfoot td{font-weight:600;background:#f7f6f3;border-top:2px solid #eee}
+    h3{font-size:13px;font-weight:600;margin:0 0 8px}
+    footer{margin-top:24px;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px}
+    @media print{body{padding:16px}}
+  </style></head><body>
+  <h1>Poppadi's Studyo — Monthly Summary</h1>
+  <h2>${monthStr} · Generated ${new Date().toLocaleString()}</h2>
+
+  <div class="metrics">
+    <div class="metric"><label>Total Revenue</label><strong class="green">฿${fmt(totalRevenue)}</strong></div>
+    <div class="metric"><label>Tutor Payouts</label><strong>฿${fmt(totalTutorPay)}</strong></div>
+    <div class="metric"><label>Commission</label><strong>฿${fmt(totalCommission)}</strong></div>
+    <div class="metric"><label>Fixed Expenses</label><strong class="red">฿${fmt(totalExpenses)}</strong></div>
+    <div class="metric"><label>School Remainder</label><strong>฿${fmt(schoolRemainder)}</strong></div>
+    <div class="metric"><label>P'Pop 20% Share</label><strong style="color:#378ADD">฿${fmt(profitShare)}</strong></div>
+    <div class="metric"><label>Total WHT 3%</label><strong class="red">฿${fmt(totalWHT)}</strong></div>
+    <div class="metric"><label>Net to School</label><strong class="green">฿${fmt(netSchool)}</strong></div>
+    <div class="metric"><label>Sessions Taught</label><strong>${monthSessions.length}</strong></div>
+  </div>
+
+  <h3>Tutor Payouts with WHT 3%</h3>
+  <table>
+    <thead><tr><th>Tutor</th><th style="text-align:center">Hrs</th><th style="text-align:right">Gross Pay</th><th style="text-align:right">WHT 3%</th><th style="text-align:right">Net Transfer</th></tr></thead>
+    <tbody>${tutorRows}</tbody>
+  </table>
+
+  <h3>Commission Breakdown with WHT 3%</h3>
+  <table>
+    <thead><tr><th>Recipient</th><th style="text-align:right">Gross</th><th style="text-align:right">WHT 3%</th><th style="text-align:right">Net</th></tr></thead>
+    <tbody>${commRows}</tbody>
+  </table>
+
+  <footer>WHT = Withholding Tax 3% deducted from all tutor and commission transfers. This document is confidential — for internal accounting use only.</footer>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank');
+  if (!win) {
+    // Popup blocked — fallback to download
+    const a = document.createElement('a');
+    a.href = url; a.download = `Poppadi_MonthlySummary_${selectedMonth}.html`; a.click();
+    showToast(lang==='th' ? '⬇ ดาวน์โหลดไฟล์แล้ว' : '⬇ File downloaded — open in browser then print');
+  } else {
+    showToast(lang==='th' ? '✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก' : '✓ PDF opened — press Print to save');
+  }
+}
+async function addExpense() {
+  const name = document.getElementById('new-expense-name').value.trim();
+  const amt  = document.getElementById('new-expense-amt').value.trim();
+  if (!name || !amt) return;
+
+  const month = new Date().toISOString().slice(0,7);
+  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving...');
+
+  try {
+    const result = await webAppWrite('addExpense', {
+      itemName: name, amount: Number(amt), category: 'other', month
+    });
+    DATA.expenses.push({ expense_id: result.expense_id, month, item_name: name, amount: amt, category: 'other' });
+    document.getElementById('new-expense-name').value = '';
+    document.getElementById('new-expense-amt').value  = '';
+    renderExpenses();
+    renderOverview();
+    showToast(lang==='th' ? '✓ เพิ่มค่าใช้จ่ายแล้ว' : '✓ Expense added to sheet');
+  } catch(err) {
+    if (err.message.includes('Web App URL')) return;
+    showToast('❌ ' + err.message);
+  }
+}
+
+// ─── TUTOR DOWNLOAD (internal vs tutor-facing) ────────────
+function downloadTutorExcel() {
+  // Internal version — full financial details
+  const tableId = tutorViewMode==='all'?'tutor-all-table':'tutor-single-table';
+  const tutorName = tutorViewMode==='single'?getTutor(document.getElementById('tutor-select').value).name:'AllTutors';
+  downloadTableAsCSV(tableId,`Poppadi_Internal_${tutorName}_${selectedMonth}.csv`);
+}
+
+function downloadTutorFacing() {
+  // Tutor-facing version — no fees, no school remainder, no commission details
+  if (tutorViewMode!=='single') {
+    showToast(lang==='th'?'กรุณาเลือก Individual ก่อน':'Please switch to Individual view first'); return;
+  }
+  const tutorId = document.getElementById('tutor-select').value;
+  const tutor = getTutor(tutorId);
+  const monthSessions = filterByMonth(DATA.sessions,'date').filter(s=>s.tutor_id===tutorId);
+  if (!monthSessions.length) { showToast('No sessions found'); return; }
+
+  const headers = ['Student','Session','Subject','Date','Time','Hrs','Students','Tutor Pay','Status'];
+  const rows = monthSessions.map(s=>{
+    const student=DATA.students.find(st=>st.student_id===s.student_id);
+    const timeStr=formatTimeRange(s.start_time,s.end_time);
+    return [
+      student?.nickname||s.student_id,
+      s.session_id||'—',
+      getSubjectForSession(s),
+      s.date||'—',
+      timeStr,
+      s.hours||'—',
+      s.num_students||'—',
+      '฿'+fmt(s.tutor_pay),
+      s.status||'—'
+    ];
+  });
+
+  const csv=[headers,...rows].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`Poppadi_${tutor.name||tutorId}_${selectedMonth}_TutorSummary.csv`;a.click();
+  showToast(lang==='th'?'✓ ดาวน์โหลดสำหรับครูแล้ว':'✓ Tutor summary downloaded');
+}
+
+// ─── NAV ──────────────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.querySelectorAll('.nav-item').forEach(b => { if (b.textContent.toLowerCase().includes(id)) b.classList.add('active'); });
+  localStorage.setItem('poppadi_page', id);
+  // Initialize enrollment form whenever navigating to it
+  if (id === 'enroll') {
+    const tbody = document.getElementById('enroll-schedule-body');
+    if (tbody && tbody.children.length === 0) initScheduleBody();
+    populateEnrollTutors();
+    populateStudentDatalist();
+    populateSubjectDatalist();
+    renderPendingPayments();
+    setEnrollType(enrollType || 'new');
+    // Set default fee if empty
+    const feeInput = document.getElementById('enroll-fee');
+    if (feeInput && !feeInput.value) feeInput.value = 1100;
+  }
+}
+
+// ─── LANGUAGE ─────────────────────────────────────────────
+function setLang(l, btn) {
+  lang = l;
+  localStorage.setItem('poppadi_lang', l);
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('[data-en]').forEach(el => {
+    const val = el.getAttribute('data-'+l);
+    if (!val) return;
+    if (el.tagName==='INPUT'&&el.type!=='date'&&el.type!=='time'&&el.type!=='number') el.placeholder=val;
+    else if (el.tagName==='OPTION') el.textContent=val;
+    else el.textContent=val;
+  });
+  renderAll();
+  if (tutorViewMode==='all') renderTutorAll(); else renderTutorDetail();
+  if (scheduleViewMode==='calendar') renderCalendar();
+}
+
+// ─── TUTOR RATE SUGGESTION ────────────────────────────────
+const TUTOR_TIERS = {
+  T001: { base: 700, extra: 100 }, // P'Pop
+  T002: { base: 650, extra: 100 }, // P'Steven
+  T003: { base: 650, extra: 100 }, // Dr.Poon
+  T004: { base: 650, extra: 100 }, // AJ'Koi
+  T005: { base: 700, extra: 100 }, // AJ'Sumi
+  T006: { base: 350, extra: 50  }, // T'Noey
+  T007: { base: 350, extra: 50  }, // T'Nicha
+};
+
+function suggestTutorRate() {
+  const tutorId = document.getElementById('enroll-tutor')?.value;
+  const numStudents = parseInt(document.getElementById('enroll-num')?.value) || 1;
+  const rateInput = document.getElementById('enroll-rate');
+  const feeInput  = document.getElementById('enroll-fee');
+  const hint      = document.getElementById('rate-hint');
+
+  // ── Auto-fill fee per hour — default ฿1,100, still editable ─
+  if (feeInput && !feeInput.value) {
+    feeInput.value = 1100;
+    feeInput.style.borderColor = '';
+  }
+
+  // ── Auto-suggest tutor rate ───────────────────────────────
+  if (!tutorId || !rateInput) return;
+  const tier = TUTOR_TIERS[tutorId];
+  if (!tier) return;
+  const suggested = tier.base + (numStudents - 1) * tier.extra;
+  rateInput.value = suggested;
+  rateInput.style.borderColor = 'var(--teal)';
+
+  if (hint) {
+    hint.textContent = numStudents > 1
+      ? `Base ฿${tier.base} + ${numStudents-1} extra × ฿${tier.extra} = ฿${suggested}/hr`
+      : `Base rate for 1 student = ฿${suggested}/hr`;
+  }
+
+  updateEnrollPreview();
+  if (typeof updateGroupRateHint === 'function') updateGroupRateHint();
+}
+
+// ─── JANE COMMISSION TIER ─────────────────────────────────
+function getJaneCommissionRate() {
+  const janeCourseIds = DATA.courses
+    .filter(c => c.commission_to === 'jane')
+    .map(c => c.course_id);
+  const janeHours = DATA.sessions
+    .filter(s => janeCourseIds.includes(s.course_id) && (s.status==='Completed'||s.status==='Makeup'))
+    .reduce((sum, s) => sum + Number(s.hours||0), 0);
+  return janeHours > 250 ? 0.07 : 0.05;
+}
+
+// ─── SCHEDULE ROW HELPER ─────────────────────────────────
+function getDefaultStartTime() {
+  const now  = new Date();
+  const h    = now.getHours() + 1;
+  const snapped = h >= 22 ? 22 : h;
+  return `${String(snapped % 24).padStart(2,'0')}:00`;
+}
+
+function makeSchedRowHTML(isFirst) {
+  const defaultStart = getDefaultStartTime();
+  const defaultHrs   = 2;
+  const [h, m]       = defaultStart.split(':').map(Number);
+  const endTotalMins = h * 60 + m + defaultHrs * 60;
+  const endH         = Math.floor(endTotalMins / 60) % 24;
+  const endM         = endTotalMins % 60;
+  // Snap end to nearest :00 or :30, cap at 23:00
+  const snappedM     = endM < 15 ? 0 : endM < 45 ? 30 : 0;
+  const rawH         = endM >= 45 ? (endH + 1) % 24 : endH;
+  const capH         = rawH > 23 ? 23 : rawH;
+  const defaultEnd   = `${String(capH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
+
+  const btn = isFirst
+    ? `<span></span>`
+    : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button>`;
+
+  return `
+    <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box"></td>
+    <td><select class="sched-start" onchange="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box">
+      ${generateTimeOptions(defaultStart)}
+    </select></td>
+    <td><select class="sched-end" onchange="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--teal);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box;color:var(--teal)">
+      ${generateTimeOptions(defaultEnd)}
+    </select></td>
+    <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" value="${defaultHrs}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" step="0.5" min="0.5"></td>
+    <td>${btn}</td>`;
+}
+
+function generateTimeOptions(selectedVal) {
+  const options = [];
+  for (let h = 6; h <= 23; h++) {
+    for (let m of [0, 30]) {
+      if (h === 23 && m === 30) continue; // stop at 11:00 PM
+      const val      = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      const displayH = h > 12 ? h - 12 : h === 12 ? 12 : h;
+      const ampm     = h >= 12 ? 'PM' : 'AM';
+      const label    = `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
+      const sel      = val === selectedVal ? 'selected' : '';
+      options.push(`<option value="${val}" ${sel}>${label}</option>`);
+    }
+  }
+  return options.join('');
+}
+
+// Override autoEndTime to work with select element
+function autoEndTime(startInput) {
+  if (!startInput) return;
+  const row    = startInput.closest('tr');
+  if (!row) return;
+  const hrsInput = row.querySelector('.sched-hrs');
+  const endSel   = row.querySelector('.sched-end');
+  if (!hrsInput || !endSel) return;
+  const startVal = startInput.value;
+  const hrsVal   = parseFloat(hrsInput.value);
+  if (!startVal || !hrsVal) return;
+  const [h, m]    = startVal.split(':').map(Number);
+  const totalMins = h * 60 + m + Math.round(hrsVal * 60);
+  const endH      = Math.floor(totalMins / 60) % 24;
+  const endM      = totalMins % 60;
+  // Snap to :00 or :30
+  const snappedM  = endM < 15 ? 0 : endM < 45 ? 30 : 0;
+  const snappedH  = endM >= 45 ? (endH + 1) % 24 : endH;
+  const endVal    = `${String(snappedH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
+  // Only set if the value exists in the dropdown
+  const exists = Array.from(endSel.options).some(o => o.value === endVal);
+  if (exists) {
+    endSel.value = endVal;
+  } else {
+    // Past 11PM — pick last available option
+    endSel.selectedIndex = endSel.options.length - 1;
+  }
+  endSel.style.color       = 'var(--teal)';
+  endSel.style.borderColor = 'var(--teal)';
+}
+
+function autoHoursFromTimes(endInput) {
+  if (!endInput) return;
+  const row = endInput.closest('tr');
+  if (!row) return;
+  const startInput = row.querySelector('.sched-start');
+  const hrsInput   = row.querySelector('.sched-hrs');
+  if (!startInput || !hrsInput) return;
+  const startVal = startInput.value;
+  const endVal   = endInput.value;
+  if (!startVal || !endVal) return;
+  const [sh, sm] = startVal.split(':').map(Number);
+  const [eh, em] = endVal.split(':').map(Number);
+  const diffMins = (eh * 60 + em) - (sh * 60 + sm);
+  if (diffMins <= 0) return;
+  const hrs = diffMins / 60;
+  hrsInput.value = Number.isInteger(hrs) ? hrs : hrs.toFixed(1);
+  hrsInput.style.borderColor = 'var(--teal)';
+}
+
+function addScheduleRow() {
+  const tbody = document.getElementById('enroll-schedule-body');
+  const row = document.createElement('tr');
+  row.innerHTML = makeSchedRowHTML(false);
+  tbody.appendChild(row);
+}
+
+function initScheduleBody() {
+  const tbody = document.getElementById('enroll-schedule-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr>${makeSchedRowHTML(true)}</tr>`;
+}
+
+// ─── DYNAMIC TUTOR LOADER ─────────────────────────────────
+function populateEnrollTutors() {
+  const sel = document.getElementById('enroll-tutor');
+  if (!sel || !DATA.tutors.length) return;
+  const current = sel.value;
+  sel.innerHTML = DATA.tutors
+    .filter(t => t.active === 'TRUE')
+    .map(t => `<option value="${t.tutor_id}" ${t.tutor_id===current?'selected':''}>${t.name}</option>`)
+    .join('');
+  suggestTutorRate();
+}
+
+function addScheduleRow() {
+  const tbody = document.getElementById('enroll-schedule-body');
+  const row = document.createElement('tr');
+  row.innerHTML = makeSchedRowHTML(false);
+  tbody.appendChild(row);
+}
+
+async function submitEnrollment() {
+  const studentName  = document.getElementById('enroll-student').value.trim();
+  const subject      = document.getElementById('enroll-subject').value.trim();
+  const tutorId      = document.getElementById('enroll-tutor').value;
+  const paidHrs      = parseFloat(document.getElementById('enroll-hours').value) || 0;
+  const feePerHr     = parseFloat(document.getElementById('enroll-fee').value) || 0;
+  const tutorRate    = parseFloat(document.getElementById('enroll-rate').value) || 0;
+  const commTo       = document.getElementById('enroll-jane').value;
+  const invoiceRef   = document.getElementById('enroll-invoice').value.trim();
+  const payDate      = document.getElementById('enroll-date').value;
+  const payStatus    = document.getElementById('enroll-payment-status')?.value || 'Paid';
+  const enrollmentType = enrollType || 'new';
+
+  if (!studentName || !tutorId || !paidHrs || !feePerHr) {
+    alert(lang==='th'
+      ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
+      : 'Please fill in required fields:\n• Student name\n• Total paid hours\n• Fee per hour');
+    return;
+  }
+
+  // Find or create student
+  const existingStudent = DATA.students.find(s =>
+    (s.nickname||'').toLowerCase() === studentName.toLowerCase() ||
+    (s.full_name||'').toLowerCase() === studentName.toLowerCase()
+  );
+  const isNewStudent = !existingStudent;
+  const studentId    = existingStudent?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
+  const fullName     = document.getElementById('enroll-fullname')?.value.trim() || '';
+  const phone        = document.getElementById('enroll-phone')?.value.trim()    || '';
+  const notes        = document.getElementById('enroll-notes')?.value.trim()    || '';
+
+  // Collect schedule rows — handle both select (start) and input (end, date)
+  const schedRows = document.querySelectorAll('#enroll-schedule-body tr');
+  const sessions  = [];
+  schedRows.forEach(row => {
+    const dateInput  = row.querySelector('input[type="date"]');
+    const startSel   = row.querySelector('.sched-start');
+    const endSel     = row.querySelector('.sched-end');
+    const hrsInput   = row.querySelector('.sched-hrs');
+    if (!dateInput?.value) return;
+    sessions.push({
+      date:       dateInput.value,
+      start_time: startSel?.value || '',
+      end_time:   endSel?.value   || '',
+      hours:      parseFloat(hrsInput?.value) || 2
+    });
+  });
+
+  if (sessions.length === 0) {
+    alert(lang==='th' ? 'กรุณาเพิ่มอย่างน้อย 1 คาบพร้อมวันที่' : 'Please add at least 1 session with a date');
+    return;
+  }
+
+  setSaveProgress(10, lang==='th'?'กำลังตรวจสอบ...':'Validating...');
+
+  try {
+    const tutor = getTutor(tutorId);
+    setSaveProgress(30, lang==='th'?'กำลังบันทึกนักเรียน...':'Writing student...');
+
+    setSaveProgress(60, lang==='th'?'กำลังสร้างคาบเรียน...':'Creating sessions...');
+
+    const result = await webAppWrite('addEnrollment', {
+      student: {
+        student_id:   studentId,
+        nickname:     studentName,
+        full_name:    fullName,
+        phone,
+        notes,
+        is_new:       isNewStudent
+      },
+      course: {
+        student_id: studentId,
+        student_name: studentName,
+        tutor_id: tutorId,
+        subject,
+        total_paid_hrs: paidHrs,
+        fee_per_hr: feePerHr,
+        tutor_rate_per_hr: tutorRate,
+        commission_to: commTo,
+        invoice_ref: invoiceRef,
+        payment_date: payDate,
+        payment_status: payStatus,
+        enrollment_type: enrollmentType,
+        block_number: 1,
+        num_students: 1
+      },
+      sessions
+    });
+
+    setSaveProgress(90, lang==='th'?'กำลังโหลดข้อมูล...':'Loading data...');
+
+    showToast(lang==='th'
+      ? `✅ บันทึกแล้ว — ${result.course_id} (${sessions.length} คาบ)`
+      : `✅ Saved — ${result.course_id} (${sessions.length} sessions)`
+    );
+
+    // Show post-save summary
+    showEnrollmentSummary({
+      studentName, subject, tutor: tutor.name||tutorId,
+      paidHrs, feePerHr, tutorRate, commTo,
+      invoiceRef, payDate, payStatus,
+      courseId: result.course_id, sessions
+    });
+
+    // Reset form
+    document.getElementById('enroll-student').value = '';
+    document.getElementById('enroll-subject').value = '';
+    document.getElementById('enroll-hours').value   = '';
+    document.getElementById('enroll-fee').value     = '';
+    document.getElementById('enroll-invoice').value = '';
+    document.getElementById('enroll-date').value    = '';
+    if (document.getElementById('enroll-payment-status'))
+      document.getElementById('enroll-payment-status').value = 'Pending';
+    initScheduleBody();
+    resetSaveBtn();
+    await loadAllData();
+    renderPendingPayments();
+
+  } catch(err) {
+    if (err.message.includes('Web App URL')) { resetSaveBtn(); return; }
+    showToast('❌ ' + err.message);
+    resetSaveBtn();
+    console.error(err);
+  }
+}
+
+// ─── POST-SAVE ENROLLMENT SUMMARY ────────────────────────
+function showEnrollmentSummary(data) {
+  const { studentName, subject, tutor, paidHrs, feePerHr, tutorRate,
+          commTo, invoiceRef, payDate, courseId, sessions } = data;
+  const commRate    = commTo !== 'none' ? 0.05 : 0;
+  const modal       = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  const sessionRows = sessions.map((s,i) => {
+    const timeStr = s.start_time && s.end_time
+      ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}`
+      : s.start_time ? formatTime(s.start_time) : '—';
+    const rev = feePerHr * s.hours;
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:6px 10px">${i+1}</td>
+      <td style="padding:6px 10px">${s.date}</td>
+      <td style="padding:6px 10px">${timeStr}</td>
+      <td style="padding:6px 10px;text-align:center">${s.hours}</td>
+      <td style="padding:6px 10px;text-align:right">฿${fmt(rev)}</td>
+    </tr>`;
+  }).join('');
+
+  const totalRev  = sessions.reduce((sum,s) => sum + feePerHr * s.hours, 0);
+  const totalPay  = sessions.reduce((sum,s) => sum + tutorRate * s.hours, 0);
+  const totalComm = totalRev * commRate;
+  const totalSchool = totalRev - totalPay - totalComm;
+
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;font-family:'DM Sans',sans-serif">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px">
+        <div>
+          <div style="font-size:18px;font-weight:600">✅ ${lang==='th'?'ลงทะเบียนสำเร็จ':'Enrollment saved'}</div>
+          <div style="font-size:13px;color:#888;margin-top:2px">${courseId} · ${studentName} · ${subject}</div>
+        </div>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">✕</button>
+      </div>
+
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+        <div style="flex:1;min-width:120px;padding:12px;background:#f7f6f3;border-radius:10px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase">Tutor</div>
+          <div style="font-weight:500;margin-top:2px">${tutor}</div>
+        </div>
+        <div style="flex:1;min-width:120px;padding:12px;background:#f7f6f3;border-radius:10px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase">Paid hours</div>
+          <div style="font-weight:500;margin-top:2px">${paidHrs} hrs</div>
+        </div>
+        <div style="flex:1;min-width:120px;padding:12px;background:#f7f6f3;border-radius:10px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase">Fee/hr</div>
+          <div style="font-weight:500;margin-top:2px">฿${fmt(feePerHr)}</div>
+        </div>
+        <div style="flex:1;min-width:120px;padding:12px;background:#f0faf6;border-radius:10px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase">Total revenue</div>
+          <div style="font-weight:600;color:#1D9E75;margin-top:2px">฿${fmt(totalRev)}</div>
+        </div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px">
+        <thead>
+          <tr style="border-bottom:2px solid #eee">
+            <th style="padding:6px 10px;text-align:left;font-size:11px;color:#888">#</th>
+            <th style="padding:6px 10px;text-align:left;font-size:11px;color:#888">DATE</th>
+            <th style="padding:6px 10px;text-align:left;font-size:11px;color:#888">TIME</th>
+            <th style="padding:6px 10px;text-align:center;font-size:11px;color:#888">HRS</th>
+            <th style="padding:6px 10px;text-align:right;font-size:11px;color:#888">REVENUE</th>
+          </tr>
+        </thead>
+        <tbody>${sessionRows}</tbody>
+      </table>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button onclick="copyEnrollmentSummary(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,invoiceRef,payDate,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⎘ ${lang==='th'?'คัดลอก':'Copy'}</button>
+        <button onclick="downloadEnrollmentPDF(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,invoiceRef,payDate,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⬇ PDF</button>
+        <button onclick="this.closest('[style*=fixed]').remove()" class="btn btn-primary">Done</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function copyEnrollmentSummary(data) {
+  const { studentName, subject, tutor, sessions, feePerHr, tutorRate, commTo, invoiceRef, payDate, courseId } = data;
+  const commRate = commTo !== 'none' ? 0.05 : 0;
+  let lines = [
+    `📚 NEW ENROLLMENT — ${courseId}`,
+    `Student: ${studentName}`,
+    `Subject: ${subject}`,
+    `Tutor: ${tutor}`,
+    `Fee/hr: ฿${fmt(feePerHr)}`,
+    `Tutor rate/hr: ฿${fmt(tutorRate)}`,
+    `Commission: ${commTo === 'none' ? 'None' : `${commTo} (5%)`}`,
+    invoiceRef ? `Invoice: ${invoiceRef}` : '',
+    payDate ? `Payment date: ${payDate}` : '',
+    '',
+    '📅 SCHEDULE',
+    '#\tDate\tTime\tHours\tRevenue',
+  ];
+  sessions.forEach((s,i) => {
+    const timeStr = s.start_time && s.end_time ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}` : s.start_time || '—';
+    const rev = feePerHr * s.hours;
+    lines.push(`${i+1}\t${s.date}\t${timeStr}\t${s.hours}\t฿${fmt(rev)}`);
+  });
+  const totalRev = sessions.reduce((sum,s)=>sum+feePerHr*s.hours,0);
+  lines.push('', `Total revenue: ฿${fmt(totalRev)}`);
+  const text = lines.filter(l=>l!==null).join('\n');
+  navigator.clipboard.writeText(text).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+  });
+  showToast(lang==='th'?'✓ คัดลอกแล้ว':'✓ Copied to clipboard');
+}
+
+function downloadEnrollmentPDF(data) {
+  const { studentName, subject, tutor, sessions, feePerHr, tutorRate, commTo, invoiceRef, payDate, courseId } = data;
+  const commRate = commTo !== 'none' ? 0.05 : 0;
+  const rows = sessions.map((s,i) => {
+    const timeStr = s.start_time && s.end_time ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}` : s.start_time || '—';
+    const rev = feePerHr * s.hours;
+    const tutorPay = tutorRate * s.hours;
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 10px">${i+1}</td>
+      <td style="padding:8px 10px">${s.date}</td>
+      <td style="padding:8px 10px">${timeStr}</td>
+      <td style="padding:8px 10px;text-align:center">${s.hours}</td>
+      <td style="padding:8px 10px;text-align:right">฿${fmt(tutorPay)}</td>
+    </tr>`;
+  }).join('');
+  const totalPay = sessions.reduce((sum,s)=>sum+tutorRate*s.hours,0);
+  const vat = 0; // P'Pop exempt, others 3%
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>${studentName} — ${subject}</title>
+    <style>body{font-family:sans-serif;font-size:13px;padding:32px;max-width:700px;margin:0 auto}
+    h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 24px}
+    table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid #eee}
+    .summary{margin-top:20px;padding:14px;background:#f7f6f3;border-radius:8px;display:flex;gap:32px}
+    .summary div label{font-size:11px;color:#888;display:block}
+    .summary div strong{font-size:17px;display:block;margin-top:2px}
+    @media print{body{padding:16px}}</style></head><body>
+    <h1>Poppadi's Studyo — ${lang==='th'?'ตารางสอน':'Teaching Schedule'}</h1>
+    <h2>${studentName} · ${subject} · ${tutor}${invoiceRef?' · '+invoiceRef:''}</h2>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Date</th><th>Time</th><th style="text-align:center">Hrs</th><th style="text-align:right">Tutor pay</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="summary">
+      <div><label>Total tutor pay</label><strong>฿${fmt(totalPay)}</strong></div>
+      <div><label>Sessions</label><strong>${sessions.length}</strong></div>
+    </div>
+    <p style="margin-top:16px;font-size:11px;color:#aaa">Generated ${new Date().toLocaleString()} · Poppadi's Studyo · Confidential — for tutor use only</p>
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url,'_blank');
+  if (!win) {
+    const a=document.createElement('a');a.href=url;a.download=`Poppadi_TutorSchedule.html`;a.click();
+    showToast(lang==='th'?'⬇ ดาวน์โหลดไฟล์แล้ว':'⬇ Downloaded — open in browser then print');
+  } else {
+    showToast(lang==='th'?'✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก':'✓ PDF opened — press Print to save');
+  }
+}
+
+// ─── DOWNLOAD SCHEDULE PDF ────────────────────────────────
+function downloadSchedulePDF() {
+  const tutorFilter = document.getElementById('filter-tutor')?.value || '';
+  if (!tutorFilter) {
+    showToast(lang==='th' ? 'กรุณาเลือกครูก่อนดาวน์โหลด' : 'Please select a tutor first'); return;
+  }
+  const tutor = getTutor(tutorFilter);
+  const monthSessions = filterByMonth(DATA.sessions, 'date')
+    .filter(s => s.tutor_id === tutorFilter)
+    .sort((a,b) => {
+      const da = parseSessionDate(a.date)||new Date(0), db = parseSessionDate(b.date)||new Date(0);
+      if (da - db !== 0) return da - db;
+      return (a.start_time||'').localeCompare(b.start_time||'');
+    });
+  const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
+  const monthStr = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
+  const statusTh = { Completed:'สอนแล้ว', Missed:'ขาดเรียน', Cancelled:'ยกเลิก', Makeup:'ชดเชย', Scheduled:'กำหนดการ' };
+  const rows = monthSessions.map((s,i) => {
+    const student = DATA.students.find(st => st.student_id === s.student_id);
+    const subject = getSubjectForSession(s);
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 10px">${i+1}</td>
+      <td style="padding:8px 10px">${student?.nickname||s.student_id}</td>
+      <td style="padding:8px 10px">${subject}</td>
+      <td style="padding:8px 10px">${s.date||'—'}</td>
+      <td style="padding:8px 10px">${timeStr}</td>
+      <td style="padding:8px 10px;text-align:center">${s.hours||'—'}</td>
+      <td style="padding:8px 10px;text-align:center">${s.num_students||'—'}</td>
+      <td style="padding:8px 10px;font-weight:500">฿${fmt(s.tutor_pay)}</td>
+      <td style="padding:8px 10px">${statusLabel}</td>
+    </tr>`;
+  }).join('');
+  const totalPay = monthSessions.filter(s=>s.status==='Completed'||s.status==='Makeup').reduce((sum,s)=>sum+Number(s.tutor_pay||0),0);
+  const vat = totalPay * 0.03;
+  const net = totalPay - vat;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${tutor.name} — ${monthStr}</title>
+    <style>body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#1a1a18;padding:32px;max-width:900px;margin:0 auto}
+    h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;font-weight:normal;color:#666;margin:0 0 24px}
+    table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid #eee}
+    .summary{margin-top:24px;padding:16px;background:#f7f6f3;border-radius:8px;display:flex;gap:40px}
+    .summary div label{font-size:11px;color:#888;text-transform:uppercase;display:block}
+    .summary div strong{font-size:20px;display:block;margin-top:2px}
+    .green{color:#1D9E75}footer{margin-top:24px;font-size:11px;color:#aaa}
+    @media print{body{padding:16px}}</style></head><body>
+    <h1>Poppadi's Studyo</h1>
+    <h2>${lang==='th'?'ตารางสอน':'Teaching Schedule'} — ${tutor.name} · ${monthStr}</h2>
+    <table><thead><tr>
+      <th>#</th><th>${lang==='th'?'นักเรียน':'Student'}</th><th>${lang==='th'?'วิชา':'Subject'}</th>
+      <th>${lang==='th'?'วันที่':'Date'}</th><th>${lang==='th'?'เวลา':'Time'}</th>
+      <th>${lang==='th'?'ชม.':'Hrs'}</th><th>${lang==='th'?'จำนวน':'Stu.'}</th>
+      <th>${lang==='th'?'ค่าสอน':'Tutor pay'}</th><th>${lang==='th'?'สถานะ':'Status'}</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <div class="summary">
+      <div><label>${lang==='th'?'ค่าสอนรวม':'Total tutor pay'}</label><strong>฿${fmt(totalPay)}</strong></div>
+      ${vat>0?`<div><label>${lang==='th'?'ภาษีหัก 3%':'VAT 3%'}</label><strong>฿${fmt(vat)}</strong></div>`:''}
+      <div><label>${lang==='th'?'ยอดโอน':'Net transfer'}</label><strong class="green">฿${fmt(net)}</strong></div>
+    </div>
+    <div class="footer">Generated ${new Date().toLocaleString()} · Poppadi's Studyo · ${lang==='th'?'เอกสารนี้ไม่รวมข้อมูลรายได้ของโรงเรียน':'This document does not include school revenue information'}</div>
+    <script>window.onload=()=>window.print()<\/script></body></html>`;
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url,'_blank');
+  if (!win) {
+    const a=document.createElement('a');a.href=url;a.download=`Poppadi_${tutor.name||tutorFilter}_${selectedMonth}.html`;a.click();
+    showToast(lang==='th'?'⬇ ดาวน์โหลดไฟล์แล้ว':'⬇ Downloaded — open in browser then print');
+  } else {
+    showToast(lang==='th'?'✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก':'✓ PDF opened — press Print to save as PDF');
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+function onAppReady() {
+  // Clear cache once to force fresh subject data load
+  const cacheVersion = '1.1';
+  if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.setItem('poppadi_cache_ver', cacheVersion);
+  }
+  // Restore language preference
+  const savedLang = localStorage.getItem('poppadi_lang');
+  if (savedLang && savedLang !== 'en') {
+    const langBtn = document.querySelector(`.lang-btn[onclick*="${savedLang}"]`);
+    if (langBtn) setLang(savedLang, langBtn);
+  }
+  loadAllData().then(() => {
+    const savedPage = localStorage.getItem('poppadi_page');
+    if (savedPage && document.getElementById('page-'+savedPage)) {
+      showPage(savedPage);
+    }
+    setTimeout(() => {
+      suggestTutorRate();
+      initScheduleBody();
+      populateStudentDatalist();
+      setEnrollType('new');
+      // Wire up preview updates
+      ['enroll-fee','enroll-hours','enroll-rate','enroll-jane'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateEnrollPreview);
+      });
+    }, 100);
+  });
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-wrapper').style.display = 'flex';
+  document.getElementById('user-email').textContent = currentUser?.email || '';
+  updateWebAppStatus();
+  onAppReady();
+}
+
+function updateWebAppStatus() {
+  const btn = document.querySelector('[onclick="openWebAppSettings()"]');
+  if (!btn) return;
+  const connected = !!localStorage.getItem('poppadi_webapp_url');
+  btn.textContent = connected ? '⚙️ Web App ✅' : '⚙️ Web App ❌ — Setup needed';
+  btn.style.color = connected ? 'var(--teal)' : 'var(--red)';
+}
+
+initAuth();
+</script>
+</div><!-- end app-wrapper -->
+</body>
+</html>
