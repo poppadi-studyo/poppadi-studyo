@@ -448,6 +448,10 @@
         <span class="nav-icon">+</span>
         <span data-en="New enrollment" data-th="ลงทะเบียนใหม่">New enrollment</span>
       </button>
+      <button class="nav-item" onclick="showPage('audit', this)">
+        <span class="nav-icon">⊙</span>
+        <span data-en="Audit log" data-th="ประวัติการแก้ไข">Audit log</span>
+      </button>
     </nav>
     <div class="lang-switch">
       <button class="lang-btn active" onclick="setLang('en', this)">EN</button>
@@ -1010,6 +1014,34 @@
       </div>
     </div>
 
+    <!-- AUDIT LOG -->
+    <div class="page" id="page-audit">
+      <div class="page-header">
+        <div>
+          <div class="page-title" data-en="Audit log" data-th="ประวัติการแก้ไข">Audit log</div>
+          <div class="page-sub" data-en="All session status changes — who changed what and when" data-th="ประวัติการเปลี่ยนแปลงสถานะคาบเรียน">All session status changes — who changed what and when</div>
+        </div>
+        <button class="refresh-btn" onclick="renderAuditLog()">↻ Refresh</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="table-wrap">
+          <table id="audit-table">
+            <thead><tr>
+              <th data-en="Timestamp" data-th="เวลา">Timestamp</th>
+              <th data-en="User" data-th="ผู้ใช้">User</th>
+              <th data-en="Session ID" data-th="รหัสคาบ">Session ID</th>
+              <th data-en="Student" data-th="นักเรียน">Student</th>
+              <th data-en="Old status" data-th="สถานะเดิม">Old status</th>
+              <th data-en="New status" data-th="สถานะใหม่">New status</th>
+            </tr></thead>
+            <tbody id="audit-body">
+              <tr><td colspan="6" class="empty">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -1471,13 +1503,28 @@ function isMonthLocked(sessionDateStr) {
 // ─── GOOGLE OAUTH LOGIN ───────────────────────────────────
 // Allowed Google accounts — add your team's emails here
 const ALLOWED_EMAILS = [
-  'st.gerdphol@gmail.com', // Steven (CEO)
-  // Add more team emails below when ready:
-  // 'jane@email.com',
-  // 'eye@email.com',
+  'st.gerdphol@gmail.com',   // Steven (CEO)
+  'poppadisstudyo@gmail.com', // Poppadi Studyo account
+  'poppadistudyo@gmail.com',  // Poppadi Studyo account 2
+  'janechrt@gmail.com',       // Jane
 ];
 
+// ─── TUTOR EMAILS — maps Google email → tutor_id ──────────────
+// Add each tutor's Google account email here
+// These emails are automatically allowed AND get tutor-only view
+const TUTOR_EMAILS = {
+  // 'ppop@gmail.com':   'T001', // P'Pop
+  // 'steven@gmail.com': 'T002', // P'Steven
+  // 'poon@gmail.com':   'T003', // Dr.Poon
+  // 'koi@gmail.com':    'T004', // AJ'Koi
+  // 'sumi@gmail.com':   'T005', // AJ'Sumi
+  // 'noey@gmail.com':   'T006', // T'Noey
+  // 'nicha@gmail.com':  'T007', // T'Nicha
+};
+
 let currentUser = null;
+let currentRole = 'admin'; // 'admin' or 'tutor'
+let currentTutorId = null; // set when role is 'tutor'
 
 function initAuth() {
   // Check if already logged in from session storage
@@ -1505,8 +1552,11 @@ function handleGoogleLogin(response) {
   const name  = payload.name;
   const picture = payload.picture;
 
-  // Check if email is allowed (if list is empty, allow all)
-  if (ALLOWED_EMAILS.length > 0 && !ALLOWED_EMAILS.includes(email)) {
+  // Check if tutor email
+  const tutorId = TUTOR_EMAILS[email];
+  const isAdmin = ALLOWED_EMAILS.includes(email);
+
+  if (!isAdmin && !tutorId) {
     document.getElementById('login-error').textContent =
       lang==='th'
         ? `ขออภัย ${email} ไม่มีสิทธิ์เข้าถึงระบบนี้`
@@ -1514,7 +1564,9 @@ function handleGoogleLogin(response) {
     return;
   }
 
-  currentUser = { email, name, picture };
+  currentRole    = tutorId ? 'tutor' : 'admin';
+  currentTutorId = tutorId || null;
+  currentUser    = { email, name, picture, role: currentRole, tutorId: currentTutorId };
   sessionStorage.setItem('poppadi_user', JSON.stringify(currentUser));
   showApp();
 }
@@ -3719,6 +3771,12 @@ function showPage(id, btn) {
     const feeInput = document.getElementById('enroll-fee');
     if (feeInput && !feeInput.value) feeInput.value = 1100;
   }
+  if (id === 'schedule') {
+    applyTutorScheduleFilter();
+  }
+  if (id === 'audit') {
+    renderAuditLog();
+  }
 }
 
 // ─── LANGUAGE ─────────────────────────────────────────────
@@ -4320,11 +4378,46 @@ function onAppReady() {
 }
 
 function showApp() {
+  // Restore role from session storage
+  if (currentUser?.role) {
+    currentRole    = currentUser.role;
+    currentTutorId = currentUser.tutorId || null;
+  }
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-wrapper').style.display = 'flex';
   document.getElementById('user-email').textContent = currentUser?.email || '';
   updateWebAppStatus();
+  applyRoleUI();
   onAppReady();
+}
+
+function applyRoleUI() {
+  const isTutor = currentRole === 'tutor';
+  // Nav items: tutors see only Schedule and Makeup
+  const adminOnly = ['overview','tutors','students','expenses','enroll','audit'];
+  adminOnly.forEach(id => {
+    const navBtn = document.querySelector(`.nav-item[onclick*="'${id}'"]`);
+    if (navBtn) navBtn.style.display = isTutor ? 'none' : '';
+  });
+  // Audit log nav — only admins
+  const auditBtn = document.querySelector(`.nav-item[onclick*="'audit'"]`);
+  if (auditBtn) auditBtn.style.display = isTutor ? 'none' : '';
+  // Web App settings — hide for tutors
+  const webAppBtn = document.querySelector('[onclick="openWebAppSettings()"]');
+  if (webAppBtn) webAppBtn.style.display = isTutor ? 'none' : '';
+  // Show tutor badge in sidebar
+  const emailEl = document.getElementById('user-email');
+  if (emailEl && isTutor) {
+    const tutor = DATA.tutors.find(t => t.tutor_id === currentTutorId);
+    emailEl.innerHTML = `<span style="color:var(--teal);font-weight:500">${tutor?.name || currentUser?.email}</span><br><span style="font-size:10px;color:var(--text3)">Tutor view</span>`;
+  }
+  // If tutor lands on a hidden page, redirect to schedule
+  if (isTutor) {
+    const savedPage = localStorage.getItem('poppadi_page');
+    if (!savedPage || adminOnly.includes(savedPage)) {
+      showPage('schedule');
+    }
+  }
 }
 
 function updateWebAppStatus() {
@@ -4333,6 +4426,65 @@ function updateWebAppStatus() {
   const connected = !!localStorage.getItem('poppadi_webapp_url');
   btn.textContent = connected ? '⚙️ Web App ✅' : '⚙️ Web App ❌ — Setup needed';
   btn.style.color = connected ? 'var(--teal)' : 'var(--red)';
+}
+
+// ─── AUDIT LOG ───────────────────────────────────────────────
+async function renderAuditLog() {
+  const body = document.getElementById('audit-body');
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="6" class="empty">Loading...</td></tr>`;
+  try {
+    const rows = await fetchSheet('Log!A:F');
+    if (!rows || rows.length < 2) {
+      body.innerHTML = `<tr><td colspan="6" class="empty">${lang==='th'?'ยังไม่มีประวัติ':'No audit entries yet'}</td></tr>`;
+      return;
+    }
+    const headers = rows[0];
+    const entries = rows.slice(1).reverse(); // newest first
+    body.innerHTML = entries.map(row => {
+      const obj = {};
+      headers.forEach((h,i) => obj[h] = row[i] || '');
+      const student = DATA.sessions.find(s => s.session_id === obj.session_id);
+      const studentName = student
+        ? (DATA.students.find(st => st.student_id === student.student_id)?.nickname || student.student_id)
+        : '—';
+      const oldBadge = obj.old_status ? `<span class="badge ${badgeClass(obj.old_status)}">${obj.old_status}</span>` : '—';
+      const newBadge = obj.new_status ? `<span class="badge ${badgeClass(obj.new_status)}">${obj.new_status}</span>` : '—';
+      return `<tr>
+        <td style="font-size:12px;color:var(--text2)">${obj.timestamp||'—'}</td>
+        <td style="font-size:12px">${(obj.user_email||'—').replace('@gmail.com','')}</td>
+        <td style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${obj.session_id||'—'}</td>
+        <td>${studentName}</td>
+        <td>${oldBadge}</td>
+        <td>${newBadge}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = `<tr><td colspan="6" class="empty">Could not load audit log: ${e.message}</td></tr>`;
+  }
+}
+
+function badgeClass(status) {
+  const map = { Completed:'badge-done', Cancelled:'badge-cancel', Missed:'badge-miss', Makeup:'badge-makeup' };
+  return map[status] || '';
+}
+
+// ─── TUTOR SCHEDULE LOCK ──────────────────────────────────────
+// When tutor is logged in, auto-lock the schedule filter to their own sessions
+function applyTutorScheduleFilter() {
+  if (currentRole !== 'tutor' || !currentTutorId) return;
+  const sel = document.getElementById('filter-tutor');
+  if (sel) {
+    sel.value = currentTutorId;
+    sel.disabled = true;
+    sel.style.opacity = '0.6';
+  }
+  // Also hide revenue column
+  const revTh = document.querySelector('th[data-col="revenue"]');
+  if (revTh) revTh.style.display = 'none';
+  // Hide PDF download button (tutors use their own download from within their sessions)
+  const pdfBtn = document.getElementById('pdf-download-btn');
+  if (pdfBtn) pdfBtn.style.display = 'inline-block'; // tutors CAN download their own PDF
 }
 
 initAuth();
