@@ -4444,7 +4444,17 @@ async function renderAuditLog() {
     body.innerHTML = entries.map(row => {
       const obj = {};
       headers.forEach((h,i) => obj[h] = row[i] || '');
-      const studentName = obj.student_nickname || obj.nickname || '—';
+      // Try G column first, then look up from DATA using session_id
+      let studentName = obj.student_nickname || obj.nickname || '';
+      if (!studentName) {
+        const sess = DATA.sessions.find(s => s.session_id === obj.session_id);
+        if (sess) {
+          const st = DATA.students.find(s => s.student_id === sess.student_id);
+          studentName = st?.nickname || sess.student_id || '—';
+        } else {
+          studentName = '—';
+        }
+      }
       const oldBadge = obj.old_status ? `<span class="badge ${badgeClass(obj.old_status)}">${obj.old_status}</span>` : '—';
       const newBadge = obj.new_status ? `<span class="badge ${badgeClass(obj.new_status)}">${obj.new_status}</span>` : '—';
       return `<tr>
