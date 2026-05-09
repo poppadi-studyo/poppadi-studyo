@@ -4444,10 +4444,7 @@ async function renderAuditLog() {
     body.innerHTML = entries.map(row => {
       const obj = {};
       headers.forEach((h,i) => obj[h] = row[i] || '');
-      const student = DATA.sessions.find(s => s.session_id === obj.session_id);
-      const studentName = student
-        ? (DATA.students.find(st => st.student_id === student.student_id)?.nickname || student.student_id)
-        : '—';
+      const studentName = obj.student_nickname || obj.nickname || '—';
       const oldBadge = obj.old_status ? `<span class="badge ${badgeClass(obj.old_status)}">${obj.old_status}</span>` : '—';
       const newBadge = obj.new_status ? `<span class="badge ${badgeClass(obj.new_status)}">${obj.new_status}</span>` : '—';
       return `<tr>
