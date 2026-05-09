@@ -375,11 +375,150 @@
   }
   .refresh-btn:hover { background: var(--surface2); color: var(--text); }
 
+  /* ── MOBILE — bottom tab bar layout ─────────────────────── */
   @media (max-width: 768px) {
-    .sidebar { width: 100%; position: relative; height: auto; }
-    .main { margin-left: 0; padding: 16px; }
+
+    /* Hide desktop sidebar entirely */
+    .sidebar { display: none; }
+
+    /* Main takes full width, bottom padding for tab bar */
+    .main {
+      margin-left: 0;
+      padding: 16px 14px 90px;
+      width: 100vw;
+    }
+
+    /* Page header stacks vertically */
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .page-header > div:last-child {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
+    }
+
+    /* Metrics — 2 columns */
+    .metrics { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .metric { padding: 12px 14px; }
+    .metric-value { font-size: 20px; }
+
+    /* Two/three col → single */
     .two-col, .three-col { grid-template-columns: 1fr; }
-    .metrics { grid-template-columns: 1fr 1fr; }
+
+    /* Forms — single column always */
+    .form-row, .form-row.three { grid-template-columns: 1fr; gap: 10px; }
+
+    /* Tables — horizontal scroll with touch */
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -14px;
+      padding: 0 14px;
+    }
+    table { font-size: 12px; min-width: 500px; }
+    th { padding: 8px 8px; font-size: 10px; }
+    td { padding: 10px 8px; }
+
+    /* Cards */
+    .card { padding: 14px; margin-bottom: 12px; }
+
+    /* Buttons larger for touch */
+    .btn { padding: 10px 16px; font-size: 13px; min-height: 40px; }
+    .btn-sm { padding: 8px 12px; font-size: 12px; min-height: 36px; }
+
+    /* Page title */
+    .page-title { font-size: 18px; }
+
+    /* ── BOTTOM TAB BAR ─────────────────────────────────────── */
+    .mobile-tabs {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 64px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      z-index: 200;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .mobile-tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      flex: 1;
+      height: 100%;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: var(--text3);
+      font-size: 10px;
+      font-family: 'DM Sans', sans-serif;
+      padding: 0;
+      transition: color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-tab.active { color: var(--teal); }
+    .mobile-tab-icon { font-size: 20px; line-height: 1; }
+    .mobile-tab-label { font-size: 10px; font-weight: 500; }
+
+    /* Lang switch — inline in header on mobile */
+    .lang-switch { display: none; }
+
+    /* Makeup two-col → single */
+    .makeup-item { padding: 12px; }
+
+    /* Schedule filter bar wraps */
+    #schedule-list-view .card > div:first-child {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    /* Student detail action buttons wrap */
+    #students-detail-view > div:first-child {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    #students-detail-view > div:first-child > div:last-child {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    /* Modal full screen on mobile */
+    [style*="position:fixed"][style*="align-items:center"] > div {
+      max-height: 95vh;
+      overflow-y: auto;
+      border-radius: 14px 14px 0 0;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+
+    /* Toast at top on mobile */
+    #toast {
+      bottom: auto !important;
+      top: 16px !important;
+      left: 14px !important;
+      right: 14px !important;
+      text-align: center;
+    }
+  }
+
+  /* Desktop — hide mobile tabs */
+  @media (min-width: 769px) {
+    .mobile-tabs { display: none !important; }
   }
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -3750,34 +3889,7 @@ function downloadTutorFacing() {
   showToast(lang==='th'?'✓ ดาวน์โหลดสำหรับครูแล้ว':'✓ Tutor summary downloaded');
 }
 
-// ─── NAV ──────────────────────────────────────────────────
-function showPage(id, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  if (btn) btn.classList.add('active');
-  else document.querySelectorAll('.nav-item').forEach(b => { if (b.textContent.toLowerCase().includes(id)) b.classList.add('active'); });
-  localStorage.setItem('poppadi_page', id);
-  // Initialize enrollment form whenever navigating to it
-  if (id === 'enroll') {
-    const tbody = document.getElementById('enroll-schedule-body');
-    if (tbody && tbody.children.length === 0) initScheduleBody();
-    populateEnrollTutors();
-    populateStudentDatalist();
-    populateSubjectDatalist();
-    renderPendingPayments();
-    setEnrollType(enrollType || 'new');
-    // Set default fee if empty
-    const feeInput = document.getElementById('enroll-fee');
-    if (feeInput && !feeInput.value) feeInput.value = 1100;
-  }
-  if (id === 'schedule') {
-    applyTutorScheduleFilter();
-  }
-  if (id === 'audit') {
-    renderAuditLog();
-  }
-}
+// ─── NAV — showPage defined below with mobile tab sync ───
 
 // ─── LANGUAGE ─────────────────────────────────────────────
 function setLang(l, btn) {
@@ -4515,8 +4627,109 @@ function getStudentNickname(studentId, courseId) {
   return studentId || '—';
 }
 
+// ─── MOBILE MORE SHEET ───────────────────────────────────────
+function showMobileMore() {
+  document.getElementById('mobile-more-sheet').style.display = 'block';
+}
+function hideMobileMore() {
+  document.getElementById('mobile-more-sheet').style.display = 'none';
+}
+
+// ─── MOBILE TAB SYNC ─────────────────────────────────────────
+// Keep bottom tabs in sync when showPage is called from anywhere
+const _origShowPage = showPage;
+function showPage(id, btn) {
+  // Sync desktop nav
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+  if (btn && btn.classList.contains('nav-item')) btn.classList.add('active');
+  localStorage.setItem('poppadi_page', id);
+
+  // Sync mobile tabs
+  const mainPages = ['overview','schedule','students','enroll'];
+  document.querySelectorAll('.mobile-tab[data-page]').forEach(t => {
+    t.classList.toggle('active', t.dataset.page === id);
+  });
+  const moreTab = document.getElementById('mobile-more-tab');
+  if (moreTab) moreTab.classList.toggle('active', !mainPages.includes(id));
+
+  // Page-specific init
+  if (id === 'enroll') {
+    const tbody = document.getElementById('enroll-schedule-body');
+    if (tbody && tbody.children.length === 0) initScheduleBody();
+    populateEnrollTutors();
+    populateStudentDatalist();
+    populateSubjectDatalist();
+    renderPendingPayments();
+    setEnrollType(enrollType || 'new');
+    const feeInput = document.getElementById('enroll-fee');
+    if (feeInput && !feeInput.value) feeInput.value = 1100;
+  }
+  if (id === 'schedule') applyTutorScheduleFilter();
+  if (id === 'audit') renderAuditLog();
+}
+
 initAuth();
 </script>
+<!-- MOBILE BOTTOM TAB BAR -->
+<nav class="mobile-tabs" id="mobile-tab-bar">
+  <button class="mobile-tab active" onclick="showPage('overview', this)" data-page="overview">
+    <span class="mobile-tab-icon">◎</span>
+    <span class="mobile-tab-label" data-en="Overview" data-th="ภาพรวม">Overview</span>
+  </button>
+  <button class="mobile-tab" onclick="showPage('schedule', this)" data-page="schedule">
+    <span class="mobile-tab-icon">◫</span>
+    <span class="mobile-tab-label" data-en="Schedule" data-th="ตาราง">Schedule</span>
+  </button>
+  <button class="mobile-tab" onclick="showPage('students', this)" data-page="students">
+    <span class="mobile-tab-icon">◉</span>
+    <span class="mobile-tab-label" data-en="Students" data-th="นักเรียน">Students</span>
+  </button>
+  <button class="mobile-tab" onclick="showPage('enroll', this)" data-page="enroll">
+    <span class="mobile-tab-icon">+</span>
+    <span class="mobile-tab-label" data-en="Enroll" data-th="ลงทะเบียน">Enroll</span>
+  </button>
+  <button class="mobile-tab" onclick="showMobileMore()" id="mobile-more-tab">
+    <span class="mobile-tab-icon">⋯</span>
+    <span class="mobile-tab-label" data-en="More" data-th="เพิ่มเติม">More</span>
+  </button>
+</nav>
+
+<!-- MOBILE MORE SHEET -->
+<div id="mobile-more-sheet" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.4)" onclick="hideMobileMore()">
+  <div onclick="event.stopPropagation()" style="position:absolute;bottom:0;left:0;right:0;background:var(--surface);border-radius:16px 16px 0 0;padding:20px 16px 40px;font-family:'DM Sans',sans-serif">
+    <div style="width:36px;height:4px;background:var(--border-strong);border-radius:2px;margin:0 auto 20px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <button onclick="hideMobileMore();showPage('makeup')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <span style="font-size:24px">↺</span>
+        <span style="font-size:12px;color:var(--text2)" data-en="Makeup" data-th="ชดเชย">Makeup</span>
+      </button>
+      <button onclick="hideMobileMore();showPage('tutors')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <span style="font-size:24px">◈</span>
+        <span style="font-size:12px;color:var(--text2)" data-en="Tutors" data-th="ครู">Tutors</span>
+      </button>
+      <button onclick="hideMobileMore();showPage('expenses')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <span style="font-size:24px">◐</span>
+        <span style="font-size:12px;color:var(--text2)" data-en="Expenses" data-th="ค่าใช้จ่าย">Expenses</span>
+      </button>
+      <button onclick="hideMobileMore();showPage('audit')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <span style="font-size:24px">⊙</span>
+        <span style="font-size:12px;color:var(--text2)" data-en="Audit" data-th="ประวัติ">Audit</span>
+      </button>
+      <button onclick="hideMobileMore();setLang(lang==='en'?'th':'en', document.querySelector('.lang-btn'))" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <span style="font-size:24px">🌐</span>
+        <span style="font-size:12px;color:var(--text2)" id="mobile-lang-label">EN/ไทย</span>
+      </button>
+      <button onclick="hideMobileMore();logout()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <span style="font-size:24px">⎋</span>
+        <span style="font-size:12px;color:var(--text2)" data-en="Sign out" data-th="ออก">Sign out</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 </div><!-- end app-wrapper -->
 </body>
 </html>
