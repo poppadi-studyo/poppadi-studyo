@@ -4447,12 +4447,20 @@ async function renderAuditLog() {
       // Try G column first, then look up from DATA using session_id
       let studentName = obj.student_nickname || obj.nickname || '';
       if (!studentName) {
+        // Search ALL sessions (not filtered by month)
         const sess = DATA.sessions.find(s => s.session_id === obj.session_id);
         if (sess) {
           const st = DATA.students.find(s => s.student_id === sess.student_id);
-          studentName = st?.nickname || sess.student_id || '—';
+          // Use nickname, or full_name, or student_id as last resort
+          studentName = st?.nickname || st?.full_name || sess.student_id || '—';
         } else {
-          studentName = '—';
+          // Try matching by course_id as fallback
+          const course = DATA.courses.find(c => c.course_id === obj.course_id);
+          if (course) {
+            studentName = course.student_nickname || course.student_name || course.student_id || '—';
+          } else {
+            studentName = obj.course_id ? '('+ obj.course_id +')' : '—';
+          }
         }
       }
       const oldBadge = obj.old_status ? `<span class="badge ${badgeClass(obj.old_status)}">${obj.old_status}</span>` : '—';
