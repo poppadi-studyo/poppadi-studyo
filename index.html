@@ -1633,7 +1633,7 @@ function renderSchedule() {
         </select>`;
 
     return `<tr>
-      <td><span class="dot" style="background:${color}"></span>${student?.nickname||s.student_id}</td>
+      <td><span class="dot" style="background:${color}"></span>${getStudentNickname(s.student_id, s.course_id)}</td>
       <td>${tutor.name||s.tutor_id}</td>
       <td>${subject}</td>
       <td>${s.date||'—'}</td>
@@ -1779,7 +1779,7 @@ function renderSchedule() {
         </select>`;
 
     return `<tr>
-      <td><span class="dot" style="background:${color}"></span>${student?.nickname||s.student_id}</td>
+      <td><span class="dot" style="background:${color}"></span>${getStudentNickname(s.student_id, s.course_id)}</td>
       <td>${tutor.name||s.tutor_id}</td>
       <td>${subject}</td>
       <td>${s.date||'—'}</td>
@@ -1996,7 +1996,7 @@ function renderTutorDetail() {
   body.innerHTML = all.map(s=>{
     const student=DATA.students.find(st=>st.student_id===s.student_id);
     const timeStr=s.start_time&&s.end_time?`${s.start_time}–${s.end_time}`:(s.start_time||'—');
-    return `<tr><td>${student?.nickname||s.student_id}</td><td>${s.session_id||'—'}</td><td>${getSubjectForSession(s)}</td><td>${s.date||'—'}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
+    return `<tr><td>${getStudentNickname(s.student_id, s.course_id)}</td><td>${s.session_id||'—'}</td><td>${getSubjectForSession(s)}</td><td>${s.date||'—'}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
   }).join('');
 }
 
@@ -2744,7 +2744,7 @@ function renderStudents() {
         : remaining<=3?`<span class="badge badge-alert-med">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`:'—';
 
       html += `<tr class="group-row-${groupId}" style="display:none;cursor:pointer;${rowBg}" onclick="openStudentDetail('${course.course_id}')">
-        <td style="padding-left:32px"><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_id}</td>
+        <td style="padding-left:32px"><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_nickname||course.student_id}</td>
         <td>${tutor.name||course.tutor_id}</td>
         <td>${subject}</td>
         <td>${course.block_number||1}</td>
@@ -2781,7 +2781,7 @@ function renderStudents() {
     if (paymentFilter && payStatus !== paymentFilter) return;
 
     html += `<tr style="cursor:pointer;${rowBg}" onclick="openStudentDetail('${course.course_id}')">
-      <td><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_id}</td>
+      <td><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_nickname||course.student_id}</td>
       <td>${tutor.name||course.tutor_id}</td>
       <td>${course.subject||'—'}</td>
       <td>${course.block_number||1}</td>
@@ -2814,7 +2814,7 @@ function openStudentDetail(courseId) {
   document.getElementById('students-list-view').style.display   = 'none';
   document.getElementById('students-detail-view').style.display = 'block';
   document.getElementById('detail-student-name').textContent =
-    (student?.nickname||course.student_id)+' — '+course.subject;
+    (student?.nickname||course.student_nickname||course.student_id)+' — '+course.subject;
   document.getElementById('detail-course-info').textContent =
     `${tutor.name||course.tutor_id} · Block ${course.block_number||1} · Invoice: ${course.invoice_ref||'—'} · Paid: ${course.payment_date||'—'}`;
 
@@ -3246,7 +3246,7 @@ function isSameDay(d1,d2) {
 function renderCalEventPill(s, compact=false) {
   const color=getEventColor(s);
   const student=DATA.students.find(st=>st.student_id===s.student_id);
-  const name=student?.nickname||s.student_id;
+  const name=getStudentNickname(s.student_id, s.course_id);
   const subject=getSubjectForSession(s);
   const startFmt=s.start_time?formatTime(s.start_time):'';
   const endFmt=s.end_time?formatTime(s.end_time):'';
@@ -3333,7 +3333,7 @@ function renderCalendar() {
         const dur   = endMins ? Math.max(20, (endMins-startMins)/60*HOUR_HEIGHT) : 40;
         const color = getEventColor(s);
         const student = DATA.students.find(st=>st.student_id===s.student_id);
-        const name  = student?.nickname||s.student_id;
+        const name  = getStudentNickname(s.student_id, s.course_id);
         const subject = getSubjectForSession(s);
         const startFmt = formatTime(s.start_time);
         const endFmt   = s.end_time ? formatTime(s.end_time) : '';
@@ -3731,7 +3731,7 @@ function downloadTutorFacing() {
     const student=DATA.students.find(st=>st.student_id===s.student_id);
     const timeStr=formatTimeRange(s.start_time,s.end_time);
     return [
-      student?.nickname||s.student_id,
+      getStudentNickname(s.student_id, s.course_id),
       s.session_id||'—',
       getSubjectForSession(s),
       s.date||'—',
@@ -4296,7 +4296,7 @@ function downloadSchedulePDF() {
     const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:8px 10px">${i+1}</td>
-      <td style="padding:8px 10px">${student?.nickname||s.student_id}</td>
+      <td style="padding:8px 10px">${getStudentNickname(s.student_id, s.course_id)}</td>
       <td style="padding:8px 10px">${subject}</td>
       <td style="padding:8px 10px">${s.date||'—'}</td>
       <td style="padding:8px 10px">${timeStr}</td>
@@ -4500,6 +4500,19 @@ function applyTutorScheduleFilter() {
   // Hide PDF download button (tutors use their own download from within their sessions)
   const pdfBtn = document.getElementById('pdf-download-btn');
   if (pdfBtn) pdfBtn.style.display = 'inline-block'; // tutors CAN download their own PDF
+}
+
+// ─── STUDENT NICKNAME HELPER ─────────────────────────────────
+// Checks Students sheet first, then Courses sheet as fallback
+function getStudentNickname(studentId, courseId) {
+  const student = DATA.students.find(s => s.student_id === studentId);
+  if (student?.nickname) return student.nickname;
+  if (courseId) {
+    const course = DATA.courses.find(c => c.course_id === courseId);
+    if (course?.student_nickname) return course.student_nickname;
+    if (course?.student_name) return course.student_name;
+  }
+  return studentId || '—';
 }
 
 initAuth();
