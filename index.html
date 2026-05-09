@@ -2954,8 +2954,8 @@ function downloadStudentPDFForStudent() {
     const timeStr = formatTimeRange(s.start_time, s.end_time);
     const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
     const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
-    if (s.status==='Completed'||s.status==='Makeup') sessionNum++;
-    const num = s.status==='Scheduled' ? '—' : String(sessionNum);
+    sessionNum++;
+    const num = String(sessionNum);
     let hrsStudied = '—';
     if (s.status==='Completed') hrsStudied = s.hours;
     else if (s.status==='Makeup') hrsStudied = s.hours;
