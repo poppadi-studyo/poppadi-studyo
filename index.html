@@ -640,6 +640,15 @@
           <div style="position:relative;height:200px"><canvas id="tutorChart" role="img" aria-label="Revenue by tutor bar chart"></canvas></div>
           <div id="chart-legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12px;color:var(--text2)"></div>
         </div>
+
+        <!-- Commission view card -->
+        <div class="card" id="commission-card">
+          <div class="card-title">
+            <span data-en="Commission — this month" data-th="คอมมิชชั่น — เดือนนี้">Commission — this month</span>
+          </div>
+          <div id="commission-table-wrap"></div>
+        </div>
+
       </div>
     </div>
 
@@ -1545,6 +1554,7 @@ function renderOverview() {
 
   renderInvoiceAlerts(monthSessions);
   renderTutorChart(monthSessions);
+  renderCommissionCard(monthSessions);
 }
 
 function renderInvoiceAlerts(monthSessions) {
@@ -1612,6 +1622,91 @@ function renderTutorChart(monthSessions) {
   document.getElementById('chart-legend').innerHTML = activeTutors.map((t,i) =>
     values[i] > 0 ? `<span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i]}"></span>${t.name} ฿${fmt(values[i])}</span>` : ''
   ).filter(Boolean).join('');
+}
+
+// ─── COMMISSION CARD (Overview) ───────────────────────────
+function renderCommissionCard(monthSessions) {
+  const sessions = (monthSessions || DATA.sessions).filter(s =>
+    s.status === 'Completed' || s.status === 'Makeup'
+  );
+
+  // Aggregate commission per recipient
+  const commMap = {};
+  sessions.forEach(s => {
+    const who = s.commission_who || s.commission_to || 'none';
+    if (!who || who === 'none') return;
+    if (!commMap[who]) commMap[who] = 0;
+    commMap[who] += Number(s.commission_amt || 0);
+  });
+
+  const wrap = document.getElementById('commission-table-wrap');
+  const card = document.getElementById('commission-card');
+  if (!wrap || !card) return;
+
+  if (!Object.keys(commMap).length) {
+    wrap.innerHTML = `<div class="empty" style="padding:20px 0">${lang==='th'?'ยังไม่มีคอมมิชชั่นเดือนนี้':'No commission recorded this month'}</div>`;
+    return;
+  }
+
+  // Look up full names from tutors data (for ppop specifically)
+  function getDisplayName(who) {
+    // Try to match commission recipient key to a tutor record
+    const tutorMatch = DATA.tutors.find(t => {
+      const id = t.tutor_id?.toLowerCase();
+      const nm = t.name?.toLowerCase().replace(/[^a-z]/g,'');
+      return who === 'ppop' && (id === 't001' || nm.includes('pop'));
+    });
+    if (who === 'ppop') {
+      const t = DATA.tutors.find(t => t.tutor_id === 'T001');
+      return { display: t?.name || 'AJ. Pop', full_en: t?.full_name_en || '', full_th: t?.full_name_th || '' };
+    }
+    if (who === 'jane') return { display: 'Jane', full_en: 'Jane', full_th: '' };
+    if (who === 'eye')  return { display: "N'Eye", full_en: "N'Eye", full_th: '' };
+    return { display: who, full_en: '', full_th: '' };
+  }
+
+  let totalGross = 0, totalWHT = 0, totalNet = 0;
+  const rows = Object.entries(commMap).map(([who, gross]) => {
+    const wht = gross * 0.03;
+    const net = gross - wht;
+    totalGross += gross; totalWHT += wht; totalNet += net;
+    const { display, full_en, full_th } = getDisplayName(who);
+    const nameHtml = full_th
+      ? `<div style="font-weight:500">${display}</div><div style="font-size:11px;color:var(--text3);margin-top:1px">${full_th}${full_en ? ' · ' + full_en : ''}</div>`
+      : `<div style="font-weight:500">${display}</div>`;
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:10px 12px">${nameHtml}</td>
+      <td style="padding:10px 12px;text-align:right">฿${fmt(gross)}</td>
+      <td style="padding:10px 12px;text-align:right;color:var(--red)">฿${fmt(wht)}</td>
+      <td style="padding:10px 12px;text-align:right;color:var(--teal);font-weight:600">฿${fmt(net)}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border-strong)">
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase">${lang==='th'?'ผู้รับ':'Recipient'}</th>
+          <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase">${lang==='th'?'รวม (ก่อนหัก)':'Gross'}</th>
+          <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase">WHT 3%</th>
+          <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase">${lang==='th'?'ยอดโอน':'Net transfer'}</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr style="border-top:2px solid var(--border-strong);background:var(--surface2)">
+          <td style="padding:10px 12px;font-weight:600">${lang==='th'?'รวม':'Total'}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:600">฿${fmt(totalGross)}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:600;color:var(--red)">฿${fmt(totalWHT)}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:600;color:var(--teal)">฿${fmt(totalNet)}</td>
+        </tr>
+      </tfoot>
+    </table>
+    <div style="font-size:11px;color:var(--text3);margin-top:10px">
+      ${lang==='th'
+        ? 'WHT 3% หักจากค่าคอมมิชชั่นทั้งหมด · แสดงเฉพาะคาบที่ Completed และ Makeup'
+        : 'WHT 3% deducted from all commission amounts · Completed & Makeup sessions only'}
+    </div>`;
 }
 
 // ─── MONTH LOCK RULE ──────────────────────────────────────
@@ -3643,6 +3738,8 @@ function showMonthlySummary() {
         </div>
         <div style="display:flex;gap:8px">
           <button onclick="downloadMonthlySummaryPDF()" style="font-size:12px;padding:7px 14px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:#fff">⬇ PDF</button>
+          <button onclick="downloadMonthlySummaryExcel()" style="font-size:12px;padding:7px 14px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:#fff">⬇ Excel</button>
+          <button onclick="copyMonthlySummaryTable()" style="font-size:12px;padding:7px 14px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:#fff">⎘ Copy</button>
           <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1">✕</button>
         </div>
       </div>
@@ -3824,6 +3921,183 @@ function downloadMonthlySummaryPDF() {
     showToast(lang==='th' ? '✓ เปิด PDF แล้ว — กด Print เพื่อบันทึก' : '✓ PDF opened — press Print to save');
   }
 }
+
+// ─── MONTHLY SUMMARY — EXCEL EXPORT ──────────────────────
+function downloadMonthlySummaryExcel() {
+  const monthSessions = filterByMonth(DATA.sessions, 'date')
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
+  const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
+  const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
+
+  const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
+  const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+  const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
+  const totalExpenses   = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
+  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const netSchool       = schoolRemainder - totalExpenses - profitShare;
+
+  function toCSVRow(cells) {
+    return cells.map(c => '"' + String(c==null?'':c).replace(/"/g,'""') + '"').join(',');
+  }
+
+  const sessionHeader = toCSVRow([
+    'Month','Session ID','Date','Student',
+    'Tutor (Display)','Tutor (EN)','Tutor (TH)',
+    'Subject','Hours','Num Students',
+    'Total Revenue','Tutor Pay','WHT on Tutor (3%)','Net Tutor Pay',
+    'Commission To','Comm Gross','WHT on Comm (3%)','Net Commission',
+    'School Remainder','Status'
+  ]);
+  const sessionRows = monthSessions.map(s => {
+    const tutor     = getTutor(s.tutor_id);
+    const gross     = Number(s.tutor_pay||0);
+    const commGross = Number(s.commission_amt||0);
+    const commWho   = s.commission_who || s.commission_to || '';
+    return toCSVRow([
+      selectedMonth, s.session_id||'', s.date||'',
+      getStudentNickname(s.student_id, s.course_id),
+      tutor.name||s.tutor_id, tutor.full_name_en||'', tutor.full_name_th||'',
+      getSubjectForSession(s), s.hours||'', s.num_students||'',
+      Number(s.total_revenue||0), gross, +(gross*0.03).toFixed(2), +(gross*0.97).toFixed(2),
+      commWho, commGross, +(commGross*0.03).toFixed(2), +(commGross*0.97).toFixed(2),
+      Number(s.school_remainder||0), s.status||''
+    ]);
+  });
+
+  const commMap = {};
+  monthSessions.forEach(s => {
+    const who = s.commission_who || s.commission_to || 'none';
+    if (!who || who==='none') return;
+    commMap[who] = (commMap[who]||0) + Number(s.commission_amt||0);
+  });
+
+  const summaryLines = [
+    toCSVRow(["Poppadi's Studyo — Monthly Summary", monthStr]),
+    toCSVRow(['Generated', new Date().toLocaleString()]),
+    '',
+    toCSVRow(['TOTALS']),
+    toCSVRow(['Total Revenue', totalRevenue]),
+    toCSVRow(['Total Tutor Pay', totalTutorPay]),
+    toCSVRow(['Total Commission', totalCommission]),
+    toCSVRow(['Fixed Expenses', totalExpenses]),
+    toCSVRow(['School Remainder', schoolRemainder]),
+    toCSVRow(["P'Pop 20% Share", profitShare]),
+    toCSVRow(['Total WHT 3%', +(totalTutorPay*0.03 + totalCommission*0.03).toFixed(2)]),
+    toCSVRow(['Net to School', netSchool]),
+    toCSVRow(['Sessions Taught', monthSessions.length]),
+    '',
+    toCSVRow(['TUTOR PAYOUTS']),
+    toCSVRow(['Tutor','Full Name (EN)','Full Name (TH)','Hours','Gross Pay','WHT 3%','Net Transfer']),
+    ...DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
+      const sess = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
+      if (!sess.length) return null;
+      const pay = sess.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+      const hrs = sess.reduce((s,x)=>s+Number(x.hours||0),0);
+      return toCSVRow([tutor.name, tutor.full_name_en||'', tutor.full_name_th||'', hrs, pay, +(pay*0.03).toFixed(2), +(pay*0.97).toFixed(2)]);
+    }).filter(Boolean),
+    '',
+    toCSVRow(['COMMISSION']),
+    toCSVRow(['Recipient','Gross','WHT 3%','Net Transfer']),
+    ...Object.entries(commMap).map(([who,gross]) =>
+      toCSVRow([who, gross, +(gross*0.03).toFixed(2), +(gross*0.97).toFixed(2)])
+    ),
+    '',
+    toCSVRow(['FIXED EXPENSES']),
+    toCSVRow(['Item','Amount']),
+    ...DATA.expenses.map(e => toCSVRow([e.item_name||e.item||'', Number(e.amount||0)])),
+  ];
+
+  const csv = [
+    '=== SESSIONS (reconciliation) ===',
+    sessionHeader,
+    ...sessionRows,
+    '','',
+    '=== SUMMARY ===',
+    ...summaryLines
+  ].join('\n');
+
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Poppadi_MonthlySummary_' + selectedMonth + '.csv';
+  a.click();
+  showToast(lang==='th' ? '\u2713 \u0e14\u0e32\u0e27\u0e19\u0e4c\u0e42\u0e2b\u0e25\u0e14\u0e41\u0e25\u0e49\u0e27 \u2014 \u0e40\u0e1b\u0e34\u0e14\u0e43\u0e19 Excel \u0e2b\u0e23\u0e37\u0e2d Google Sheets' : '\u2713 Downloaded \u2014 open in Excel or Google Sheets');
+}
+
+// ─── MONTHLY SUMMARY — COPY TABLE ─────────────────────────
+function copyMonthlySummaryTable() {
+  const monthSessions = filterByMonth(DATA.sessions, 'date')
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
+  const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
+  const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
+
+  const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
+  const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+  const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
+  const totalExpenses   = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
+  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const netSchool       = schoolRemainder - totalExpenses - profitShare;
+
+  const tab = (...vals) => vals.join('\t');
+  const lines = [];
+
+  lines.push("Poppadi's Studyo \u2014 " + monthStr);
+  lines.push('Generated: ' + new Date().toLocaleString());
+  lines.push('');
+  lines.push('TOTALS');
+  lines.push(tab('Total Revenue',    '\u0e3f'+fmt(totalRevenue)));
+  lines.push(tab('Total Tutor Pay',  '\u0e3f'+fmt(totalTutorPay)));
+  lines.push(tab('Total Commission', '\u0e3f'+fmt(totalCommission)));
+  lines.push(tab('Fixed Expenses',   '\u0e3f'+fmt(totalExpenses)));
+  lines.push(tab('School Remainder', '\u0e3f'+fmt(schoolRemainder)));
+  lines.push(tab("P'Pop 20% Share",  '\u0e3f'+fmt(profitShare)));
+  lines.push(tab('Total WHT 3%',     '\u0e3f'+fmt(totalTutorPay*0.03 + totalCommission*0.03)));
+  lines.push(tab('Net to School',    '\u0e3f'+fmt(netSchool)));
+  lines.push(tab('Sessions Taught',  String(monthSessions.length)));
+  lines.push('');
+  lines.push('TUTOR PAYOUTS');
+  lines.push(tab('Tutor','Full Name (EN)','Full Name (TH)','Hours','Gross Pay','WHT 3%','Net Transfer'));
+  DATA.tutors.filter(t=>t.active==='TRUE').forEach(function(tutor) {
+    var sess = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
+    if (!sess.length) return;
+    var pay = sess.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+    var hrs = sess.reduce((s,x)=>s+Number(x.hours||0),0);
+    lines.push(tab(tutor.name, tutor.full_name_en||'—', tutor.full_name_th||'—',
+      String(hrs), '\u0e3f'+fmt(pay), '\u0e3f'+fmt(pay*0.03), '\u0e3f'+fmt(pay*0.97)));
+  });
+  lines.push('');
+  lines.push('COMMISSION');
+  lines.push(tab('Recipient','Gross','WHT 3%','Net Transfer'));
+  var commMap2 = {};
+  monthSessions.forEach(function(s) {
+    var who = s.commission_who || s.commission_to || 'none';
+    if (!who || who==='none') return;
+    commMap2[who] = (commMap2[who]||0) + Number(s.commission_amt||0);
+  });
+  if (Object.keys(commMap2).length) {
+    Object.entries(commMap2).forEach(function(entry) {
+      var who = entry[0], gross = entry[1];
+      lines.push(tab(who, '\u0e3f'+fmt(gross), '\u0e3f'+fmt(gross*0.03), '\u0e3f'+fmt(gross*0.97)));
+    });
+  } else {
+    lines.push('(No commission this month)');
+  }
+  lines.push('');
+  lines.push('FIXED EXPENSES');
+  lines.push(tab('Item','Amount'));
+  DATA.expenses.forEach(function(e) { lines.push(tab(e.item_name||e.item||'', '\u0e3f'+fmt(e.amount))); });
+
+  var text = lines.join('\n');
+  navigator.clipboard.writeText(text).catch(function() {
+    var ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  });
+  showToast(lang==='th' ? '\u2713 \u0e04\u0e31\u0e14\u0e25\u0e2d\u0e01\u0e41\u0e25\u0e49\u0e27 \u2014 \u0e27\u0e32\u0e07\u0e43\u0e19 Google Sheets, Excel \u0e2b\u0e23\u0e37\u0e2d LINE' : '\u2713 Copied \u2014 paste into Google Sheets, Excel, or LINE');
+}
+
 async function addExpense() {
   const name = document.getElementById('new-expense-name').value.trim();
   const amt  = document.getElementById('new-expense-amt').value.trim();
