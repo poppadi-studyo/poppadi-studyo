@@ -1086,9 +1086,9 @@
             <label data-en="Commission to?" data-th="คอมมิชชั่นให้ใคร?">Commission to?</label>
             <select id="enroll-jane">
               <option value="none" data-en="None" data-th="ไม่มี" selected>None</option>
-              <option value="ppop" data-en="P'Pop (5%)" data-th="พี่ป๊อป (5%)">P'Pop (5%)</option>
+              <option value="ppop" data-en="AJ. Pop (5%)" data-th="AJ. Pop (5%)">AJ. Pop (5%)</option>
               <option value="jane" data-en="Jane (5%)" data-th="เจน (5%)">Jane (5%)</option>
-              <option value="eye" data-en="N'Eye (5%)" data-th="น้องอาย (5%)">N'Eye (5%)</option>
+              <option value="eye" data-en="Eye (5%)" data-th="Eye (5%)">Eye (5%)</option>
             </select>
           </div>
           <div class="form-group">
@@ -1639,6 +1639,14 @@ function renderCommissionCard(monthSessions) {
     commMap[who] += Number(s.commission_amt || 0);
   });
 
+  // Map raw sheet keys to display names
+  function commDisplayName(who) {
+    if (who === 'ppop') return 'AJ. Pop';
+    if (who === 'jane') return 'Jane';
+    if (who === 'eye')  return 'Eye';
+    return who;
+  }
+
   const wrap = document.getElementById('commission-table-wrap');
   const card = document.getElementById('commission-card');
   if (!wrap || !card) return;
@@ -1661,7 +1669,7 @@ function renderCommissionCard(monthSessions) {
       return { display: t?.name || 'AJ. Pop', full_en: t?.full_name_en || '', full_th: t?.full_name_th || '' };
     }
     if (who === 'jane') return { display: 'Jane', full_en: 'Jane', full_th: '' };
-    if (who === 'eye')  return { display: "N'Eye", full_en: "N'Eye", full_th: '' };
+    if (who === 'eye')  return { display: 'Eye', full_en: 'Eye', full_th: '' };
     return { display: who, full_en: '', full_th: '' };
   }
 
@@ -2571,9 +2579,9 @@ function openPendingDetail(courseId) {
             <select id="edit-comm"
               style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
               <option value="none" ${(course.commission_to||'none')==='none'?'selected':''}>None</option>
-              <option value="ppop" ${course.commission_to==='ppop'?'selected':''}>P'Pop (5%)</option>
+              <option value="ppop" ${course.commission_to==='ppop'?'selected':''}>AJ. Pop (5%)</option>
               <option value="jane" ${course.commission_to==='jane'?'selected':''}>Jane (5%)</option>
-              <option value="eye"  ${course.commission_to==='eye' ?'selected':''}>N'Eye (5%)</option>
+              <option value="eye"  ${course.commission_to==='eye' ?'selected':''}>Eye (5%)</option>
             </select>
           </div>
           <div>
@@ -3321,7 +3329,7 @@ function renderExpenses() {
     <div class="metric"><div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่รวม':'Total fixed expenses'}</div><div class="metric-value">฿${fmt(total)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน (จริง)':'School remainder (realized)'}</div><div class="metric-value">฿${fmt(schoolRem)}</div></div>
     <div class="metric ${gap>0?'gap-bad':'gap-good'}"><div class="metric-label">${gap>0?(lang==='th'?'ยอดที่ยังขาด':'Gap remaining'):(lang==='th'?'ครอบคลุมแล้ว':'Fully covered')}</div><div class="metric-value">${gap>0?'฿'+fmt(gap):'฿'+fmt(Math.abs(gap))}</div></div>
-    <div class="metric"><div class="metric-label">${lang==='th'?'แบ่งกำไร 20% (พี่ป๊อป)':'20% profit share (P\'Pop)'}</div><div class="metric-value">฿${fmt(ppopShare)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'แบ่งกำไร 20% (AJ. Pop)':'20% profit share (AJ. Pop)'}</div><div class="metric-value">฿${fmt(ppopShare)}</div></div>
   `;
 }
 
@@ -3700,8 +3708,9 @@ function showMonthlySummary() {
   const commRows = Object.entries(commBreakdown).map(([who, amt]) => {
     const wht = amt * 0.03;
     const net = amt - wht;
+    const whoLabel = who==='ppop'?'AJ. Pop':who==='eye'?'Eye':who==='jane'?'Jane':who;
     return `<tr style="border-bottom:1px solid #eee">
-      <td style="padding:8px 10px;font-weight:500">${who}</td>
+      <td style="padding:8px 10px;font-weight:500">${whoLabel}</td>
       <td style="padding:8px 10px;text-align:right">฿${fmt(amt)}</td>
       <td style="padding:8px 10px;text-align:right;color:#E24B4A">฿${fmt(wht)}</td>
       <td style="padding:8px 10px;text-align:right;color:#1D9E75;font-weight:500">฿${fmt(net)}</td>
@@ -3752,7 +3761,7 @@ function showMonthlySummary() {
           ['Commission','คอมมิชชั่นรวม', totalCommission, '#333'],
           ['Fixed expenses','ค่าใช้จ่ายคงที่', totalExpenses, '#E24B4A'],
           ['School remainder','คงเหลือโรงเรียน', schoolRemainder, '#333'],
-          ["P'Pop 20% share","ส่วนแบ่ง 20%", profitShare, '#378ADD'],
+          ["AJ. Pop 20% share","ส่วนแบ่ง 20%", profitShare, '#378ADD'],
           ['Total WHT 3%','ภาษีหัก ณ ที่จ่าย 3%', totalWHT, '#E24B4A'],
           ['Net to school','รายได้สุทธิ', netSchool, '#1D9E75'],
           ['Sessions taught','คาบที่สอน', monthSessions.length, '#333'],
@@ -3850,7 +3859,8 @@ function downloadMonthlySummaryPDF() {
   });
   const commRows = Object.entries(commMap).map(([who,amt]) => {
     const wht = amt*0.03, net = amt-wht;
-    return `<tr><td>${who}</td><td style="text-align:right">฿${fmt(amt)}</td>
+    const whoLabel = who==='ppop'?'AJ. Pop':who==='eye'?'Eye':who==='jane'?'Jane':who;
+    return `<tr><td>${whoLabel}</td><td style="text-align:right">฿${fmt(amt)}</td>
       <td style="text-align:right;color:#E24B4A">฿${fmt(wht)}</td>
       <td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(net)}</td></tr>`;
   }).join('') || '<tr><td colspan="4" style="color:#aaa;text-align:center">No commission this month</td></tr>';
@@ -3887,7 +3897,7 @@ function downloadMonthlySummaryPDF() {
     <div class="metric"><label>Commission</label><strong>฿${fmt(totalCommission)}</strong></div>
     <div class="metric"><label>Fixed Expenses</label><strong class="red">฿${fmt(totalExpenses)}</strong></div>
     <div class="metric"><label>School Remainder</label><strong>฿${fmt(schoolRemainder)}</strong></div>
-    <div class="metric"><label>P'Pop 20% Share</label><strong style="color:#378ADD">฿${fmt(profitShare)}</strong></div>
+    <div class="metric"><label>AJ. Pop 20% Share</label><strong style="color:#378ADD">฿${fmt(profitShare)}</strong></div>
     <div class="metric"><label>Total WHT 3%</label><strong class="red">฿${fmt(totalWHT)}</strong></div>
     <div class="metric"><label>Net to School</label><strong class="green">฿${fmt(netSchool)}</strong></div>
     <div class="metric"><label>Sessions Taught</label><strong>${monthSessions.length}</strong></div>
@@ -3982,7 +3992,7 @@ function downloadMonthlySummaryExcel() {
     toCSVRow(['Total Commission', totalCommission]),
     toCSVRow(['Fixed Expenses', totalExpenses]),
     toCSVRow(['School Remainder', schoolRemainder]),
-    toCSVRow(["P'Pop 20% Share", profitShare]),
+    toCSVRow(["AJ. Pop 20% Share", profitShare]),
     toCSVRow(['Total WHT 3%', +(totalTutorPay*0.03 + totalCommission*0.03).toFixed(2)]),
     toCSVRow(['Net to School', netSchool]),
     toCSVRow(['Sessions Taught', monthSessions.length]),
@@ -3999,9 +4009,10 @@ function downloadMonthlySummaryExcel() {
     '',
     toCSVRow(['COMMISSION']),
     toCSVRow(['Recipient','Gross','WHT 3%','Net Transfer']),
-    ...Object.entries(commMap).map(([who,gross]) =>
-      toCSVRow([who, gross, +(gross*0.03).toFixed(2), +(gross*0.97).toFixed(2)])
-    ),
+    ...Object.entries(commMap).map(([who,gross]) => {
+      const whoLabel = who==='ppop'?'AJ. Pop':who==='eye'?'Eye':who==='jane'?'Jane':who;
+      return toCSVRow([whoLabel, gross, +(gross*0.03).toFixed(2), +(gross*0.97).toFixed(2)]);
+    }),
     '',
     toCSVRow(['FIXED EXPENSES']),
     toCSVRow(['Item','Amount']),
@@ -4052,7 +4063,7 @@ function copyMonthlySummaryTable() {
   lines.push(tab('Total Commission', '\u0e3f'+fmt(totalCommission)));
   lines.push(tab('Fixed Expenses',   '\u0e3f'+fmt(totalExpenses)));
   lines.push(tab('School Remainder', '\u0e3f'+fmt(schoolRemainder)));
-  lines.push(tab("P'Pop 20% Share",  '\u0e3f'+fmt(profitShare)));
+  lines.push(tab("AJ. Pop 20% Share",  '\u0e3f'+fmt(profitShare)));
   lines.push(tab('Total WHT 3%',     '\u0e3f'+fmt(totalTutorPay*0.03 + totalCommission*0.03)));
   lines.push(tab('Net to School',    '\u0e3f'+fmt(netSchool)));
   lines.push(tab('Sessions Taught',  String(monthSessions.length)));
@@ -4079,7 +4090,8 @@ function copyMonthlySummaryTable() {
   if (Object.keys(commMap2).length) {
     Object.entries(commMap2).forEach(function(entry) {
       var who = entry[0], gross = entry[1];
-      lines.push(tab(who, '\u0e3f'+fmt(gross), '\u0e3f'+fmt(gross*0.03), '\u0e3f'+fmt(gross*0.97)));
+      var whoLabel = who==='ppop'?'AJ. Pop':who==='eye'?'Eye':who==='jane'?'Jane':who;
+      lines.push(tab(whoLabel, '\u0e3f'+fmt(gross), '\u0e3f'+fmt(gross*0.03), '\u0e3f'+fmt(gross*0.97)));
     });
   } else {
     lines.push('(No commission this month)');
