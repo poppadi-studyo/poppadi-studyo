@@ -583,6 +583,10 @@
         <span class="nav-icon">◐</span>
         <span data-en="Expenses" data-th="ค่าใช้จ่าย">Expenses</span>
       </button>
+      <button class="nav-item" onclick="showPage('otherincome', this)">
+        <span class="nav-icon">◑</span>
+        <span data-en="Other income" data-th="รายได้อื่น">Other income</span>
+      </button>
       <button class="nav-item" onclick="showPage('enroll', this)">
         <span class="nav-icon">+</span>
         <span data-en="New enrollment" data-th="ลงทะเบียนใหม่">New enrollment</span>
@@ -647,6 +651,17 @@
             <span data-en="Commission — this month" data-th="คอมมิชชั่น — เดือนนี้">Commission — this month</span>
           </div>
           <div id="commission-table-wrap"></div>
+        </div>
+
+        <!-- Other income overview card -->
+        <div class="card" id="otherincome-overview-card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="card-title" style="margin:0" data-en="Other income — this month" data-th="รายได้อื่น — เดือนนี้">Other income — this month</div>
+            <button onclick="showPage('otherincome')" style="font-size:11px;padding:4px 10px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text2)">
+              <span data-en="Manage →" data-th="จัดการ →">Manage →</span>
+            </button>
+          </div>
+          <div id="otherincome-overview-wrap" style="margin-top:10px"></div>
         </div>
 
       </div>
@@ -967,6 +982,68 @@
       </div>
     </div>
 
+    <!-- OTHER INCOME -->
+    <div class="page" id="page-otherincome">
+      <div class="page-header">
+        <div>
+          <div class="page-title" data-en="Other income" data-th="รายได้อื่น">Other income</div>
+          <div class="page-sub" data-en="Video courses, partner commissions, and other non-tuition income" data-th="วิดีโอคอร์ส คอมมิชชั่นพาร์ทเนอร์ และรายได้อื่น">Video courses, partner commissions, and other non-tuition income</div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title" data-en="Income entries" data-th="รายการรายได้">Income entries</div>
+
+          <!-- Month filter -->
+          <div style="margin-bottom:14px">
+            <select id="otherincome-month" onchange="renderOtherIncome()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif"></select>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th data-en="Item" data-th="รายการ">Item</th>
+                <th data-en="Category" data-th="ประเภท">Category</th>
+                <th data-en="Amount (฿)" data-th="จำนวน (฿)">Amount (฿)</th>
+                <th data-en="Notes" data-th="หมายเหตุ">Notes</th>
+              </tr></thead>
+              <tbody id="otherincome-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Add form -->
+          <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+            <div style="flex:2;min-width:140px">
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px" data-en="Item name" data-th="ชื่อรายการ">Item name</div>
+              <input type="text" id="new-income-name" placeholder="e.g. Video Course — IELTS Pack" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+            </div>
+            <div style="flex:1;min-width:110px">
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px" data-en="Category" data-th="ประเภท">Category</div>
+              <select id="new-income-category" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif;background:var(--surface)">
+                <option value="video_course" data-en="Video course" data-th="วิดีโอคอร์ส">Video course</option>
+                <option value="partner_commission" data-en="Partner commission" data-th="คอมมิชชั่นพาร์ทเนอร์">Partner commission</option>
+                <option value="consulting" data-en="Consulting" data-th="ที่ปรึกษา">Consulting</option>
+                <option value="other" data-en="Other" data-th="อื่นๆ">Other</option>
+              </select>
+            </div>
+            <div style="width:90px">
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px">฿</div>
+              <input type="number" id="new-income-amt" placeholder="Amount" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+            </div>
+            <div style="flex:1;min-width:110px">
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px" data-en="Notes (optional)" data-th="หมายเหตุ (ถ้ามี)">Notes (optional)</div>
+              <input type="text" id="new-income-notes" placeholder="e.g. StudyAbroad Co." style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+            </div>
+            <button class="btn btn-primary" onclick="addOtherIncome(this)" data-en="Add" data-th="เพิ่ม">Add</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="metrics" style="grid-template-columns:1fr;gap:12px" id="otherincome-metrics"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- NEW ENROLLMENT -->
     <div class="page" id="page-enroll">
       <div class="page-header">
@@ -1269,7 +1346,7 @@ function showWebAppPrompt() {
 }
 
 // ─── STATE ────────────────────────────────────────────────
-let DATA = { tutors:[], students:[], courses:[], sessions:[], expenses:[], invoices:[] };
+let DATA = { tutors:[], students:[], courses:[], sessions:[], expenses:[], invoices:[], otherIncome:[] };
 let lang = 'en';
 let selectedMakeup = null;
 let tutorChart = null;
@@ -1383,21 +1460,23 @@ async function loadAllData() {
 
   // Fetch fresh data from Sheets in background
   try {
-    const [tutorRows, studentRows, courseRows, sessionRows, expenseRows, invoiceRows] = await Promise.all([
+    const [tutorRows, studentRows, courseRows, sessionRows, expenseRows, invoiceRows, otherIncomeRows] = await Promise.all([
       fetchSheet('Tutors!A:H'),
       fetchSheet('Students!A:F'),
       fetchSheet('Courses!A:R'),
       fetchSheet('Sessions!A:T'),
       fetchSheet('Expenses!A:E'),
       fetchSheet('Invoices!A:G'),
+      fetchSheet('OtherIncome!A:F'),
     ]);
 
-    DATA.tutors   = parseSheet(tutorRows);
-    DATA.students = parseSheet(studentRows);
-    DATA.courses  = parseSheet(courseRows);
-    DATA.sessions = parseSheet(sessionRows);
-    DATA.expenses = parseSheet(expenseRows);
-    DATA.invoices = parseSheet(invoiceRows);
+    DATA.tutors      = parseSheet(tutorRows);
+    DATA.students    = parseSheet(studentRows);
+    DATA.courses     = parseSheet(courseRows);
+    DATA.sessions    = parseSheet(sessionRows);
+    DATA.expenses    = parseSheet(expenseRows);
+    DATA.invoices    = parseSheet(invoiceRows);
+    DATA.otherIncome = parseSheet(otherIncomeRows);
 
     localStorage.setItem(CACHE_KEY, JSON.stringify({ data: DATA, cachedAt: new Date().toISOString() }));
 
@@ -1431,6 +1510,7 @@ function renderAll() {
   renderTutorAll();
   renderStudents();
   renderExpenses();
+  renderOtherIncome();
 }
 
 // ─── HELPERS ──────────────────────────────────────────────
@@ -1555,6 +1635,7 @@ function renderOverview() {
   renderInvoiceAlerts(monthSessions);
   renderTutorChart(monthSessions);
   renderCommissionCard(monthSessions);
+  renderOtherIncomeOverviewCard();
 }
 
 function renderInvoiceAlerts(monthSessions) {
@@ -1715,6 +1796,47 @@ function renderCommissionCard(monthSessions) {
         ? 'WHT 3% หักจากค่าคอมมิชชั่นทั้งหมด · แสดงเฉพาะคาบที่ Completed และ Makeup'
         : 'WHT 3% deducted from all commission amounts · Completed & Makeup sessions only'}
     </div>`;
+}
+
+// ─── OTHER INCOME OVERVIEW CARD ───────────────────────────
+function renderOtherIncomeOverviewCard() {
+  const wrap = document.getElementById('otherincome-overview-wrap');
+  const card = document.getElementById('otherincome-overview-card');
+  if (!wrap || !card) return;
+
+  const monthEntries = (DATA.otherIncome || []).filter(e => (e.month || '').startsWith(selectedMonth));
+  const total = monthEntries.reduce((s,e)=>s+Number(e.amount||0),0);
+
+  if (!monthEntries.length) {
+    wrap.innerHTML = `<div class="empty" style="padding:12px 0;font-size:13px">${lang==='th'?'ยังไม่มีรายได้อื่นเดือนนี้ — ':'No other income this month — '}<button onclick="showPage('otherincome')" style="background:none;border:none;cursor:pointer;color:var(--teal);font-size:13px;padding:0;font-family:'DM Sans',sans-serif">${lang==='th'?'เพิ่มรายการ':'Add entry'}</button></div>`;
+    return;
+  }
+
+  const catLabels = {
+    video_course: lang==='th'?'วิดีโอคอร์ส':'Video course',
+    partner_commission: lang==='th'?'คอมมิชชั่นพาร์ทเนอร์':'Partner commission',
+    consulting: lang==='th'?'ที่ปรึกษา':'Consulting',
+    other: lang==='th'?'อื่นๆ':'Other',
+  };
+
+  const rows = monthEntries.map(e => `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px 12px;font-weight:500">${e.item_name||'—'}</td>
+      <td style="padding:8px 12px"><span style="font-size:11px;padding:2px 8px;background:var(--teal-bg);color:var(--teal);border-radius:20px">${catLabels[e.category]||e.category||'—'}</span></td>
+      <td style="padding:8px 12px;text-align:right;color:var(--teal);font-weight:600">฿${fmt(e.amount)}</td>
+    </tr>
+  `).join('');
+
+  wrap.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr style="border-top:2px solid var(--border-strong);background:var(--surface2)">
+          <td colspan="2" style="padding:10px 12px;font-weight:600">${lang==='th'?'รวม':'Total'}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:700;color:var(--teal)">฿${fmt(total)}</td>
+        </tr>
+      </tfoot>
+    </table>`;
 }
 
 // ─── MONTH LOCK RULE ──────────────────────────────────────
@@ -3344,6 +3466,126 @@ function addExpense() {
   renderOverview();
 }
 
+// ─── OTHER INCOME ─────────────────────────────────────────
+function renderOtherIncome() {
+  // Populate month filter
+  const monthSel = document.getElementById('otherincome-month');
+  if (monthSel && !monthSel.options.length) {
+    getMonthOptions().forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.val;
+      opt.textContent = lang==='th' ? o.labelTh : o.label;
+      if (o.val === selectedMonth) opt.selected = true;
+      monthSel.appendChild(opt);
+    });
+  }
+  const selMonth = monthSel ? monthSel.value : selectedMonth;
+
+  const body = document.getElementById('otherincome-body');
+  const metricsEl = document.getElementById('otherincome-metrics');
+  if (!body) return;
+
+  const monthEntries = (DATA.otherIncome || []).filter(e => (e.month || '').startsWith(selMonth));
+
+  const catLabels = {
+    video_course:        lang==='th' ? 'วิดีโอคอร์ส'         : 'Video course',
+    partner_commission:  lang==='th' ? 'คอมมิชชั่นพาร์ทเนอร์' : 'Partner commission',
+    consulting:          lang==='th' ? 'ที่ปรึกษา'            : 'Consulting',
+    other:               lang==='th' ? 'อื่นๆ'               : 'Other',
+  };
+
+  if (!monthEntries.length) {
+    body.innerHTML = `<tr><td colspan="4" class="empty">${lang==='th'?'ยังไม่มีรายได้อื่น':'No other income recorded this month'}</td></tr>`;
+  } else {
+    const total = monthEntries.reduce((s,e)=>s+Number(e.amount||0),0);
+    body.innerHTML = monthEntries.map(e => `
+      <tr>
+        <td style="font-weight:500">${e.item_name||'—'}</td>
+        <td><span style="font-size:11px;padding:2px 8px;background:var(--teal-bg);color:var(--teal);border-radius:20px">${catLabels[e.category]||e.category||'—'}</span></td>
+        <td style="color:var(--teal);font-weight:600">฿${fmt(e.amount)}</td>
+        <td style="color:var(--text3);font-size:12px">${e.notes||'—'}</td>
+      </tr>
+    `).join('') + `
+      <tr style="border-top:2px solid var(--border-strong);background:var(--surface2)">
+        <td colspan="2"><strong>${lang==='th'?'รวม':'Total'}</strong></td>
+        <td style="color:var(--teal);font-weight:700">฿${fmt(total)}</td>
+        <td></td>
+      </tr>`;
+  }
+
+  // Metrics
+  const totalIncome = monthEntries.reduce((s,e)=>s+Number(e.amount||0),0);
+  const tutoringRev = (DATA.sessions||[])
+    .filter(s=>(s.status==='Completed'||s.status==='Makeup') && (s.date||'').startsWith(selMonth))
+    .reduce((s,x)=>s+Number(x.total_revenue||0),0);
+  const combined = tutoringRev + totalIncome;
+
+  // Category breakdown
+  const byCat = {};
+  monthEntries.forEach(e => {
+    const c = e.category || 'other';
+    byCat[c] = (byCat[c]||0) + Number(e.amount||0);
+  });
+  const catRows = Object.entries(byCat).map(([c,amt]) =>
+    `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-top:4px">
+      <span>${catLabels[c]||c}</span><span>฿${fmt(amt)}</span>
+    </div>`
+  ).join('');
+
+  if (metricsEl) metricsEl.innerHTML = `
+    <div class="metric">
+      <div class="metric-label">${lang==='th'?'รายได้อื่น (เดือนนี้)':'Other income (this month)'}</div>
+      <div class="metric-value" style="color:var(--teal)">฿${fmt(totalIncome)}</div>
+      ${catRows}
+    </div>
+    <div class="metric">
+      <div class="metric-label">${lang==='th'?'รายได้จากการสอน':'Tutoring revenue'}</div>
+      <div class="metric-value">฿${fmt(tutoringRev)}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">${lang==='th'?'รวมทั้งหมด':'Total combined revenue'}</div>
+      <div class="metric-value" style="color:var(--teal);font-size:20px">฿${fmt(combined)}</div>
+    </div>
+  `;
+}
+
+async function addOtherIncome(btn) {
+  const name     = document.getElementById('new-income-name').value.trim();
+  const amt      = document.getElementById('new-income-amt').value.trim();
+  const category = document.getElementById('new-income-category').value;
+  const notes    = document.getElementById('new-income-notes').value.trim();
+  const monthSel = document.getElementById('otherincome-month');
+  const month    = monthSel ? monthSel.value : selectedMonth;
+
+  if (!name || !amt) {
+    showToast(lang==='th' ? '⚠️ กรุณากรอกชื่อรายการและจำนวนเงิน' : '⚠️ Please enter item name and amount');
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
+  try {
+    const result = await webAppWrite('addOtherIncome', { month, item_name: name, amount: Number(amt), category, notes });
+    if (result.success) {
+      // Add to local DATA immediately
+      DATA.otherIncome.push({
+        income_id: result.income_id || 'INC-tmp',
+        month, item_name: name, amount: Number(amt), category, notes
+      });
+      document.getElementById('new-income-name').value  = '';
+      document.getElementById('new-income-amt').value   = '';
+      document.getElementById('new-income-notes').value = '';
+      renderOtherIncome();
+      showToast(lang==='th' ? '✓ เพิ่มรายได้แล้ว' : '✓ Income entry added');
+    } else {
+      showToast('⚠️ ' + (result.error || 'Error saving'));
+    }
+  } catch(e) {
+    showToast('⚠️ ' + e.message);
+  }
+  if (btn) { btn.disabled = false; btn.textContent = lang==='th' ? 'เพิ่ม' : 'Add'; }
+}
+
 // ─── FALLBACK (when sheet is empty) ───────────────────────
 function renderFallback() {
   document.getElementById('overview-month').textContent = new Date().toLocaleString(lang==='th'?'th-TH':'en-US',{month:'long',year:'numeric'});
@@ -3355,6 +3597,8 @@ function renderFallback() {
   document.getElementById('students-body').innerHTML = `<tr><td colspan="9" class="empty">${lang==='th'?'ยังไม่มีคอร์ส':'No courses yet'}</td></tr>`;
   document.getElementById('expenses-body').innerHTML = `<tr><td colspan="2" class="empty">${lang==='th'?'ยังไม่มีค่าใช้จ่าย':'No expenses yet'}</td></tr>`;
   document.getElementById('expenses-metrics').innerHTML = '';
+  const oib = document.getElementById('otherincome-body');
+  if (oib) oib.innerHTML = `<tr><td colspan="4" class="empty">${lang==='th'?'ยังไม่มีรายได้อื่น':'No other income yet'}</td></tr>`;
 }
 
 // ─── PAGE MEMORY (persist on refresh) ────────────────────
@@ -3675,20 +3919,37 @@ function showMonthlySummary() {
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
   // ── Totals ───────────────────────────────────────────────
-  const totalRevenue   = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
-  const totalTutorPay  = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
-  const totalCommission= monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
-  const totalExpenses  = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
-  const schoolRemainder= totalRevenue - totalTutorPay - totalCommission;
-  const profitShare    = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
-  const netSchool      = schoolRemainder - totalExpenses - profitShare;
+  const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
+  const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+  const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
+  const totalExpenses   = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
+  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const netSchool       = schoolRemainder - totalExpenses - profitShare;
+
+  // ── Other Income ─────────────────────────────────────────
+  const otherIncomeMonth = (DATA.otherIncome||[]).filter(e=>(e.month||'').startsWith(selectedMonth));
+  const totalOtherIncome = otherIncomeMonth.reduce((s,x)=>s+Number(x.amount||0),0);
+  const catLabels = {
+    video_course: lang==='th'?'วิดีโอคอร์ส':'Video course',
+    partner_commission: lang==='th'?'คอมมิชชั่นพาร์ทเนอร์':'Partner commission',
+    consulting: lang==='th'?'ที่ปรึกษา':'Consulting',
+    other: lang==='th'?'อื่นๆ':'Other',
+  };
+  const otherIncomeRows = otherIncomeMonth.map(e =>
+    `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 10px;font-weight:500">${e.item_name||'—'}</td>
+      <td style="padding:8px 10px"><span style="font-size:11px;padding:2px 8px;background:#E1F5EE;color:#1D9E75;border-radius:20px">${catLabels[e.category]||e.category||'—'}</span></td>
+      <td style="padding:8px 10px;text-align:right;color:#1D9E75;font-weight:600">฿${fmt(e.amount)}</td>
+    </tr>`
+  ).join('') || `<tr><td colspan="3" style="padding:8px 10px;color:#aaa;text-align:center">${lang==='th'?'ไม่มีรายได้อื่นเดือนนี้':'No other income this month'}</td></tr>`;
 
   // ── Per-tutor breakdown ──────────────────────────────────
   const tutorBreakdown = DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
     const sessions = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
     if (!sessions.length) return null;
     const pay  = sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
-    const wht  = pay*0.03; // P'Pop exempt
+    const wht  = pay*0.03;
     const net  = pay - wht;
     const hrs  = sessions.reduce((s,x)=>s+Number(x.hours||0),0);
     const color= COLOR_MAP[tutor.color]||'#888';
@@ -3729,10 +3990,10 @@ function showMonthlySummary() {
   ).join('');
 
   // ── Total WHT ────────────────────────────────────────────
-  const totalWHT     = tutorBreakdown.reduce((s,x)=>s+x.wht,0)
-                     + Object.values(commBreakdown).reduce((s,x)=>s+x*0.03,0);
-  const totalNetPay  = tutorBreakdown.reduce((s,x)=>s+x.net,0);
-  const totalNetComm = Object.values(commBreakdown).reduce((s,x)=>s+x*0.97,0);
+  const totalWHT    = tutorBreakdown.reduce((s,x)=>s+x.wht,0)
+                    + Object.values(commBreakdown).reduce((s,x)=>s+x*0.03,0);
+  const totalNetPay = tutorBreakdown.reduce((s,x)=>s+x.net,0);
+  const totalNetComm= Object.values(commBreakdown).reduce((s,x)=>s+x*0.97,0);
 
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -3756,7 +4017,8 @@ function showMonthlySummary() {
       <!-- Top metrics -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
         ${[
-          ['Total revenue','รายได้รวม', totalRevenue, '#1D9E75'],
+          ['Total revenue','รายได้รวม (สอน)', totalRevenue, '#1D9E75'],
+          ['Other income','รายได้อื่น', totalOtherIncome, '#1D9E75'],
           ['Tutor payouts','ค่าสอนรวม', totalTutorPay, '#333'],
           ['Commission','คอมมิชชั่นรวม', totalCommission, '#333'],
           ['Fixed expenses','ค่าใช้จ่ายคงที่', totalExpenses, '#E24B4A'],
@@ -3810,16 +4072,30 @@ function showMonthlySummary() {
         </tr></tfoot>
       </table>
 
+      <!-- Other Income breakdown -->
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">${lang==='th'?'รายได้อื่น':'Other income'}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
+        <thead><tr style="border-bottom:2px solid #eee">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">${lang==='th'?'รายการ':'ITEM'}</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">${lang==='th'?'ประเภท':'CATEGORY'}</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">${lang==='th'?'จำนวน':'AMOUNT'}</th>
+        </tr></thead>
+        <tbody>${otherIncomeRows}</tbody>
+        <tfoot><tr style="border-top:2px solid #eee;font-weight:600;background:#f7f6f3">
+          <td colspan="2" style="padding:8px 10px">Total</td>
+          <td style="padding:8px 10px;text-align:right;color:#1D9E75">฿${fmt(totalOtherIncome)}</td>
+        </tr></tfoot>
+      </table>
+
       <!-- Footer note -->
       <div style="font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px">
         WHT = Withholding Tax 3% deducted from all tutor payouts and commission transfers. Generated ${new Date().toLocaleString()}.
       </div>
     </div>`;
   document.body.appendChild(modal);
-  // Store data for PDF download
   modal._summaryData = { monthStr, totalRevenue, totalTutorPay, totalCommission,
     totalExpenses, schoolRemainder, profitShare, totalWHT, netSchool,
-    tutorBreakdown, commBreakdown, monthSessions };
+    tutorBreakdown, commBreakdown, monthSessions, otherIncomeMonth, totalOtherIncome };
 }
 
 function downloadMonthlySummaryPDF() {
@@ -3870,6 +4146,14 @@ function downloadMonthlySummaryPDF() {
     return pay*0.03;
   }).reduce((a,b)=>a+b,0) + Object.values(commMap).reduce((s,x)=>s+x*0.03,0);
 
+  // Other Income
+  const otherIncomeMonth = (DATA.otherIncome||[]).filter(e=>(e.month||'').startsWith(selectedMonth));
+  const totalOtherIncome = otherIncomeMonth.reduce((s,x)=>s+Number(x.amount||0),0);
+  const catLabelsPDF = { video_course:'Video course', partner_commission:'Partner commission', consulting:'Consulting', other:'Other' };
+  const otherIncomeRowsPDF = otherIncomeMonth.map(e =>
+    `<tr><td>${e.item_name||'—'}</td><td>${catLabelsPDF[e.category]||e.category||'—'}</td><td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(e.amount)}</td></tr>`
+  ).join('') || '<tr><td colspan="3" style="color:#aaa;text-align:center">No other income this month</td></tr>';
+
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>Monthly Summary — ${monthStr}</title>
   <style>
@@ -3892,7 +4176,8 @@ function downloadMonthlySummaryPDF() {
   <h2>${monthStr} · Generated ${new Date().toLocaleString()}</h2>
 
   <div class="metrics">
-    <div class="metric"><label>Total Revenue</label><strong class="green">฿${fmt(totalRevenue)}</strong></div>
+    <div class="metric"><label>Total Revenue (tuition)</label><strong class="green">฿${fmt(totalRevenue)}</strong></div>
+    <div class="metric"><label>Other Income</label><strong class="green">฿${fmt(totalOtherIncome)}</strong></div>
     <div class="metric"><label>Tutor Payouts</label><strong>฿${fmt(totalTutorPay)}</strong></div>
     <div class="metric"><label>Commission</label><strong>฿${fmt(totalCommission)}</strong></div>
     <div class="metric"><label>Fixed Expenses</label><strong class="red">฿${fmt(totalExpenses)}</strong></div>
@@ -3913,6 +4198,13 @@ function downloadMonthlySummaryPDF() {
   <table>
     <thead><tr><th>Recipient</th><th style="text-align:right">Gross</th><th style="text-align:right">WHT 3%</th><th style="text-align:right">Net</th></tr></thead>
     <tbody>${commRows}</tbody>
+  </table>
+
+  <h3>Other Income</h3>
+  <table>
+    <thead><tr><th>Item</th><th>Category</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>${otherIncomeRowsPDF}</tbody>
+    <tfoot><tr><td colspan="2"><strong>Total</strong></td><td style="text-align:right"><strong>฿${fmt(totalOtherIncome)}</strong></td></tr></tfoot>
   </table>
 
   <footer>WHT = Withholding Tax 3% deducted from all tutor and commission transfers. This document is confidential — for internal accounting use only.</footer>
@@ -3982,12 +4274,17 @@ function downloadMonthlySummaryExcel() {
     commMap[who] = (commMap[who]||0) + Number(s.commission_amt||0);
   });
 
+  // Other Income
+  const otherIncomeMonthXL = (DATA.otherIncome||[]).filter(e=>(e.month||'').startsWith(selectedMonth));
+  const totalOtherIncomeXL = otherIncomeMonthXL.reduce((s,x)=>s+Number(x.amount||0),0);
+
   const summaryLines = [
     toCSVRow(["Poppadi's Studyo — Monthly Summary", monthStr]),
     toCSVRow(['Generated', new Date().toLocaleString()]),
     '',
     toCSVRow(['TOTALS']),
-    toCSVRow(['Total Revenue', totalRevenue]),
+    toCSVRow(['Total Revenue (tuition)', totalRevenue]),
+    toCSVRow(['Other Income', totalOtherIncomeXL]),
     toCSVRow(['Total Tutor Pay', totalTutorPay]),
     toCSVRow(['Total Commission', totalCommission]),
     toCSVRow(['Fixed Expenses', totalExpenses]),
@@ -4013,6 +4310,11 @@ function downloadMonthlySummaryExcel() {
       const whoLabel = who==='ppop'?'AJ. Pop':who==='eye'?'Eye':who==='jane'?'Jane':who;
       return toCSVRow([whoLabel, gross, +(gross*0.03).toFixed(2), +(gross*0.97).toFixed(2)]);
     }),
+    '',
+    toCSVRow(['OTHER INCOME']),
+    toCSVRow(['Item','Category','Amount']),
+    ...otherIncomeMonthXL.map(e => toCSVRow([e.item_name||'', e.category||'', Number(e.amount||0)])),
+    otherIncomeMonthXL.length ? toCSVRow(['TOTAL','', totalOtherIncomeXL]) : '',
     '',
     toCSVRow(['FIXED EXPENSES']),
     toCSVRow(['Item','Amount']),
@@ -4100,6 +4402,20 @@ function copyMonthlySummaryTable() {
   lines.push('FIXED EXPENSES');
   lines.push(tab('Item','Amount'));
   DATA.expenses.forEach(function(e) { lines.push(tab(e.item_name||e.item||'', '\u0e3f'+fmt(e.amount))); });
+
+  // Other Income
+  var otherIncomeMonthCP = (DATA.otherIncome||[]).filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; });
+  if (otherIncomeMonthCP.length) {
+    lines.push('');
+    lines.push('OTHER INCOME');
+    lines.push(tab('Item','Category','Amount'));
+    otherIncomeMonthCP.forEach(function(e) {
+      var catMap = {video_course:'Video course',partner_commission:'Partner commission',consulting:'Consulting',other:'Other'};
+      lines.push(tab(e.item_name||'—', catMap[e.category]||e.category||'—', '\u0e3f'+fmt(e.amount)));
+    });
+    var totOI = otherIncomeMonthCP.reduce(function(s,x){ return s+Number(x.amount||0); },0);
+    lines.push(tab('TOTAL','', '\u0e3f'+fmt(totOI)));
+  }
 
   var text = lines.join('\n');
   navigator.clipboard.writeText(text).catch(function() {
@@ -4290,7 +4606,15 @@ function generateTimeOptions(selectedVal) {
   const options = [];
   for (let h = 6; h <= 23; h++) {
     for (let m of [0, 30]) {
-      if (h === 23 && m === 30) continue; // stop at 11:00 PM
+      if (h === 23 && m === 30) {
+        // include 11:30 PM as the last option
+        const val      = `23:30`;
+        const displayH = 11;
+        const label    = `11:30 PM`;
+        const sel      = val === selectedVal ? 'selected' : '';
+        options.push(`<option value="${val}" ${sel}>${label}</option>`);
+        break;
+      }
       const val      = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
       const displayH = h > 12 ? h - 12 : h === 12 ? 12 : h;
       const ampm     = h >= 12 ? 'PM' : 'AM';
@@ -4320,7 +4644,13 @@ function autoEndTime(startInput) {
   // Snap to :00 or :30
   const snappedM  = endM < 15 ? 0 : endM < 45 ? 30 : 0;
   const snappedH  = endM >= 45 ? (endH + 1) % 24 : endH;
-  const endVal    = `${String(snappedH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
+  // Cap at 23:30 — don't wrap past midnight
+  let endVal;
+  if (snappedH === 0 && endH >= 23) {
+    endVal = '23:30'; // past midnight — cap at last option
+  } else {
+    endVal = `${String(snappedH).padStart(2,'0')}:${String(snappedM).padStart(2,'0')}`;
+  }
   // Only set if the value exists in the dropdown
   const exists = Array.from(endSel.options).some(o => o.value === endVal);
   if (exists) {
@@ -5016,6 +5346,10 @@ initAuth();
       <button onclick="hideMobileMore();showPage('expenses')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
         <span style="font-size:24px">◐</span>
         <span style="font-size:12px;color:var(--text2)" data-en="Expenses" data-th="ค่าใช้จ่าย">Expenses</span>
+      </button>
+      <button onclick="hideMobileMore();showPage('otherincome')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <span style="font-size:24px">◑</span>
+        <span style="font-size:12px;color:var(--text2)" data-en="Other income" data-th="รายได้อื่น">Other income</span>
       </button>
       <button onclick="hideMobileMore();showPage('audit')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
         <span style="font-size:24px">⊙</span>
