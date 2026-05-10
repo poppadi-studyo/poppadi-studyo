@@ -1384,7 +1384,7 @@ async function loadAllData() {
   // Fetch fresh data from Sheets in background
   try {
     const [tutorRows, studentRows, courseRows, sessionRows, expenseRows, invoiceRows] = await Promise.all([
-      fetchSheet('Tutors!A:F'),
+      fetchSheet('Tutors!A:H'),
       fetchSheet('Students!A:F'),
       fetchSheet('Courses!A:R'),
       fetchSheet('Sessions!A:T'),
