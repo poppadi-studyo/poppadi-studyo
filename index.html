@@ -1203,9 +1203,12 @@
             <tbody id="enroll-schedule-body"></tbody>
           </table>
         </div>
-        <div style="margin-top:8px">
-          <button class="btn btn-sm" onclick="addScheduleRow()" style="width:100%;padding:8px;border:2px dashed var(--border-strong);background:transparent;color:var(--text2);border-radius:8px;cursor:pointer;font-size:13px">
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="addScheduleRow()" style="flex:1;padding:8px;border:2px dashed var(--border-strong);background:transparent;color:var(--text2);border-radius:8px;cursor:pointer;font-size:13px">
             + <span data-en="Add row" data-th="เพิ่มแถว">Add row</span>
+          </button>
+          <button class="btn btn-sm" onclick="showRepeatScheduleModal()" style="padding:8px 14px;border:2px dashed var(--teal);background:transparent;color:var(--teal);border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap">
+            🔁 <span data-en="Repeat weekly" data-th="ซ้ำทุกสัปดาห์">Repeat weekly</span>
           </button>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
@@ -4514,32 +4517,42 @@ function setLang(l, btn) {
 
 // ─── TUTOR RATE SUGGESTION ────────────────────────────────
 const TUTOR_TIERS = {
-  T001: { base: 700, extra: 100 }, // P'Pop
-  T002: { base: 650, extra: 100 }, // P'Steven
-  T003: { base: 650, extra: 100 }, // Dr.Poon
-  T004: { base: 650, extra: 100 }, // AJ'Koi
-  T005: { base: 700, extra: 100 }, // AJ'Sumi
-  T006: { base: 350, extra: 50  }, // T'Noey
-  T007: { base: 350, extra: 50  }, // T'Nicha
+  T001: { base: 700, extra: 100 }, // AJ. Pop
+  T002: { base: 650, extra: 100 }, // AJ. Steven
+  T003: { base: 750, extra: 100 }, // Dr. Poon
+  T004: { base: 650, extra: 100 }, // AJ. Koi
+  T005: { base: 700, extra: 100 }, // AJ. Sumi
+  T006: { base: 350, extra: 50  }, // AJ. Noey
+  T007: { base: 350, extra: 50  }, // AJ. Nicha
+  T008: { base: 500, extra: 50  }, // AJ. Looknaam
 };
 
-function suggestTutorRate() {
-  const tutorId = document.getElementById('enroll-tutor')?.value;
-  const numStudents = parseInt(document.getElementById('enroll-num')?.value) || 1;
-  const rateInput = document.getElementById('enroll-rate');
-  const feeInput  = document.getElementById('enroll-fee');
-  const hint      = document.getElementById('rate-hint');
+// Default fee per student by number of students (from pricing doc)
+function defaultFeeForStudents(n) {
+  if (n === 1) return 1100;
+  if (n === 2) return 850;
+  if (n === 3) return 700;
+  return 500; // 4+
+}
 
-  // ── Auto-fill fee per hour — default ฿1,100, still editable ─
-  if (feeInput && !feeInput.value) {
-    feeInput.value = 1100;
-    feeInput.style.borderColor = '';
+function suggestTutorRate() {
+  const tutorId     = document.getElementById('enroll-tutor')?.value;
+  const numStudents = getEnrollStudentCount();
+  const rateInput   = document.getElementById('enroll-rate');
+  const feeInput    = document.getElementById('enroll-fee');
+  const hint        = document.getElementById('rate-hint');
+
+  // ── Auto-suggest fee per student based on number of students ──
+  if (feeInput) {
+    const suggestedFee = defaultFeeForStudents(numStudents);
+    feeInput.value = suggestedFee;
+    feeInput.style.borderColor = 'var(--teal)';
   }
 
   // ── Auto-suggest tutor rate ───────────────────────────────
-  if (!tutorId || !rateInput) return;
+  if (!tutorId || !rateInput) { updateEnrollPreview(); return; }
   const tier = TUTOR_TIERS[tutorId];
-  if (!tier) return;
+  if (!tier) { updateEnrollPreview(); return; }
   const suggested = tier.base + (numStudents - 1) * tier.extra;
   rateInput.value = suggested;
   rateInput.style.borderColor = 'var(--teal)';
@@ -4552,6 +4565,15 @@ function suggestTutorRate() {
 
   updateEnrollPreview();
   if (typeof updateGroupRateHint === 'function') updateGroupRateHint();
+}
+
+// Helper: get current student count from form (single or group)
+function getEnrollStudentCount() {
+  const groupRows = document.querySelectorAll('#group-students-body tr');
+  if (groupRows.length > 0 && document.getElementById('enroll-group-students')?.style.display !== 'none') {
+    return groupRows.length;
+  }
+  return parseInt(document.getElementById('enroll-num')?.value) || 1;
 }
 
 // ─── JANE COMMISSION TIER ─────────────────────────────────
@@ -4695,6 +4717,146 @@ function initScheduleBody() {
   tbody.innerHTML = `<tr>${makeSchedRowHTML(true)}</tr>`;
 }
 
+// ─── REPEAT SCHEDULE ──────────────────────────────────────
+function showRepeatScheduleModal() {
+  // Read first row to pre-fill
+  const tbody = document.getElementById('enroll-schedule-body');
+  const firstRow = tbody?.querySelector('tr');
+  const firstDate  = firstRow?.querySelector('input[type=date]')?.value || '';
+  const firstStart = firstRow?.querySelector('.sched-start')?.value || '';
+  const firstEnd   = firstRow?.querySelector('.sched-end')?.value || '';
+  const firstHrs   = firstRow?.querySelector('.sched-hrs')?.value || '2';
+
+  // Figure out day name for hint
+  let dayHint = '';
+  if (firstDate) {
+    const d = new Date(firstDate + 'T12:00:00');
+    dayHint = ' (' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] + 's)';
+  }
+
+  const existing = document.getElementById('repeat-sched-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'repeat-sched-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:var(--surface);border-radius:16px;padding:28px;max-width:420px;width:100%;font-family:'DM Sans',sans-serif">
+      <div style="font-size:17px;font-weight:700;margin-bottom:4px">🔁 Repeat weekly schedule</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:20px">
+        Generates sessions every 7 days from the first row${dayHint}. All rows are editable after.
+      </div>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Start date (first session)</label>
+        <input type="date" id="repeat-start-date" value="${firstDate}"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif">
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+        <div>
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Start time</label>
+          <select id="repeat-start-time" style="width:100%;padding:7px 8px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif;background:var(--surface)">
+            ${generateTimeOptions(firstStart || '16:00')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">End time</label>
+          <select id="repeat-end-time" style="width:100%;padding:7px 8px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif;background:var(--surface)">
+            ${generateTimeOptions(firstEnd || '18:00')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Hours</label>
+          <input type="number" id="repeat-hrs" value="${firstHrs}" step="0.5" min="0.5"
+            style="width:100%;box-sizing:border-box;padding:7px 8px;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif">
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Number of sessions to generate</label>
+        <input type="number" id="repeat-count" value="10" min="1" max="60"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px" id="repeat-preview-hint"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('repeat-sched-modal').remove()"
+          style="padding:9px 18px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif">
+          Cancel
+        </button>
+        <button onclick="applyRepeatSchedule()"
+          style="padding:9px 18px;border:none;border-radius:8px;background:var(--teal);color:#fff;cursor:pointer;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif">
+          Generate sessions ↗
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+
+  // Live preview hint
+  function updatePreview() {
+    const count = parseInt(document.getElementById('repeat-count')?.value) || 0;
+    const startD = document.getElementById('repeat-start-date')?.value;
+    const hint = document.getElementById('repeat-preview-hint');
+    if (!hint || !startD || count < 1) return;
+    const d = new Date(startD + 'T12:00:00');
+    const last = new Date(d.getTime() + (count - 1) * 7 * 86400000);
+    const fmt = (dt) => dt.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+    hint.textContent = `${count} sessions: ${fmt(d)} → ${fmt(last)}`;
+  }
+  document.getElementById('repeat-count').addEventListener('input', updatePreview);
+  document.getElementById('repeat-start-date').addEventListener('change', updatePreview);
+  updatePreview();
+}
+
+function applyRepeatSchedule() {
+  const startDate = document.getElementById('repeat-start-date')?.value;
+  const startTime = document.getElementById('repeat-start-time')?.value;
+  const endTime   = document.getElementById('repeat-end-time')?.value;
+  const hrs       = document.getElementById('repeat-hrs')?.value || '2';
+  const count     = parseInt(document.getElementById('repeat-count')?.value) || 0;
+
+  if (!startDate || !startTime || count < 1) {
+    showToast('⚠️ Please fill in start date and number of sessions');
+    return;
+  }
+
+  const tbody = document.getElementById('enroll-schedule-body');
+  if (!tbody) return;
+
+  // Clear existing rows
+  tbody.innerHTML = '';
+
+  const base = new Date(startDate + 'T12:00:00');
+
+  for (let i = 0; i < count; i++) {
+    const d = new Date(base.getTime() + i * 7 * 24 * 60 * 60 * 1000);
+    const dateStr = d.toISOString().slice(0, 10);
+
+    const row = document.createElement('tr');
+    const isFirst = i === 0;
+    const btn = isFirst
+      ? `<span></span>`
+      : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button>`;
+
+    row.innerHTML = `
+      <td><input type="date" value="${dateStr}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box"></td>
+      <td><select class="sched-start" onchange="autoEndTime(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box">
+        ${generateTimeOptions(startTime)}
+      </select></td>
+      <td><select class="sched-end" onchange="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--teal);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box;color:var(--teal)">
+        ${generateTimeOptions(endTime)}
+      </select></td>
+      <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" value="${hrs}" step="0.5" min="0.5" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif"></td>
+      <td>${btn}</td>`;
+    tbody.appendChild(row);
+  }
+
+  document.getElementById('repeat-sched-modal').remove();
+  showToast(`✓ ${count} sessions generated — all editable`);
+}
+
 // ─── DYNAMIC TUTOR LOADER ─────────────────────────────────
 function populateEnrollTutors() {
   const sel = document.getElementById('enroll-tutor');
@@ -4705,13 +4867,6 @@ function populateEnrollTutors() {
     .map(t => `<option value="${t.tutor_id}" ${t.tutor_id===current?'selected':''}>${t.name}</option>`)
     .join('');
   suggestTutorRate();
-}
-
-function addScheduleRow() {
-  const tbody = document.getElementById('enroll-schedule-body');
-  const row = document.createElement('tr');
-  row.innerHTML = makeSchedRowHTML(false);
-  tbody.appendChild(row);
 }
 
 async function submitEnrollment() {
