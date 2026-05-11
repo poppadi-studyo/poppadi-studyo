@@ -1843,7 +1843,7 @@ function renderOtherIncomeOverviewCard() {
 }
 
 // ─── MONTH LOCK RULE ──────────────────────────────────────
-// Sessions from previous months are locked after the 11th
+// Sessions from previous months are locked after the 10th of the current month
 function isMonthLocked(sessionDateStr) {
   if (!sessionDateStr) return false;
   const now         = new Date();
@@ -1958,7 +1958,15 @@ function renderSchedule() {
   }
 
   let sessions = filterByMonth([...DATA.sessions], 'date');
-  if (tutorFilter)  sessions = sessions.filter(s => s.tutor_id === tutorFilter);
+
+  // Tutors always see only their own sessions — override filter dropdown
+  if (currentRole === 'tutor' && currentTutorId) {
+    sessions = sessions.filter(s => s.tutor_id === currentTutorId);
+    if (tutorSel) { tutorSel.value = currentTutorId; tutorSel.style.display = 'none'; }
+  } else {
+    if (tutorSel) tutorSel.style.display = '';
+    if (tutorFilter) sessions = sessions.filter(s => s.tutor_id === tutorFilter);
+  }
   if (statusFilter) sessions = sessions.filter(s => s.status === statusFilter);
   sessions.sort((a,b) => {
     const da=parseSessionDate(a.date)||new Date(0), db=parseSessionDate(b.date)||new Date(0);
@@ -1972,8 +1980,8 @@ function renderSchedule() {
     return;
   }
 
-  // Hide revenue column when viewing single tutor
-  const showRevenue = !tutorFilter;
+  // Hide revenue column for tutors always, or when viewing single tutor as admin
+  const showRevenue = currentRole !== 'tutor' && !tutorFilter;
 
   body.innerHTML = sessions.map(s => {
     const tutor = getTutor(s.tutor_id);
@@ -2003,6 +2011,7 @@ function renderSchedule() {
       <td style="white-space:nowrap">${timeStr}</td>
       <td>${s.hours||'—'}</td>
       ${showRevenue ? `<td>฿${fmt(s.total_revenue)}</td>` : ''}
+      ${currentRole !== 'tutor' ? '' : ''}
       <td>${statusDropdown}</td>
       <td>
         ${isCompleted?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`
@@ -2028,8 +2037,8 @@ async function updateSessionStatus(sessionId, newStatus) {
 
   if (isMonthLocked(session.date)) {
     alert(lang==='th'
-      ? `🔒 ไม่สามารถแก้ไขได้\n\nคาบเรียนนี้อยู่ในเดือนที่ล็อคแล้ว (หลังวันที่ 11)`
-      : `🔒 Editing locked\n\nThis session is in a locked month (past the 11th).`
+      ? `🔒 ไม่สามารถแก้ไขได้\n\nคาบเรียนนี้อยู่ในเดือนที่ล็อคแล้ว (หลังวันที่ 10)`
+      : `🔒 Editing locked\n\nThis session is in a locked month (locked after the 10th).`
     );
     renderSchedule(); return;
   }
@@ -5273,7 +5282,7 @@ function showApp() {
 function applyRoleUI() {
   const isTutor = currentRole === 'tutor';
   // Nav items: tutors see only Schedule and Makeup
-  const adminOnly = ['overview','tutors','students','expenses','enroll','audit'];
+  const adminOnly = ['overview','tutors','students','expenses','otherincome','enroll','audit'];
   adminOnly.forEach(id => {
     const navBtn = document.querySelector(`.nav-item[onclick*="'${id}'"]`);
     if (navBtn) navBtn.style.display = isTutor ? 'none' : '';
@@ -5313,7 +5322,7 @@ async function renderAuditLog() {
   if (!body) return;
   body.innerHTML = `<tr><td colspan="6" class="empty">Loading...</td></tr>`;
   try {
-    const rows = await fetchSheet('Log!A:F');
+    const rows = await fetchSheet('Log!A:G');
     if (!rows || rows.length < 2) {
       body.innerHTML = `<tr><td colspan="6" class="empty">${lang==='th'?'ยังไม่มีประวัติ':'No audit entries yet'}</td></tr>`;
       return;
