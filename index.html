@@ -1379,35 +1379,15 @@ function filterByMonth(arr, dateField) {
   if (!selectedMonth) return arr;
   const [year, month] = selectedMonth.split('-').map(Number);
   return arr.filter(item => {
-    const d = item[dateField] || '';
-    if (!d) return false;
-    // Handle YYYY-MM-DD format
-    if (d.match(/^\d{4}-\d{2}-\d{2}/)) {
-      return d.startsWith(selectedMonth);
-    }
-    // Handle M/D/YYYY or MM/DD/YYYY format (Google Sheets default)
-    if (d.includes('/')) {
-      const parts = d.split('/');
-      if (parts.length >= 3) {
-        const m = parseInt(parts[0]);
-        const y = parseInt(parts[2]);
-        return y === year && m === month;
-      }
-    }
-    // Handle D/M/YYYY format
-    if (d.includes('-')) {
-      const parts = d.split('-');
-      if (parts.length >= 3) {
-        const y = parseInt(parts[0]);
-        const m = parseInt(parts[1]);
-        return y === year && m === month;
-      }
-    }
-    // Fallback — try Date parsing
-    try {
-      const parsed = new Date(d);
-      return parsed.getFullYear() === year && (parsed.getMonth()+1) === month;
-    } catch(e) { return false; }
+    const raw = item[dateField];
+    if (!raw) return false;
+    const str = String(raw).trim();
+    // Fast path: YYYY-MM-DD string
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.startsWith(selectedMonth);
+    // All other formats (serial, M/D/YYYY, etc) — parse to Date
+    const d = parseSessionDate(str);
+    if (!d || isNaN(d.getTime())) return false;
+    return d.getFullYear() === year && (d.getMonth()+1) === month;
   });
 }
 
@@ -1519,13 +1499,11 @@ function renderAll() {
 // ─── HELPERS ──────────────────────────────────────────────
 function fmt(n) { return Number(n||0).toLocaleString('th-TH'); }
 
-// Converts "2026-05-11" → "Mon, May 11, 2026"
+// Converts "2026-05-11" or Excel serial 46150 → "Mon, May 11, 2026"
 function fmtDate(dateStr) {
   if (!dateStr) return '—';
-  const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return dateStr;
-  const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  if (isNaN(d.getTime())) return dateStr;
+  const d = parseSessionDate(String(dateStr).trim());
+  if (!d || isNaN(d.getTime())) return String(dateStr);
   const days   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
@@ -1860,17 +1838,12 @@ function isMonthLocked(sessionDateStr) {
   if (!sessionDateStr) return false;
   const now         = new Date();
   const today       = now.getDate();
-  const sessionDate = new Date(sessionDateStr);
+  const sessionDate = parseSessionDate(String(sessionDateStr).trim());
+  if (!sessionDate || isNaN(sessionDate.getTime())) return false;
   const sessionYM   = sessionDate.getFullYear() * 12 + sessionDate.getMonth();
   const currentYM   = now.getFullYear() * 12 + now.getMonth();
-
-  // Current month — never locked
   if (sessionYM === currentYM) return false;
-
-  // Previous month — locked only after the 10th of the current month
   if (sessionYM === currentYM - 1) return today > 10;
-
-  // Anything older than previous month — always locked
   return true;
 }
 
@@ -2666,7 +2639,7 @@ function openPendingDetail(courseId) {
 
   const student  = DATA.students.find(s => s.student_id === course.student_id);
   const tutor    = getTutor(course.tutor_id);
-  const sessions = DATA.sessions.filter(s => s.course_id === courseId)
+  const sessions = getValidSessions(courseId)
     .sort((a,b) => (parseSessionDate(a.date)||new Date(0)) - (parseSessionDate(b.date)||new Date(0)));
 
   const modal = document.createElement('div');
@@ -2764,10 +2737,14 @@ function openPendingDetail(courseId) {
           <button onclick="downloadPendingPDFStudent('${courseId}')" class="btn btn-sm">⬇ PDF for student</button>
           <button onclick="copyPendingForLine('${courseId}')" class="btn btn-sm">⎘ Copy for LINE</button>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="cancelEntireEnrollment('${courseId}')"
             style="font-size:12px;padding:7px 14px;border:1px solid var(--red);color:var(--red);background:none;border-radius:8px;cursor:pointer">
             ✕ ${lang==='th'?'ยกเลิกทั้งหมด':'Cancel enrollment'}
+          </button>
+          <button onclick="deleteEnrollment('${courseId}')"
+            style="font-size:12px;padding:7px 14px;border:1px solid var(--red);color:#fff;background:var(--red);border-radius:8px;cursor:pointer">
+            🗑 ${lang==='th'?'ลบทั้งหมด (clean slate)':'Delete enrollment'}
           </button>
           <button onclick="confirmPaymentFromDetail('${courseId}')"
             style="font-size:12px;padding:7px 14px;border:none;background:var(--teal);color:#fff;border-radius:8px;cursor:pointer;font-weight:500">
@@ -2852,6 +2829,38 @@ async function cancelEntireEnrollment(courseId) {
   }
 }
 
+async function deleteEnrollment(courseId) {
+  // Check if any sessions are completed — if so, block
+  const sessions = getValidSessions(courseId);
+  const taughtCount = sessions.filter(s => s.status === 'Completed' || s.status === 'Makeup').length;
+  if (taughtCount > 0) {
+    alert(lang==='th'
+      ? `🔒 ไม่สามารถลบได้\n\nมีคาบที่สอนไปแล้ว ${taughtCount} คาบ\nใช้ "ยกเลิกทั้งหมด" แทน`
+      : `🔒 Cannot delete\n\n${taughtCount} session(s) already taught.\nUse "Cancel enrollment" instead.`);
+    return;
+  }
+
+  const course = DATA.courses.find(c => c.course_id === courseId);
+  const name   = course?.student_nickname || courseId;
+  const subj   = course?.subject || '';
+
+  if (!confirm(lang==='th'
+    ? `🗑 ลบการลงทะเบียนทั้งหมด?\n\n${name} — ${subj}\nจะลบคาบเรียนทั้งหมด ${sessions.length} คาบ และข้อมูลคอร์สออกจากระบบ\n\nไม่สามารถกู้คืนได้!`
+    : `🗑 Delete entire enrollment?\n\n${name} — ${subj}\nThis will permanently remove all ${sessions.length} sessions and the course record.\n\nThis CANNOT be undone!`)) return;
+
+  try {
+    const result = await webAppWrite('deleteEnrollment', { courseId, userEmail: currentUser?.email });
+    showToast(lang==='th' ? `🗑 ลบแล้ว — ${result.sessions_deleted || sessions.length} คาบ` : `🗑 Deleted — ${result.sessions_deleted || sessions.length} sessions removed`);
+    await loadAllData();
+    document.getElementById('pending-detail-modal')?.remove();
+    renderPendingPayments();
+    renderStudents();
+  } catch(e) {
+    if (e.message.includes('Web App URL')) return;
+    showToast('❌ ' + e.message);
+  }
+}
+
 async function confirmPaymentFromDetail(courseId) {
   if (!confirm(lang==='th' ? 'ยืนยันว่าได้รับการชำระเงินแล้ว?' : 'Confirm payment received?')) return;
   try {
@@ -2874,7 +2883,7 @@ function downloadPendingPDFStudent(courseId) {
   if (!course) return;
   const student  = DATA.students.find(s => s.student_id === course.student_id);
   const tutor    = getTutor(course.tutor_id);
-  const sessions = DATA.sessions.filter(s => s.course_id === courseId)
+  const sessions = getValidSessions(courseId)
     .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
   const paid      = Number(course.total_paid_hrs||0);
   const rows = sessions.map((s,i) => {
@@ -2932,7 +2941,7 @@ function downloadPendingPDF(courseId) {
   if (!course) return;
   const student  = DATA.students.find(s => s.student_id === course.student_id);
   const tutor    = getTutor(course.tutor_id);
-  const sessions = DATA.sessions.filter(s => s.course_id === courseId)
+  const sessions = getValidSessions(courseId)
     .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
   downloadEnrollmentPDF({
     studentName: student?.nickname || course.student_id,
@@ -2953,7 +2962,7 @@ function copyPendingForLine(courseId) {
   if (!course) return;
   const student  = DATA.students.find(s => s.student_id === course.student_id);
   const tutor    = getTutor(course.tutor_id);
-  const sessions = DATA.sessions.filter(s => s.course_id === courseId)
+  const sessions = getValidSessions(courseId)
     .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
   copyEnrollmentSummary({
     studentName: student?.nickname || course.student_id,
@@ -3203,7 +3212,7 @@ function openStudentDetail(courseId) {
     `${tutor.name||course.tutor_id} · Block ${course.block_number||1} · Invoice: ${course.invoice_ref||'—'} · Paid: ${course.payment_date||'—'}`;
 
   const paid     = Number(course.total_paid_hrs||0);
-  const sessions = DATA.sessions.filter(s=>s.course_id===courseId).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const sessions = getValidSessions(courseId).sort((a,b)=>new Date(a.date)-new Date(b.date));
 
   // Calculate totals
   let totalCharged=0, totalStudied=0, totalRevenue=0;
@@ -3737,12 +3746,48 @@ function getEventColor(session) {
 
 function parseSessionDate(dateStr) {
   if (!dateStr) return null;
-  // Handle M/D/YYYY
-  if (dateStr.includes('/')) {
-    const p=dateStr.split('/');
-    if(p.length>=3) return new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1]));
+  const str = String(dateStr).trim();
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const [y,m,d] = str.split('-').map(Number);
+    return new Date(y, m-1, d);
   }
-  return new Date(dateStr);
+  // Excel serial number (e.g. 46150 or 46150.333)
+  const num = parseFloat(str);
+  if (!isNaN(num) && num > 40000 && num < 60000) {
+    const epoch = new Date(1899, 11, 30); // Excel epoch
+    return new Date(epoch.getTime() + Math.floor(num) * 86400000);
+  }
+  // M/D/YYYY
+  if (str.includes('/')) {
+    const p = str.split('/');
+    if (p.length >= 3) return new Date(parseInt(p[2]), parseInt(p[0])-1, parseInt(p[1]));
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+
+// ── Session integrity filter ──────────────────────────────
+// Validates session belongs to correct course+student+tutor before display
+function getValidSessions(courseId) {
+  const course = DATA.courses.find(c => c.course_id === courseId);
+  if (!course) return getValidSessions(courseId);
+  return DATA.sessions.filter(s =>
+    s.course_id  === courseId &&
+    s.student_id === course.student_id &&
+    s.tutor_id   === course.tutor_id
+  );
+}
+
+// Convert any date format to YYYY-MM-DD string for display/filter
+function normalizeDateStr(dateVal) {
+  if (!dateVal) return '';
+  const str = String(dateVal).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+  const d = parseSessionDate(str);
+  if (!d || isNaN(d.getTime())) return str;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 function isSameDay(d1,d2) {
