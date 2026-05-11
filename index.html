@@ -1846,24 +1846,19 @@ function renderOtherIncomeOverviewCard() {
 // Sessions from previous months are locked after the 11th
 function isMonthLocked(sessionDateStr) {
   if (!sessionDateStr) return false;
-  const now = new Date();
-  const today = now.getDate();
+  const now         = new Date();
+  const today       = now.getDate();
   const sessionDate = new Date(sessionDateStr);
-  const sessionMonth = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth()+1).padStart(2,'0')}`;
-  const currentMonth = getCurrentMonthStr();
+  const sessionYM   = sessionDate.getFullYear() * 12 + sessionDate.getMonth();
+  const currentYM   = now.getFullYear() * 12 + now.getMonth();
 
-  // If the session is in the current month — never locked
-  if (sessionMonth === currentMonth) return false;
+  // Current month — never locked
+  if (sessionYM === currentYM) return false;
 
-  // If today is the 11th or later — previous months are locked
-  if (today >= 11) return true;
+  // Previous month — locked only after the 10th of the current month
+  if (sessionYM === currentYM - 1) return today > 10;
 
-  // If today is before the 11th — previous month still editable (grace period)
-  const prevDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
-  const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-  if (sessionMonth === prevMonth && today < 11) return false;
-
-  // Anything older than previous month = always locked
+  // Anything older than previous month — always locked
   return true;
 }
 
@@ -1988,7 +1983,7 @@ function renderSchedule() {
     const timeStr = formatTimeRange(s.start_time, s.end_time);
     const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
     const isCompleted = s.status === 'Completed' || s.status === 'Makeup';
-    const isLocked = isCompleted || isMonthLocked(s.date);
+    const isLocked = isMonthLocked(s.date);
     const isPastLocked = isMonthLocked(s.date) && !isCompleted;
 
     const statusDropdown = isLocked
@@ -2130,7 +2125,7 @@ function renderSchedule() {
     const timeStr = formatTimeRange(s.start_time, s.end_time);
     const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
     const isCompleted = s.status === 'Completed' || s.status === 'Makeup';
-    const isLocked = isCompleted || isMonthLocked(s.date);
+    const isLocked = isMonthLocked(s.date);
     const isPastLocked = isMonthLocked(s.date) && !isCompleted;
 
     // Status dropdown
@@ -4882,10 +4877,10 @@ async function submitEnrollment() {
   const payStatus    = document.getElementById('enroll-payment-status')?.value || 'Paid';
   const enrollmentType = enrollType || 'new';
 
-  if (!studentName || !tutorId || !paidHrs || !feePerHr) {
+  if (!studentName || !subject || !tutorId || !paidHrs || !feePerHr) {
     alert(lang==='th'
-      ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
-      : 'Please fill in required fields:\n• Student name\n• Total paid hours\n• Fee per hour');
+      ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
+      : 'Please fill in required fields:\n• Student name\n• Subject\n• Total paid hours\n• Fee per hour');
     return;
   }
 
