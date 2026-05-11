@@ -1518,6 +1518,18 @@ function renderAll() {
 
 // ─── HELPERS ──────────────────────────────────────────────
 function fmt(n) { return Number(n||0).toLocaleString('th-TH'); }
+
+// Converts "2026-05-11" → "Mon, May 11, 2026"
+function fmtDate(dateStr) {
+  if (!dateStr) return '—';
+  const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return dateStr;
+  const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (isNaN(d.getTime())) return dateStr;
+  const days   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
 function getTutor(id) { return DATA.tutors.find(t => t.tutor_id === id) || {}; }
 function getStudent(id) { return DATA.students.find(s => s.student_id === id) || {}; }
 function getTutorColor(id) { const t = getTutor(id); return COLOR_MAP[t.color] || '#888780'; }
@@ -2007,7 +2019,7 @@ function renderSchedule() {
       <td><span class="dot" style="background:${color}"></span>${getStudentNickname(s.student_id, s.course_id)}</td>
       <td>${tutor.name||s.tutor_id}</td>
       <td>${subject}</td>
-      <td>${s.date||'—'}</td>
+      <td>${fmtDate(s.date)}</td>
       <td style="white-space:nowrap">${timeStr}</td>
       <td>${s.hours||'—'}</td>
       ${showRevenue ? `<td>฿${fmt(s.total_revenue)}</td>` : ''}
@@ -2154,7 +2166,7 @@ function renderSchedule() {
       <td><span class="dot" style="background:${color}"></span>${getStudentNickname(s.student_id, s.course_id)}</td>
       <td>${tutor.name||s.tutor_id}</td>
       <td>${subject}</td>
-      <td>${s.date||'—'}</td>
+      <td>${fmtDate(s.date)}</td>
       <td style="white-space:nowrap">${timeStr}</td>
       <td>${s.hours||'—'}</td>
       <td>฿${fmt(s.total_revenue)}</td>
@@ -2191,7 +2203,7 @@ function renderMakeupQueue() {
       <div class="makeup-top">
         <div>
           <div class="makeup-name"><span class="dot" style="background:${color}"></span>${DATA.students.find(st=>st.student_id===s.student_id)?.nickname||s.student_id}</div>
-          <div class="makeup-meta">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${s.date||''}</div>
+          <div class="makeup-meta">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${fmtDate(s.date)}</div>
         </div>
         <span class="badge ${isMiss?'badge-miss':'badge-cancel'}">${isMiss?(lang==='th'?'ชดเชย 50%':'50% makeup'):(lang==='th'?'ชดเชยเต็ม':'Full makeup')}</span>
       </div>
@@ -2221,7 +2233,7 @@ function selectMakeup(sessionId) {
 
   document.getElementById('makeup-selected-info').innerHTML = `
     <div style="font-weight:500">${name}</div>
-    <div style="font-size:12px;color:var(--text2);margin-top:2px">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${s.date||''}</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:2px">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${fmtDate(s.date)}</div>
     <div style="margin-top:6px"><span class="badge ${s.status==='Missed'?'badge-miss':'badge-cancel'}">${s.status==='Missed'?(lang==='th'?'ขาดเรียน — ชดเชย 50%':'Missed — 50% makeup'):(lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup')}</span></div>
   `;
 }
@@ -2368,7 +2380,7 @@ function renderTutorDetail() {
   body.innerHTML = all.map(s=>{
     const student=DATA.students.find(st=>st.student_id===s.student_id);
     const timeStr=s.start_time&&s.end_time?`${s.start_time}–${s.end_time}`:(s.start_time||'—');
-    return `<tr><td>${getStudentNickname(s.student_id, s.course_id)}</td><td>${s.session_id||'—'}</td><td>${getSubjectForSession(s)}</td><td>${s.date||'—'}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
+    return `<tr><td>${getStudentNickname(s.student_id, s.course_id)}</td><td>${s.session_id||'—'}</td><td>${getSubjectForSession(s)}</td><td>${fmtDate(s.date)}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
   }).join('');
 }
 
@@ -2666,7 +2678,7 @@ function openPendingDetail(courseId) {
     const isLocked = s.status === 'Completed' || s.status === 'Makeup';
     return `<tr>
       <td style="padding:8px 10px">${i+1}</td>
-      <td style="padding:8px 10px">${s.date||'—'}</td>
+      <td style="padding:8px 10px">${fmtDate(s.date)}</td>
       <td style="padding:8px 10px">${timeStr}</td>
       <td style="padding:8px 10px;text-align:center">${s.hours||'—'}</td>
       <td style="padding:8px 10px">${statusBadge(s.status)}</td>
@@ -2867,7 +2879,7 @@ function downloadPendingPDFStudent(courseId) {
   const paid      = Number(course.total_paid_hrs||0);
   const rows = sessions.map((s,i) => {
     const timeStr = formatTimeRange(s.start_time, s.end_time);
-    const dateDisplay = s.date || '—';
+    const dateDisplay = fmtDate(s.date);
     const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
     const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
     return `<tr style="border-bottom:1px solid #eee">
@@ -3226,7 +3238,7 @@ function openStudentDetail(courseId) {
     const isEditable = s.status === 'Scheduled'; // Only scheduled sessions can have date/time edited
     return `<tr>
       <td>${num}</td>
-      <td>${s.date||'—'}</td>
+      <td>${fmtDate(s.date)}</td>
       <td>${timeStr}</td>
       <td>${statusBadge(s.status)}</td>
       <td>${hrsCharged}</td>
@@ -3305,7 +3317,7 @@ function downloadStudentPDFForTutor() {
     const tutorPay = s.status==='Completed'||s.status==='Makeup' ? `฿${fmt(s.tutor_pay)}` : '—';
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:7px 10px">${i+1}</td>
-      <td style="padding:7px 10px">${s.date||'—'}</td>
+      <td style="padding:7px 10px">${fmtDate(s.date)}</td>
       <td style="padding:7px 10px">${timeStr}</td>
       <td style="padding:7px 10px;text-align:center">${s.hours||'—'}</td>
       <td style="padding:7px 10px">${statusLabel}</td>
@@ -3384,7 +3396,7 @@ function downloadStudentPDFForStudent() {
     if (s.status==='Completed') hrsStudied = s.hours;
     else if (s.status==='Makeup') hrsStudied = s.hours;
     else if (s.status==='Missed'||s.status==='Cancelled') hrsStudied = '0';
-    const dateDisplay = s.date || '—';
+    const dateDisplay = fmtDate(s.date);
 
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:7px 10px">${num}</td>
@@ -4713,6 +4725,40 @@ function addScheduleRow() {
   const row = document.createElement('tr');
   row.innerHTML = makeSchedRowHTML(false);
   tbody.appendChild(row);
+
+  // Pre-fill date as 7 days after the last existing date in the table
+  const allDateInputs = tbody.querySelectorAll('input[type=date]');
+  const newDateInput  = row.querySelector('input[type=date]');
+  if (allDateInputs.length > 1 && newDateInput) {
+    // Find the latest date among all rows (excluding the new empty one)
+    let latestDate = null;
+    allDateInputs.forEach((inp, idx) => {
+      if (idx === allDateInputs.length - 1) return; // skip the new row
+      if (inp.value) {
+        const d = new Date(inp.value + 'T12:00:00');
+        if (!latestDate || d > latestDate) latestDate = d;
+      }
+    });
+    if (latestDate) {
+      const nextDate = new Date(latestDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+      newDateInput.value = nextDate.toISOString().slice(0, 10);
+    }
+  }
+
+  // Also copy start/end/hrs from the previous row so it's consistent
+  const allRows = tbody.querySelectorAll('tr');
+  if (allRows.length >= 2) {
+    const prevRow  = allRows[allRows.length - 2];
+    const prevStart = prevRow.querySelector('.sched-start')?.value;
+    const prevEnd   = prevRow.querySelector('.sched-end')?.value;
+    const prevHrs   = prevRow.querySelector('.sched-hrs')?.value;
+    const newStart  = row.querySelector('.sched-start');
+    const newEnd    = row.querySelector('.sched-end');
+    const newHrs    = row.querySelector('.sched-hrs');
+    if (prevStart && newStart) newStart.value = prevStart;
+    if (prevEnd   && newEnd)   { newEnd.value = prevEnd; newEnd.style.color = 'var(--teal)'; newEnd.style.borderColor = 'var(--teal)'; }
+    if (prevHrs   && newHrs)   newHrs.value   = prevHrs;
+  }
 }
 
 function initScheduleBody() {
@@ -5014,7 +5060,7 @@ function showEnrollmentSummary(data) {
     const rev = feePerHr * s.hours;
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:6px 10px">${i+1}</td>
-      <td style="padding:6px 10px">${s.date}</td>
+      <td style="padding:6px 10px">${fmtDate(s.date)}</td>
       <td style="padding:6px 10px">${timeStr}</td>
       <td style="padding:6px 10px;text-align:center">${s.hours}</td>
       <td style="padding:6px 10px;text-align:right">฿${fmt(rev)}</td>
@@ -5097,7 +5143,7 @@ function copyEnrollmentSummary(data) {
   sessions.forEach((s,i) => {
     const timeStr = s.start_time && s.end_time ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}` : s.start_time || '—';
     const rev = feePerHr * s.hours;
-    lines.push(`${i+1}\t${s.date}\t${timeStr}\t${s.hours}\t฿${fmt(rev)}`);
+    lines.push(`${i+1}\t${fmtDate(s.date)}\t${timeStr}\t${s.hours}\t฿${fmt(rev)}`);
   });
   const totalRev = sessions.reduce((sum,s)=>sum+feePerHr*s.hours,0);
   lines.push('', `Total revenue: ฿${fmt(totalRev)}`);
@@ -5117,7 +5163,7 @@ function downloadEnrollmentPDF(data) {
     const tutorPay = tutorRate * s.hours;
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:8px 10px">${i+1}</td>
-      <td style="padding:8px 10px">${s.date}</td>
+      <td style="padding:8px 10px">${fmtDate(s.date)}</td>
       <td style="padding:8px 10px">${timeStr}</td>
       <td style="padding:8px 10px;text-align:center">${s.hours}</td>
       <td style="padding:8px 10px;text-align:right">฿${fmt(tutorPay)}</td>
@@ -5186,7 +5232,7 @@ function downloadSchedulePDF() {
       <td style="padding:8px 10px">${i+1}</td>
       <td style="padding:8px 10px">${getStudentNickname(s.student_id, s.course_id)}</td>
       <td style="padding:8px 10px">${subject}</td>
-      <td style="padding:8px 10px">${s.date||'—'}</td>
+      <td style="padding:8px 10px">${fmtDate(s.date)}</td>
       <td style="padding:8px 10px">${timeStr}</td>
       <td style="padding:8px 10px;text-align:center">${s.hours||'—'}</td>
       <td style="padding:8px 10px;text-align:center">${s.num_students||'—'}</td>
