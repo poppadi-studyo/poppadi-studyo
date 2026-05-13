@@ -1497,20 +1497,18 @@ async function loadAllData() {
 
     renderAll();
     populateEnrollTutors();
-    if (showingOverview) {
-      document.getElementById('overview-loading').style.display = 'none';
-      document.getElementById('overview-content').style.display = 'block';
-    }
+    // Always clear spinner and show content — safe even if user is on another page
+    document.getElementById('overview-loading').style.display = 'none';
+    document.getElementById('overview-content').style.display = 'block';
     showToast(lang==='th' ? '✓ ข้อมูลล่าสุดแล้ว' : '✓ Data up to date');
 
   } catch(e) {
-    if (showingOverview) {
-      document.getElementById('overview-loading').style.display = 'none';
-    }
+    // Always clear spinner regardless of error or current page
+    document.getElementById('overview-loading').style.display = 'none';
+    document.getElementById('overview-content').style.display = 'block';
     if (!cached) {
       document.getElementById('overview-error').innerHTML =
         `<div class="error-banner">Could not load data from Google Sheets. Make sure the sheet is shared as "Anyone with the link can view" and the Sheets API is enabled.<br><small>${e.message}</small></div>`;
-      if (showingOverview) document.getElementById('overview-content').style.display = 'block';
       renderFallback();
     } else {
       showToast(lang==='th' ? '⚠️ ใช้ข้อมูลแคช (ออฟไลน์)' : '⚠️ Using cached data (offline)');
@@ -1519,13 +1517,14 @@ async function loadAllData() {
 }
 
 function renderAll() {
-  renderOverview();
-  renderSchedule();
-  renderMakeupQueue();
-  renderTutorAll();
-  renderStudents();
-  renderExpenses();
-  renderOtherIncome();
+  // Each renderer is isolated — one failure won't block the others or freeze the spinner
+  const renderers = [
+    renderOverview, renderSchedule, renderMakeupQueue,
+    renderTutorAll, renderStudents, renderExpenses, renderOtherIncome
+  ];
+  renderers.forEach(fn => {
+    try { fn(); } catch(e) { console.warn('renderAll: ' + fn.name + ' failed —', e.message); }
+  });
 }
 
 // ─── HELPERS ──────────────────────────────────────────────
