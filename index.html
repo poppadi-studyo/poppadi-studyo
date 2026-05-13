@@ -514,6 +514,24 @@
       right: 14px !important;
       text-align: center;
     }
+
+    /* Commission card — fix table overflow on narrow screens */
+    #commission-table-wrap table,
+    #tutor-commission-wrap table {
+      min-width: 0;
+      font-size: 12px;
+    }
+    #commission-table-wrap th,
+    #commission-table-wrap td,
+    #tutor-commission-wrap th,
+    #tutor-commission-wrap td {
+      padding: 8px 8px;
+      font-size: 11px;
+    }
+    #commission-table-wrap thead th:first-child,
+    #tutor-commission-wrap thead th:first-child {
+      min-width: 90px;
+    }
   }
 
   /* Desktop — hide mobile tabs */
@@ -826,6 +844,14 @@
           </div>
         </div>
       </div>
+      <!-- Commission card — synced to selected month, same as Overview -->
+      <div class="card" id="tutor-commission-card" style="margin-top:16px">
+        <div class="card-title" style="margin-bottom:12px">
+          <span data-en="Commission — selected month" data-th="คอมมิชชั่น — เดือนที่เลือก">Commission — selected month</span>
+        </div>
+        <div id="tutor-commission-wrap"></div>
+      </div>
+
       <div id="tutor-single-view" style="display:none">
         <div style="margin-bottom:12px;font-size:13px;color:var(--text2)" id="tutor-single-header"></div>
         <div class="metrics" id="tutor-metrics"></div>
@@ -1279,7 +1305,7 @@ const SHEET_ID  = '1ln-vg5I1Ce23Hapem4kyGPuHP0FB8Xx6T8ZNGf9Uvbk';
 const API_KEY   = 'AIzaSyDMVTFG9CIVcJFKdIDqayaKslA407jaMQQ';
 const BASE      = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
 // ↓ Paste your Web App URL here after deploying Apps Script
-let WEB_APP_URL = localStorage.getItem('poppadi_webapp_url') || '';
+let WEB_APP_URL = localStorage.getItem('poppadi_webapp_url') || 'https://script.google.com/macros/s/AKfycbxRTCaxDCdkCGLNOlLV7zYIu-vOfHjbWNqDqv2tFN1NkEUZFtEhxl2PuOeNJNU4DwUf/exec';
 
 // ─── WRITE TO SHEET VIA WEB APP ───────────────────────────
 async function webAppWrite(action, payload) {
@@ -1723,10 +1749,17 @@ function renderCommissionCard(monthSessions) {
 
   const wrap = document.getElementById('commission-table-wrap');
   const card = document.getElementById('commission-card');
+
+  // Also update tutors page commission card if it exists
+  const tutorWrap = document.getElementById('tutor-commission-wrap');
+  const tutorCard = document.getElementById('tutor-commission-card');
+
   if (!wrap || !card) return;
 
   if (!Object.keys(commMap).length) {
-    wrap.innerHTML = `<div class="empty" style="padding:20px 0">${lang==='th'?'ยังไม่มีคอมมิชชั่นเดือนนี้':'No commission recorded this month'}</div>`;
+    const emptyHtml = `<div class="empty" style="padding:20px 0">${lang==='th'?'ยังไม่มีคอมมิชชั่นเดือนนี้':'No commission recorded this month'}</div>`;
+    wrap.innerHTML = emptyHtml;
+    if (tutorWrap) tutorWrap.innerHTML = emptyHtml;
     return;
   }
 
@@ -1764,7 +1797,7 @@ function renderCommissionCard(monthSessions) {
     </tr>`;
   }).join('');
 
-  wrap.innerHTML = `
+  const commHtml = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
         <tr style="border-bottom:2px solid var(--border-strong)">
@@ -1789,6 +1822,8 @@ function renderCommissionCard(monthSessions) {
         ? 'WHT 3% หักจากค่าคอมมิชชั่นทั้งหมด · แสดงเฉพาะคาบที่ Completed และ Makeup'
         : 'WHT 3% deducted from all commission amounts · Completed & Makeup sessions only'}
     </div>`;
+  wrap.innerHTML = commHtml;
+  if (tutorWrap) tutorWrap.innerHTML = commHtml;
 }
 
 // ─── OTHER INCOME OVERVIEW CARD ───────────────────────────
@@ -2321,6 +2356,7 @@ function renderTutorAll() {
     <div class="metric"><div class="metric-label">${lang==='th'?'คอมมิชชั่นรวม':'Total commission'}</div><div class="metric-value">฿${fmt(gC)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div><div class="metric-value">฿${fmt(gR)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'ยอดโอนสุทธิรวม':'Total net transfer'}</div><div class="metric-value" style="color:var(--teal)">฿${fmt(gN)}</div></div>`;
+  renderCommissionCard(monthSessions);
 }
 
 // ─── INDIVIDUAL TUTOR VIEW ────────────────────────────────
@@ -3819,6 +3855,48 @@ function renderCalendar() {
   const sessions=getCalSessions();
   const wdays=lang==='th'?WEEKDAYS_TH:WEEKDAYS_EN;
   const months=lang==='th'?MONTHS_TH:MONTHS_EN;
+
+  // ─── MOBILE AGENDA VIEW ──────────────────────────────────
+  // On narrow screens (phone), replace grid/time views with a scrollable
+  // day-by-day agenda for the current month. ← and → navigate months.
+  if (window.innerWidth < 600 && (calView === 'day' || calView === 'week' || calView === 'month')) {
+    const y = calDate.getFullYear(), m = calDate.getMonth();
+    title.textContent = `${months[m]} ${y}`;
+    const daysInMonth = new Date(y, m+1, 0).getDate();
+    const today = new Date();
+    let html = '';
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(y, m, day);
+      const daySessions = sessions
+        .filter(s => isSameDay(parseSessionDate(s.date) || new Date(0), d))
+        .sort((a,b) => (a.start_time||'').localeCompare(b.start_time||''));
+      const isToday = isSameDay(d, today);
+      const dayLabel = `${wdays[d.getDay()]} ${day} ${months[m]}`;
+      html += `<div style="margin-bottom:${daySessions.length?'16':'4'}px">
+        <div style="font-size:12px;font-weight:${isToday?'700':'500'};color:${isToday?'var(--teal)':'var(--text3)'};padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:${daySessions.length?'8':'0'}px">
+          ${isToday ? '📍 ' : ''}${dayLabel}
+        </div>
+        ${daySessions.map(s => {
+          const name = getStudentNickname(s.student_id, s.course_id);
+          const subject = getSubjectForSession(s);
+          const tutor = DATA.tutors.find(t => t.tutor_id === s.tutor_id);
+          const color = getEventColor(s);
+          const timeStr = s.start_time && s.end_time ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}` : (s.start_time ? formatTime(s.start_time) : '—');
+          const opacity = s.status==='Cancelled'?0.45:s.status==='Missed'?0.6:1;
+          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:6px;border-left:4px solid ${color};opacity:${opacity}">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;color:var(--text)">${name}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${subject} · ${tutor?.name||'—'}</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">${timeStr}${s.hours?' · '+s.hours+'h':''}</div>
+            </div>
+            <div style="flex-shrink:0">${statusBadge(s.status)}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+    body.innerHTML = html || `<div class="empty">${lang==='th'?'ไม่มีคาบเรียนเดือนนี้':'No sessions this month'}</div>`;
+    return;
+  }
 
   // ─── TIME GRID (Day & Week) ──────────────────────────────
   const CAL_START_HOUR = 7;  // 7am
