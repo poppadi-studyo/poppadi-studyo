@@ -692,11 +692,16 @@
           <div class="page-title" data-en="Schedule" data-th="ตารางสอน">Schedule</div>
           <div class="page-sub" data-en="All sessions this month" data-th="ทุกคาบเรียนเดือนนี้">All sessions this month</div>
         </div>
-        <div style="display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden">
-          <button id="sched-view-list" onclick="setScheduleView('list')" class="btn btn-sm" style="border:none;border-radius:0;background:var(--text);color:#fff;font-size:12px" data-en="List" data-th="รายการ">List</button>
-          <button id="sched-view-cal" onclick="setScheduleView('calendar')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="Calendar" data-th="ปฏิทิน">Calendar</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="unlockPastMonths()" id="unlock-btn" class="btn btn-sm" style="font-size:12px;border-color:var(--border-strong)" data-en="🔒 Unlock past months" data-th="🔒 ปลดล็อคเดือนที่ผ่านมา">🔒 Unlock past months</button>
+          <div style="display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden">
+            <button id="sched-view-list" onclick="setScheduleView('list')" class="btn btn-sm" style="border:none;border-radius:0;background:var(--text);color:#fff;font-size:12px" data-en="List" data-th="รายการ">List</button>
+            <button id="sched-view-cal" onclick="setScheduleView('calendar')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="Calendar" data-th="ปฏิทิน">Calendar</button>
+          </div>
         </div>
       </div>
+      <!-- Unlock banner — visible only when sessionUnlocked is true -->
+      <div id="unlock-banner" style="display:none;background:var(--teal);color:#fff;padding:8px 16px;border-radius:8px;margin-bottom:12px;font-size:12px;font-weight:500;align-items:center;justify-content:space-between"></div>
 
       <!-- LIST VIEW -->
       <div id="schedule-list-view">
@@ -1376,6 +1381,7 @@ function showWebAppPrompt() {
 
 // ─── STATE ────────────────────────────────────────────────
 let DATA = { tutors:[], students:[], courses:[], sessions:[], expenses:[], invoices:[], otherIncome:[] };
+let sessionUnlocked = false; // PIN-unlocked for this page load — resets on refresh
 let lang = 'en';
 let selectedMakeup = null;
 let tutorChart = null;
@@ -1869,7 +1875,9 @@ function renderOtherIncomeOverviewCard() {
 
 // ─── MONTH LOCK RULE ──────────────────────────────────────
 // Sessions from previous months are locked after the 10th of the current month
+// If sessionUnlocked is true (PIN entered this page load), always returns false
 function isMonthLocked(sessionDateStr) {
+  if (sessionUnlocked) return false;
   if (!sessionDateStr) return false;
   const now         = new Date();
   const today       = now.getDate();
@@ -1880,6 +1888,52 @@ function isMonthLocked(sessionDateStr) {
   if (sessionYM === currentYM) return false;
   if (sessionYM === currentYM - 1) return today > 10;
   return true;
+}
+
+// ─── UNLOCK PAST MONTHS (PIN protected) ──────────────────
+function unlockPastMonths() {
+  if (sessionUnlocked) {
+    // Already unlocked — offer to re-lock
+    const relock = window.confirm(lang==='th'
+      ? '🔓 ปลดล็อคอยู่แล้ว — ต้องการล็อคคืนไหม?'
+      : '🔓 Past months are currently unlocked. Re-lock now?'
+    );
+    if (relock) {
+      sessionUnlocked = false;
+      updateUnlockBanner();
+      renderSchedule();
+      if (currentDetailCourse) openStudentDetail(currentDetailCourse.course_id);
+    }
+    return;
+  }
+  const pin = prompt(lang==='th'
+    ? '🔒 ใส่ PIN เพื่อปลดล็อคเดือนที่ผ่านมา:'
+    : '🔒 Enter PIN to unlock past months for editing:'
+  );
+  if (pin === null) return; // cancelled
+  if (pin !== SETTINGS_PIN) {
+    alert(lang==='th' ? '❌ PIN ไม่ถูกต้อง' : '❌ Incorrect PIN');
+    return;
+  }
+  sessionUnlocked = true;
+  updateUnlockBanner();
+  renderSchedule();
+  if (currentDetailCourse) openStudentDetail(currentDetailCourse.course_id);
+  showToast(lang==='th' ? '🔓 ปลดล็อคแล้ว — รีเฟรชเพื่อล็อคคืน' : '🔓 Unlocked — refresh page to re-lock');
+}
+
+function updateUnlockBanner() {
+  const banner = document.getElementById('unlock-banner');
+  if (!banner) return;
+  if (sessionUnlocked) {
+    banner.style.display = 'flex';
+    banner.innerHTML = `<span>🔓 ${lang==='th'?'ปลดล็อคเดือนที่ผ่านมาแล้ว — รีเฟรชเพื่อล็อคคืน':'Past months unlocked — refresh to re-lock'}</span>
+      <button onclick="unlockPastMonths()" style="margin-left:12px;font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,0.4);border-radius:6px;background:none;color:#fff;cursor:pointer">
+        ${lang==='th'?'ล็อคคืน':'Re-lock'}
+      </button>`;
+  } else {
+    banner.style.display = 'none';
+  }
 }
 
 // ─── GOOGLE OAUTH LOGIN ───────────────────────────────────
@@ -1966,6 +2020,16 @@ function renderSchedule() {
   const statusFilter = document.getElementById('filter-status')?.value || '';
   const pdfBtn = document.getElementById('pdf-download-btn');
   if (pdfBtn) pdfBtn.style.display = tutorFilter ? 'inline-block' : 'none';
+  updateUnlockBanner();
+  // Update unlock button label
+  const unlockBtn = document.getElementById('unlock-btn');
+  if (unlockBtn) {
+    unlockBtn.textContent = sessionUnlocked
+      ? (lang==='th' ? '🔓 ปลดล็อคอยู่' : '🔓 Unlocked')
+      : (lang==='th' ? '🔒 ปลดล็อคเดือนที่ผ่านมา' : '🔒 Unlock past months');
+    unlockBtn.style.color = sessionUnlocked ? 'var(--teal)' : '';
+    unlockBtn.style.borderColor = sessionUnlocked ? 'var(--teal)' : '';
+  }
 
   // Populate tutor filter
   const tutorSel = document.getElementById('filter-tutor');
@@ -2077,7 +2141,8 @@ async function updateSessionStatus(sessionId, newStatus) {
     await webAppWrite('updateSessionStatus', {
       sessionId,
       newStatus,
-      userEmail: currentUser?.email || 'dashboard'
+      userEmail: currentUser?.email || 'dashboard',
+      ...(sessionUnlocked ? { override: true } : {})
     });
     session.status = newStatus;
     await loadAllData();
