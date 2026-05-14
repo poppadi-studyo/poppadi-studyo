@@ -1123,16 +1123,9 @@
           <div class="form-row">
             <div class="form-group">
               <label data-en="Nickname" data-th="ชื่อเล่น">Nickname <span style="color:var(--red);font-size:11px">*</span></label>
-              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. Boss" oninput="onStudentNicknameInput()">
+              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. Boss" oninput="onStudentNicknameInput();saveEnrollDraft()">
               <datalist id="student-list"></datalist>
               <div id="student-match-hint" style="font-size:11px;color:var(--teal);margin-top:3px"></div>
-            </div>
-            <div class="form-group">
-              <label data-en="Payment status" data-th="สถานะการชำระ">Payment status</label>
-              <select id="enroll-payment-status" style="width:100%">
-                <option value="Pending" data-en="Payment Pending ⏳" data-th="รอการชำระ ⏳" selected>Payment Pending ⏳</option>
-                <option value="Paid" data-en="Paid ✅" data-th="ชำระแล้ว ✅">Paid ✅</option>
-              </select>
             </div>
           </div>
           <div id="enroll-new-student-fields" style="display:none">
@@ -1171,7 +1164,7 @@
         <div style="height:1px;background:var(--border);margin:16px 0"></div>
 
         <div class="form-row">
-          <div class="form-group"><label data-en="Subject" data-th="วิชา">Subject</label><input type="text" id="enroll-subject" list="subject-list" placeholder="e.g. IELTS"><datalist id="subject-list"></datalist></div>
+          <div class="form-group"><label data-en="Subject" data-th="วิชา">Subject</label><input type="text" id="enroll-subject" list="subject-list" placeholder="e.g. IELTS" oninput="saveEnrollDraft()"><datalist id="subject-list"></datalist></div>
           <div class="form-group">
             <label data-en="Tutor" data-th="ครู">Tutor</label>
             <select id="enroll-tutor" onchange="suggestTutorRate()"></select>
@@ -1180,11 +1173,11 @@
         <div class="form-row three">
           <div class="form-group">
             <label data-en="Total paid hours" data-th="ชั่วโมงที่จ่าย">Total paid hours</label>
-            <input type="number" id="enroll-hours" placeholder="e.g. 20">
+            <input type="number" id="enroll-hours" placeholder="e.g. 20" oninput="saveEnrollDraft()">
           </div>
           <div class="form-group">
             <label data-en="Fee per hour (฿)" data-th="ค่าเรียน/ชม. (฿)">Fee per hour (฿) <span style="font-size:10px;color:var(--text3)" data-en="per student" data-th="ต่อคน">per student</span></label>
-            <input type="number" id="enroll-fee" placeholder="e.g. 700">
+            <input type="number" id="enroll-fee" placeholder="e.g. 700" oninput="saveEnrollDraft()">
           </div>
           <div class="form-group">
             <label data-en="Tutor rate per hour (฿)" data-th="ค่าสอน/ชม. (฿)">Tutor rate/hr (฿) <span style="color:var(--teal);font-size:10px" data-en="auto-suggested" data-th="แนะนำอัตโนมัติ">auto-suggested</span></label>
@@ -1192,7 +1185,7 @@
             <div id="rate-hint" style="font-size:11px;color:var(--text3);margin-top:3px"></div>
           </div>
         </div>
-        <div class="form-row three">
+        <div class="form-row">
           <div class="form-group">
             <label data-en="Commission to?" data-th="คอมมิชชั่นให้ใคร?">Commission to?</label>
             <select id="enroll-jane">
@@ -1201,14 +1194,6 @@
               <option value="jane" data-en="Jane (5%)" data-th="เจน (5%)">Jane (5%)</option>
               <option value="eye" data-en="Eye (5%)" data-th="Eye (5%)">Eye (5%)</option>
             </select>
-          </div>
-          <div class="form-group">
-            <label data-en="Invoice reference" data-th="เลขที่ใบแจ้งหนี้">Invoice reference</label>
-            <input type="text" id="enroll-invoice" placeholder="e.g. INV-2026-045">
-          </div>
-          <div class="form-group">
-            <label data-en="Payment received date" data-th="วันที่รับชำระ">Payment received date</label>
-            <input type="date" id="enroll-date">
           </div>
         </div>
 
@@ -1600,14 +1585,17 @@ function renderOverview() {
   const completedSessions = monthSessions.filter(s =>
     s.status === 'Completed' || s.status === 'Makeup'
   );
-  const realizedIncome    = completedSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
-  const predictedIncome   = monthSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
-  const schoolRemainder   = completedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
-  const totalExpenses     = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0)
-                          || DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0); // fallback to all expenses
+  const activeSessions     = monthSessions.filter(s => s.status !== 'Cancelled');
+  const realizedIncome     = completedSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
+  const schoolRemainder    = completedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  const predictedSchoolRem = activeSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  const totalExpenses      = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0)
+                           || DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
 
   const gap = totalExpenses - schoolRemainder;
   const gapCovered = gap <= 0;
+  const predictedGap = totalExpenses - predictedSchoolRem;
+  const predictedCovers = predictedGap <= 0;
 
   // Cache hit info
   const cached = localStorage.getItem(CACHE_KEY);
@@ -1623,35 +1611,35 @@ function renderOverview() {
   const metricsEl = document.getElementById('overview-metrics');
   metricsEl.innerHTML = `
     <div class="metric">
-      <div class="metric-label">${lang==='th'?'รายได้ที่คาดการณ์':'Predicted income'}</div>
-      <div class="metric-value">฿${fmt(predictedIncome)}</div>
-      <div class="metric-sub">${lang==='th'?'ตามตารางที่ตกลงไว้':'Based on agreed schedule'}</div>
-    </div>
-    <div class="metric">
       <div class="metric-label">${lang==='th'?'รายได้จริง':'Realized income'}</div>
       <div class="metric-value">฿${fmt(realizedIncome)}</div>
       <div class="metric-sub">${lang==='th'?'จากคาบที่สอนแล้ว':'Classes taught so far'}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน (จริง)':'School remainder (realized)'}</div>
+      <div class="metric-value">฿${fmt(schoolRemainder)}</div>
+      <div class="metric-sub">${lang==='th'?'หลังหักค่าสอนและคอมม์':'After tutor pay & comms'}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน (คาดการณ์)':'School remainder (predicted)'}</div>
+      <div class="metric-value">฿${fmt(predictedSchoolRem)}</div>
+      <div class="metric-sub">${lang==='th'?'ถ้าสอนครบทุกคาบที่เหลือ':'If all remaining sessions taught'}</div>
     </div>
     <div class="metric">
       <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่':'Fixed expenses'}</div>
       <div class="metric-value">฿${fmt(totalExpenses)}</div>
       <div class="metric-sub">${lang==='th'?'เงินเดือน + ค่าเช่า':'Salaries + rent'}</div>
     </div>
-    <div class="metric">
-      <div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div>
-      <div class="metric-value">฿${fmt(schoolRemainder)}</div>
-      <div class="metric-sub">${lang==='th'?'หลังหักค่าสอนและคอมม์':'After tutor pay & comms'}</div>
-    </div>
     <div class="metric ${gapCovered?'gap-good':'gap-bad'}">
-      <div class="metric-label">${gapCovered?(lang==='th'?'ครอบคลุมแล้ว':'Costs covered'):(lang==='th'?'ยอดที่ยังขาด':'Coverage gap')}</div>
+      <div class="metric-label">${gapCovered?(lang==='th'?'ครอบคลุมแล้ว (จริง)':'Covered (realized)'):(lang==='th'?'ยังขาดอยู่ (จริง)':'Still short (realized)')}</div>
       <div class="metric-value">${gapCovered?'✓ ฿'+fmt(Math.abs(gap)):'฿'+fmt(gap)}</div>
-      <div class="metric-sub">${gapCovered?(lang==='th'?'กำไรหลังหักค่าใช้จ่าย':'Profit after fixed costs'):(lang==='th'?'ยังต้องหารายได้เพิ่ม':'Still needed to cover costs')}</div>
+      <div class="metric-sub">${gapCovered?(lang==='th'?'กำไรหลังหักค่าใช้จ่าย':'Profit after fixed costs'):(lang==='th'?'ยังต้องหารายได้เพิ่ม':'Still needed to break even')}</div>
     </div>
   `;
 
-  // Coverage bars
-  const realizedPct  = totalExpenses > 0 ? Math.min(100, Math.round((schoolRemainder/totalExpenses)*100)) : 0;
-  const predictedPct = totalExpenses > 0 ? Math.min(100, Math.round((predictedIncome/totalExpenses)*100)) : 0;
+  // Coverage bars — both now use school remainder (apples to apples vs fixed expenses)
+  const realizedPct   = totalExpenses > 0 ? Math.min(100, Math.round((schoolRemainder/totalExpenses)*100))    : 0;
+  const predictedPct  = totalExpenses > 0 ? Math.min(100, Math.round((predictedSchoolRem/totalExpenses)*100)) : 0;
   document.getElementById('coverage-bars').innerHTML = `
     <div class="coverage-row">
       <span class="coverage-label">${lang==='th'?'จริง':'Realized'}</span>
@@ -1660,13 +1648,15 @@ function renderOverview() {
     </div>
     <div class="coverage-row">
       <span class="coverage-label">${lang==='th'?'คาดการณ์':'Predicted'}</span>
-      <div class="coverage-track"><div class="coverage-fill" style="width:${Math.min(100,predictedPct)}%;background:#1D9E75"></div></div>
-      <span class="coverage-pct" style="color:#1D9E75">${predictedPct}%+</span>
+      <div class="coverage-track"><div class="coverage-fill" style="width:${predictedPct}%;background:${predictedCovers?'#1D9E75':'#BA7517'}"></div></div>
+      <span class="coverage-pct" style="color:${predictedCovers?'#1D9E75':'#BA7517'}">${predictedPct}%${predictedCovers?'':' ⚠️'}</span>
     </div>
-    <p style="font-size:12px;color:${gapCovered?'#0F6E56':'#A32D2D'};margin-top:12px">
+    <p style="font-size:12px;color:${gapCovered?'#0F6E56':predictedCovers?'#7A4D00':'#A32D2D'};margin-top:12px">
       ${gapCovered
-        ? (lang==='th'?'ครอบคลุมค่าใช้จ่ายคงที่แล้ว':'Fixed costs are fully covered this month')
-        : (lang==='th'?`ต้องการรายได้เพิ่มอีก ฿${fmt(gap)} เพื่อครอบคลุมค่าใช้จ่าย`:`Need ฿${fmt(gap)} more to cover fixed costs`)}
+        ? (lang==='th'?'✅ ครอบคลุมค่าใช้จ่ายคงที่แล้ว':'✅ Fixed costs are fully covered this month')
+        : predictedCovers
+          ? (lang==='th'?`⚠️ ยังขาด ฿${fmt(gap)} แต่คาดว่าจะครอบคลุมได้ถ้าสอนครบ`:`⚠️ Short ฿${fmt(gap)} now — but on track if all sessions run`)
+          : (lang==='th'?`🔴 ยังขาด ฿${fmt(gap)} และคาดการณ์ยังไม่พอครอบคลุม (ขาดอีก ฿${fmt(predictedGap)})`:`🔴 Short ฿${fmt(gap)} now — even if all sessions run, still short ฿${fmt(predictedGap)}`)}
     </p>
     ${cacheInfo}
   `;
@@ -2389,34 +2379,71 @@ function clearMakeup() {
   document.getElementById('makeup-fields').style.display = 'none';
 }
 
+let isMakeupSaving = false;
 async function confirmMakeup() {
+  if (isMakeupSaving) return;
   const d = document.getElementById('makeup-date').value;
   const s = document.getElementById('makeup-start').value;
   const e = document.getElementById('makeup-end').value;
   if (!d || !s) { alert(lang==='th'?'กรุณาระบุวันที่และเวลา':'Please fill in date and time'); return; }
+  if (!selectedMakeup) { alert('No session selected'); return; }
 
-  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving...');
+  isMakeupSaving = true;
+
+  // Progress modal
+  const modal = document.createElement('div');
+  modal.id = 'makeup-save-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div id="makeup-save-inner" style="background:#fff;border-radius:14px;padding:24px;max-width:360px;width:100%;font-family:'DM Sans',sans-serif;text-align:center">
+      <div style="font-size:15px;font-weight:600;margin-bottom:20px">${lang==='th'?'กำลังบันทึกชดเชย...':'Scheduling makeup...'}</div>
+      <div style="background:#f0f0f0;border-radius:100px;height:8px;overflow:hidden;margin-bottom:12px">
+        <div id="makeup-progress-bar" style="height:100%;background:var(--teal);border-radius:100px;width:0%;transition:width 0.4s ease"></div>
+      </div>
+      <div style="font-size:12px;color:var(--text3)">${lang==='th'?'กำลังอัปเดต...':'Updating...'}</div>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => { const b = document.getElementById('makeup-progress-bar'); if(b) b.style.width='80%'; }, 50);
+
+  const inner = document.getElementById('makeup-save-inner');
+  const snap = selectedMakeup;
 
   try {
     await webAppWrite('scheduleMakeup', {
-      originalSessionId: selectedMakeup?.session_id,
-      newDate: d,
-      startTime: s,
-      endTime: e,
+      originalSessionId: snap.session_id,
+      newDate: d, startTime: s, endTime: e,
       notes: document.getElementById('makeup-notes').value
     });
 
-    document.getElementById('makeup-fields').style.display = 'none';
-    document.getElementById('makeup-done').style.display = 'block';
-    document.getElementById('makeup-confirm-text').textContent =
-      (lang==='th'?'นัดชดเชย ':'Makeup scheduled for ') +
-      (selectedMakeup?.student_id||'') + ' → ' + d + ' ' + s +
-      (lang==='th'?` (เชื่อมโยงกับ ${selectedMakeup?.date})`:(` (linked to ${selectedMakeup?.date})`));
+    // Update local DATA in memory — mark original as Cancelled, no full reload needed
+    const orig = DATA.sessions.find(x => x.session_id === snap.session_id);
+    if (orig) orig.status = 'Cancelled';
 
-    await loadAllData();
+    const bar = document.getElementById('makeup-progress-bar');
+    if (bar) bar.style.width = '100%';
+
+    const student = DATA.students.find(st => st.student_id === snap.student_id);
+    const name = student?.nickname || snap.student_id;
+
+    setTimeout(() => {
+      if (inner) inner.innerHTML = `
+        <div style="font-size:36px;margin-bottom:12px">✅</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:6px">${lang==='th'?'นัดชดเชยแล้ว!':'Makeup scheduled!'}</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:4px">${name} → ${fmtDate(d)} ${formatTime(s)}${e?'–'+formatTime(e):''}</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:20px">${lang==='th'?'เชื่อมโยงกับ':'Linked to'} ${fmtDate(snap.date)}</div>
+        <button onclick="document.getElementById('makeup-save-modal')?.remove();isMakeupSaving=false;renderAll();"
+          style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">OK</button>`;
+    }, 400);
+
   } catch(err) {
-    if (err.message.includes('Web App URL')) return;
-    showToast('❌ ' + err.message);
+    isMakeupSaving = false;
+    if (err.message.includes('Web App URL')) { modal.remove(); return; }
+    if (inner) inner.innerHTML = `
+      <div style="font-size:36px;margin-bottom:12px">❌</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px">${lang==='th'?'เกิดข้อผิดพลาด':'Save failed'}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:20px">${err.message}</div>
+      <button onclick="document.getElementById('makeup-save-modal')?.remove()"
+        style="padding:8px 20px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ปิด':'Close'}</button>`;
   }
 }
 
@@ -2637,7 +2664,7 @@ async function saveSessionDateTime(sessionId, thisHrs, remaining) {
             <div style="font-size:13px;color:var(--text3);margin-bottom:20px">
               ${fmtDate(newDate)}${newStart?' · '+formatTime(newStart):''}${newEnd?'–'+formatTime(newEnd):''}
             </div>
-            <button onclick="document.getElementById('edit-session-modal')?.remove();renderAll();${currentDetailCourse?`openStudentDetail('${currentDetailCourse.course_id}')`:''}" 
+            <button onclick="(function(){const st=captureDetailSectionState();document.getElementById('edit-session-modal')?.remove();renderAll();${currentDetailCourse?`openStudentDetail('${currentDetailCourse.course_id}');restoreDetailSectionState(st);`:''}})();" 
               style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">
               OK
             </button>
@@ -3084,7 +3111,7 @@ async function updateSessionStatus(sessionId, newStatus) {
           <div style="font-size:36px;margin-bottom:12px">${emoji}</div>
           <div style="font-size:16px;font-weight:600;margin-bottom:6px">${lang==='th'?'อัปเดตแล้ว!':'Updated!'}</div>
           <div style="font-size:13px;color:var(--text3);margin-bottom:20px">${lang==='th'?'สถานะ:':'Status:'} <strong>${statusLabel}</strong></div>
-          <button onclick="document.getElementById('status-update-modal')?.remove();renderAll();if(currentDetailCourse)openStudentDetail(currentDetailCourse.course_id);"
+          <button onclick="(function(){const st=captureDetailSectionState();document.getElementById('status-update-modal')?.remove();renderAll();if(currentDetailCourse){openStudentDetail(currentDetailCourse.course_id);restoreDetailSectionState(st);}})()"
             style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">
             OK
           </button>`;
@@ -3525,6 +3552,27 @@ function toggleGroup(groupId) {
   const isHidden = rows[0]?.style.display === 'none';
   rows.forEach(r => r.style.display = isHidden ? '' : 'none');
   if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
+}
+
+// ─── SECTION STATE SAVE/RESTORE ───────────────────────────
+function captureDetailSectionState() {
+  const state = {};
+  ['detsess-prev','detsess-curr'].forEach(id => {
+    const rows = document.querySelectorAll(`[data-section="${id}"]`);
+    if (rows.length) state[id] = rows[0].style.display !== 'none';
+  });
+  return state;
+}
+function restoreDetailSectionState(state) {
+  ['detsess-prev','detsess-curr'].forEach(id => {
+    if (!(id in state)) return;
+    const rows = document.querySelectorAll(`[data-section="${id}"]`);
+    const header = document.querySelector(`[onclick="toggleScheduleSection('${id}')"]`);
+    const arrow = header?.querySelector('span');
+    const expanded = state[id];
+    rows.forEach(r => r.style.display = expanded ? '' : 'none');
+    if (arrow) arrow.textContent = expanded ? '▼' : '▶';
+  });
 }
 
 // ─── STUDENT DETAIL VIEW ──────────────────────────────────
@@ -5392,9 +5440,6 @@ async function submitEnrollment() {
   const feePerHr     = parseFloat(document.getElementById('enroll-fee').value) || 0;
   const tutorRate    = parseFloat(document.getElementById('enroll-rate').value) || 0;
   const commTo       = document.getElementById('enroll-jane').value;
-  const invoiceRef   = document.getElementById('enroll-invoice').value.trim();
-  const payDate      = document.getElementById('enroll-date').value;
-  const payStatus    = document.getElementById('enroll-payment-status')?.value || 'Paid';
   const enrollmentType = enrollType || 'new';
 
   if (!studentName || !subject || !tutorId || !paidHrs || !feePerHr) {
@@ -5442,7 +5487,6 @@ async function submitEnrollment() {
   try {
     const tutor = getTutor(tutorId);
     setSaveProgress(30, lang==='th'?'กำลังบันทึกนักเรียน...':'Writing student...');
-
     setSaveProgress(60, lang==='th'?'กำลังสร้างคาบเรียน...':'Creating sessions...');
 
     const result = await webAppWrite('addEnrollment', {
@@ -5463,9 +5507,9 @@ async function submitEnrollment() {
         fee_per_hr: feePerHr,
         tutor_rate_per_hr: tutorRate,
         commission_to: commTo,
-        invoice_ref: invoiceRef,
-        payment_date: payDate,
-        payment_status: payStatus,
+        invoice_ref: '',
+        payment_date: '',
+        payment_status: 'Pending',
         enrollment_type: enrollmentType,
         block_number: 1,
         num_students: 1
@@ -5473,34 +5517,27 @@ async function submitEnrollment() {
       sessions
     });
 
-    setSaveProgress(90, lang==='th'?'กำลังโหลดข้อมูล...':'Loading data...');
+    // ✅ Write succeeded — show success immediately, THEN reload data in background
+    setSaveProgress(100, lang==='th'?'บันทึกแล้ว!':'Saved!');
+    clearEnrollDraft();
 
-    showToast(lang==='th'
-      ? `✅ บันทึกแล้ว — ${result.course_id} (${sessions.length} คาบ)`
-      : `✅ Saved — ${result.course_id} (${sessions.length} sessions)`
-    );
-
-    // Show post-save summary
+    // Show post-save summary modal — user must click Done before form resets
     showEnrollmentSummary({
       studentName, subject, tutor: tutor.name||tutorId,
       paidHrs, feePerHr, tutorRate, commTo,
-      invoiceRef, payDate, payStatus,
-      courseId: result.course_id, sessions
+      courseId: result.course_id, sessions,
+      onDone: async () => {
+        // Reset form after user dismisses modal
+        document.getElementById('enroll-student').value = '';
+        document.getElementById('enroll-subject').value = '';
+        document.getElementById('enroll-hours').value   = '';
+        document.getElementById('enroll-fee').value     = '';
+        initScheduleBody();
+        resetSaveBtn();
+        await loadAllData();
+        renderPendingPayments();
+      }
     });
-
-    // Reset form
-    document.getElementById('enroll-student').value = '';
-    document.getElementById('enroll-subject').value = '';
-    document.getElementById('enroll-hours').value   = '';
-    document.getElementById('enroll-fee').value     = '';
-    document.getElementById('enroll-invoice').value = '';
-    document.getElementById('enroll-date').value    = '';
-    if (document.getElementById('enroll-payment-status'))
-      document.getElementById('enroll-payment-status').value = 'Pending';
-    initScheduleBody();
-    resetSaveBtn();
-    await loadAllData();
-    renderPendingPayments();
 
   } catch(err) {
     if (err.message.includes('Web App URL')) { resetSaveBtn(); return; }
@@ -5510,10 +5547,46 @@ async function submitEnrollment() {
   }
 }
 
+// ─── ENROLLMENT DRAFT PERSISTENCE ────────────────────────
+function saveEnrollDraft() {
+  try {
+    const draft = {
+      student: document.getElementById('enroll-student')?.value || '',
+      subject: document.getElementById('enroll-subject')?.value || '',
+      hours:   document.getElementById('enroll-hours')?.value   || '',
+      fee:     document.getElementById('enroll-fee')?.value     || '',
+      rate:    document.getElementById('enroll-rate')?.value    || '',
+      tutor:   document.getElementById('enroll-tutor')?.value   || '',
+      comm:    document.getElementById('enroll-jane')?.value    || 'none',
+      type:    enrollType || 'new',
+    };
+    localStorage.setItem('poppadi_enroll_draft', JSON.stringify(draft));
+  } catch(_) {}
+}
+function restoreEnrollDraft() {
+  try {
+    const raw = localStorage.getItem('poppadi_enroll_draft');
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d.student) document.getElementById('enroll-student').value = d.student;
+    if (d.subject) document.getElementById('enroll-subject').value = d.subject;
+    if (d.hours)   document.getElementById('enroll-hours').value   = d.hours;
+    if (d.fee)     document.getElementById('enroll-fee').value     = d.fee;
+    if (d.rate)    document.getElementById('enroll-rate').value    = d.rate;
+    if (d.tutor)   { const s = document.getElementById('enroll-tutor'); if(s) s.value = d.tutor; }
+    if (d.comm)    { const s = document.getElementById('enroll-jane');  if(s) s.value = d.comm;  }
+    if (d.type)    setEnrollType(d.type);
+    if (d.student || d.subject) showToast(lang==='th' ? '📝 โหลดข้อมูลร่างแล้ว' : '📝 Draft restored');
+  } catch(_) {}
+}
+function clearEnrollDraft() {
+  try { localStorage.removeItem('poppadi_enroll_draft'); } catch(_) {}
+}
+
 // ─── POST-SAVE ENROLLMENT SUMMARY ────────────────────────
 function showEnrollmentSummary(data) {
   const { studentName, subject, tutor, paidHrs, feePerHr, tutorRate,
-          commTo, invoiceRef, payDate, courseId, sessions } = data;
+          commTo, courseId, sessions, onDone } = data;
   const commRate    = commTo !== 'none' ? 0.05 : 0;
   const modal       = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -5543,8 +5616,8 @@ function showEnrollmentSummary(data) {
         <div>
           <div style="font-size:18px;font-weight:600">✅ ${lang==='th'?'ลงทะเบียนสำเร็จ':'Enrollment saved'}</div>
           <div style="font-size:13px;color:#888;margin-top:2px">${courseId} · ${studentName} · ${subject}</div>
+          <div style="font-size:12px;color:var(--amber);margin-top:4px">⏳ ${lang==='th'?'สถานะ: รอชำระเงิน — ยืนยันการชำระที่ด้านล่างของหน้า':'Payment pending — confirm payment in the section below'}</div>
         </div>
-        <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">✕</button>
       </div>
 
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
@@ -5580,12 +5653,18 @@ function showEnrollmentSummary(data) {
       </table>
 
       <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
-        <button onclick="copyEnrollmentSummary(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,invoiceRef,payDate,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⎘ ${lang==='th'?'คัดลอก':'Copy'}</button>
-        <button onclick="downloadEnrollmentPDF(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,invoiceRef,payDate,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⬇ PDF</button>
-        <button onclick="this.closest('[style*=fixed]').remove()" class="btn btn-primary">Done</button>
+        <button onclick="copyEnrollmentSummary(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⎘ ${lang==='th'?'คัดลอก':'Copy'}</button>
+        <button onclick="downloadEnrollmentPDF(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⬇ PDF</button>
+        <button id="enroll-summary-done-btn" class="btn btn-primary">Done</button>
       </div>
     </div>`;
+
   document.body.appendChild(modal);
+
+  document.getElementById('enroll-summary-done-btn').onclick = () => {
+    modal.remove();
+    if (typeof onDone === 'function') onDone();
+  };
 }
 
 function copyEnrollmentSummary(data) {
@@ -5969,6 +6048,7 @@ function showPage(id, btn) {
     setEnrollType(enrollType || 'new');
     const feeInput = document.getElementById('enroll-fee');
     if (feeInput && !feeInput.value) feeInput.value = 1100;
+    restoreEnrollDraft();
   }
   if (id === 'schedule') applyTutorScheduleFilter();
   if (id === 'audit') renderAuditLog();
