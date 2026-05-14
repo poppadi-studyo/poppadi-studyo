@@ -646,7 +646,7 @@
       <div id="overview-error"></div>
       <div id="overview-loading" class="loading"><div class="spinner"></div> Loading live data from Google Sheets...</div>
       <div id="overview-content" style="display:none">
-        <div class="metrics" id="overview-metrics"></div>
+        <div class="metrics" id="overview-metrics" style="grid-template-columns:1fr 1fr"></div>
         <div class="two-col">
           <div class="card">
             <div class="card-title" data-en="Fixed cost coverage" data-th="การครอบคลุมค่าใช้จ่าย">Fixed cost coverage</div>
@@ -1608,32 +1608,44 @@ function renderOverview() {
     } catch(e) {}
   }
 
+  const predictedNet = predictedSchoolRem - totalExpenses; // positive = profit, negative = still short
   const metricsEl = document.getElementById('overview-metrics');
   metricsEl.innerHTML = `
-    <div class="metric">
-      <div class="metric-label">${lang==='th'?'รายได้จริง':'Realized income'}</div>
-      <div class="metric-value">฿${fmt(realizedIncome)}</div>
-      <div class="metric-sub">${lang==='th'?'จากคาบที่สอนแล้ว':'Classes taught so far'}</div>
+    <div class="metric ${predictedCovers?'gap-good':'gap-bad'}" style="grid-column:span 2">
+      <div class="metric-label" style="font-size:12px">${lang==='th'?'🏫 กำไรสุทธิ (ถ้าสอนครบทุกคาบ)':'🏫 Net if all scheduled classes run'}</div>
+      <div class="metric-value" style="font-size:28px">${predictedNet>=0?'฿'+fmt(predictedNet):'−฿'+fmt(Math.abs(predictedNet))}</div>
+      <div class="metric-sub">${predictedCovers
+        ? (lang==='th'?`กำไรหลังหักค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)}`:`Profit after ฿${fmt(totalExpenses)} fixed costs`)
+        : (lang==='th'?`ยังขาดอีก ฿${fmt(Math.abs(predictedNet))} แม้สอนครบทุกคาบ — ต้องหานักเรียนเพิ่ม`:`Still ฿${fmt(Math.abs(predictedNet))} short even if every session runs — need more students`)
+      }</div>
+    </div>
+    <div class="metric ${gapCovered?'gap-good':''}">
+      <div class="metric-label">${lang==='th'?'💰 กำไรสุทธิ (ตอนนี้)':'💰 Net profit (so far)'}</div>
+      <div class="metric-value">${gapCovered?'฿'+fmt(Math.abs(gap)):'−฿'+fmt(gap)}</div>
+      <div class="metric-sub">${gapCovered
+        ? (lang==='th'?'ครอบคลุมค่าใช้จ่ายแล้ว':'Fixed costs covered')
+        : (lang==='th'?`ขาดอีก ฿${fmt(gap)} จากคาบที่สอนแล้ว`:`Short ฿${fmt(gap)} from taught sessions so far`)
+      }</div>
     </div>
     <div class="metric">
-      <div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน (จริง)':'School remainder (realized)'}</div>
-      <div class="metric-value">฿${fmt(schoolRemainder)}</div>
-      <div class="metric-sub">${lang==='th'?'หลังหักค่าสอนและคอมม์':'After tutor pay & comms'}</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน (คาดการณ์)':'School remainder (predicted)'}</div>
-      <div class="metric-value">฿${fmt(predictedSchoolRem)}</div>
-      <div class="metric-sub">${lang==='th'?'ถ้าสอนครบทุกคาบที่เหลือ':'If all remaining sessions taught'}</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่':'Fixed expenses'}</div>
+      <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่':'Fixed costs'}</div>
       <div class="metric-value">฿${fmt(totalExpenses)}</div>
       <div class="metric-sub">${lang==='th'?'เงินเดือน + ค่าเช่า':'Salaries + rent'}</div>
     </div>
-    <div class="metric ${gapCovered?'gap-good':'gap-bad'}">
-      <div class="metric-label">${gapCovered?(lang==='th'?'ครอบคลุมแล้ว (จริง)':'Covered (realized)'):(lang==='th'?'ยังขาดอยู่ (จริง)':'Still short (realized)')}</div>
-      <div class="metric-value">${gapCovered?'✓ ฿'+fmt(Math.abs(gap)):'฿'+fmt(gap)}</div>
-      <div class="metric-sub">${gapCovered?(lang==='th'?'กำไรหลังหักค่าใช้จ่าย':'Profit after fixed costs'):(lang==='th'?'ยังต้องหารายได้เพิ่ม':'Still needed to break even')}</div>
+    <div class="metric" style="opacity:0.7">
+      <div class="metric-label">${lang==='th'?'รายได้จริง (รวม)':'Realized revenue'}</div>
+      <div class="metric-value" style="font-size:18px">฿${fmt(realizedIncome)}</div>
+      <div class="metric-sub">${lang==='th'?'จากคาบที่สอนแล้ว':'From taught sessions'}</div>
+    </div>
+    <div class="metric" style="opacity:0.7">
+      <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (จริง)':'School cut (taught only)'}</div>
+      <div class="metric-value" style="font-size:18px">฿${fmt(schoolRemainder)}</div>
+      <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์':'After tutor pay & comms'}</div>
+    </div>
+    <div class="metric" style="opacity:0.7">
+      <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (คาดการณ์)':'School cut (if all run)'}</div>
+      <div class="metric-value" style="font-size:18px">฿${fmt(predictedSchoolRem)}</div>
+      <div class="metric-sub">${lang==='th'?'ถ้าสอนครบทุกคาบ':'If all sessions taught'}</div>
     </div>
   `;
 
@@ -1651,12 +1663,12 @@ function renderOverview() {
       <div class="coverage-track"><div class="coverage-fill" style="width:${predictedPct}%;background:${predictedCovers?'#1D9E75':'#BA7517'}"></div></div>
       <span class="coverage-pct" style="color:${predictedCovers?'#1D9E75':'#BA7517'}">${predictedPct}%${predictedCovers?'':' ⚠️'}</span>
     </div>
-    <p style="font-size:12px;color:${gapCovered?'#0F6E56':predictedCovers?'#7A4D00':'#A32D2D'};margin-top:12px">
+    <p style="font-size:12px;color:${gapCovered?'#0F6E56':predictedCovers?'#7A4D00':'#A32D2D'};margin-top:12px;font-weight:500">
       ${gapCovered
-        ? (lang==='th'?'✅ ครอบคลุมค่าใช้จ่ายคงที่แล้ว':'✅ Fixed costs are fully covered this month')
+        ? (lang==='th'?`✅ ครอบคลุมค่าใช้จ่ายคงที่แล้ว — กำไรสุทธิ ฿${fmt(Math.abs(gap))}`:`✅ Break-even cleared — school nets ฿${fmt(Math.abs(gap))} this month`)
         : predictedCovers
-          ? (lang==='th'?`⚠️ ยังขาด ฿${fmt(gap)} แต่คาดว่าจะครอบคลุมได้ถ้าสอนครบ`:`⚠️ Short ฿${fmt(gap)} now — but on track if all sessions run`)
-          : (lang==='th'?`🔴 ยังขาด ฿${fmt(gap)} และคาดการณ์ยังไม่พอครอบคลุม (ขาดอีก ฿${fmt(predictedGap)})`:`🔴 Short ฿${fmt(gap)} now — even if all sessions run, still short ฿${fmt(predictedGap)}`)}
+          ? (lang==='th'?`⚠️ ตอนนี้ขาด ฿${fmt(gap)} — แต่ถ้าสอนครบทุกคาบ จะกำไร ฿${fmt(Math.abs(predictedNet))}`:`⚠️ Short ฿${fmt(gap)} now — on track to net ฿${fmt(Math.abs(predictedNet))} if all sessions run`)
+          : (lang==='th'?`🔴 ตอนนี้ขาด ฿${fmt(gap)} — แม้สอนครบก็ยังขาด ฿${fmt(Math.abs(predictedNet))} — ต้องหานักเรียนเพิ่ม`:`🔴 Short ฿${fmt(gap)} now — even if all sessions run, still short ฿${fmt(Math.abs(predictedNet))} — need more enrolments`)}
     </p>
     ${cacheInfo}
   `;
