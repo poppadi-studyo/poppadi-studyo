@@ -1667,7 +1667,6 @@ function renderOverview() {
           ${lang==='th'?'+ ดูสถานการณ์จำลอง':'+ View scenarios'}
         </button>
         <div style="display:none;margin-top:10px">
-          <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:6px">${lang==='th'?'ต้องเพิ่มกี่ชั่วโมงเพื่อถึงเป้า?':'Extra hours needed to reach ฿${fmt(totalExpenses)}?'}</div>
           <select onchange="updateScenario(this.value, ${shortfall})">
             ${scenarios.map((s,i) => `<option value="${s.schoolPerHr}"${i===0?' selected':''}>${s.label}</option>`).join('')}
           </select>
