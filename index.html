@@ -1639,14 +1639,16 @@ function renderOverview() {
   const predictedNet = predictedSchoolRem - totalExpenses;
   const shortfall = Math.max(0, -predictedNet); // how much still needed even if all sessions run
 
-  // Scenario: school cut per hour by class type (from pricing doc)
-  // school_cut = revenue - tutor_pay - commission(5%)
+  // Scenarios — school cut per hr = revenue - tutor_pay - commission(5%)
+  // Private discounted rates: tutor pay stays ฿650/hr
   const scenarios = [
-    { label: lang==='th'?'1-on-1 มาตรฐาน (฿1,000/hr)':'1-on-1 standard (฿1,000/hr)',     schoolPerHr: 1000 - 650  - 1000*0.05 },  // 300
-    { label: lang==='th'?'1-on-1 พรีเมียม (฿1,100/hr)':'1-on-1 premium (฿1,100/hr)',      schoolPerHr: 1100 - 650  - 1100*0.05 },  // 395
-    { label: lang==='th'?'2 คน (฿850/คน/hr)':'2-student (฿850/student/hr)',               schoolPerHr: 1700 - 750  - 1700*0.05 },  // 865
-    { label: lang==='th'?'3 คน (฿700/คน/hr)':'3-student (฿700/student/hr)',               schoolPerHr: 2100 - 850  - 2100*0.05 },  // 1145
-    { label: lang==='th'?'4 คน (฿500/คน/hr)':'4-student (฿500/student/hr)',               schoolPerHr: 2000 - 950  - 2000*0.05 },  // 950
+    { label: lang==='th'?'1-on-1 พรีเมียม (฿1,100/hr)':'1-on-1 premium (฿1,100/hr)',      schoolPerHr: 1100 - 650 - 1100*0.05 },  // 395
+    { label: lang==='th'?'1-on-1 มาตรฐาน (฿1,000/hr)':'1-on-1 standard (฿1,000/hr)',     schoolPerHr: 1000 - 650 - 1000*0.05 },  // 300
+    { label: lang==='th'?'1-on-1 ส่วนลด (฿990/hr)':'1-on-1 discounted (฿990/hr)',         schoolPerHr: 990  - 650 - 990*0.05  },  // 290.5
+    { label: lang==='th'?'1-on-1 ส่วนลด (฿950/hr)':'1-on-1 discounted (฿950/hr)',         schoolPerHr: 950  - 650 - 950*0.05  },  // 252.5
+    { label: lang==='th'?'2 คน (฿850/คน/hr)':'2-student (฿850/student/hr)',               schoolPerHr: 1700 - 750 - 1700*0.05 },  // 865
+    { label: lang==='th'?'3 คน (฿700/คน/hr)':'3-student (฿700/student/hr)',               schoolPerHr: 2100 - 850 - 2100*0.05 },  // 1145
+    { label: lang==='th'?'4 คน (฿500/คน/hr)':'4-student (฿500/student/hr)',               schoolPerHr: 2000 - 950 - 2000*0.05 },  // 950
   ];
 
   const metricsEl = document.getElementById('overview-metrics');
@@ -1660,11 +1662,17 @@ function renderOverview() {
       }</div>
       ${shortfall > 0 ? `
       <div class="scenario-calc">
-        <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">${lang==='th'?'ต้องสอนเพิ่มกี่ชั่วโมงเพื่อถึงเป้า?':'How many extra hours needed to break even?'}</div>
-        <select onchange="updateScenario(this.value, ${shortfall})">
-          ${scenarios.map((s,i) => `<option value="${s.schoolPerHr}"${i===0?' selected':''}>${s.label}</option>`).join('')}
-        </select>
-        <div class="scenario-result" id="scenario-result"></div>
+        <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.nextElementSibling.style.display==='none'?(lang==='th'?'+ ดูสถานการณ์จำลอง':'+ View scenarios'):(lang==='th'?'− ซ่อน':'− Hide')"
+          style="font-size:11px;color:rgba(255,255,255,0.7);background:none;border:1px solid rgba(255,255,255,0.25);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px">
+          ${lang==='th'?'+ ดูสถานการณ์จำลอง':'+ View scenarios'}
+        </button>
+        <div style="display:none;margin-top:10px">
+          <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:6px">${lang==='th'?'ต้องเพิ่มกี่ชั่วโมงเพื่อถึงเป้า?':'Extra hours needed to reach ฿${fmt(totalExpenses)}?'}</div>
+          <select onchange="updateScenario(this.value, ${shortfall})">
+            ${scenarios.map((s,i) => `<option value="${s.schoolPerHr}"${i===0?' selected':''}>${s.label}</option>`).join('')}
+          </select>
+          <div class="scenario-result" id="scenario-result"></div>
+        </div>
       </div>` : ''}
     </div>
     <div class="metric ${gapCovered?'gap-good':''}">
@@ -1701,9 +1709,6 @@ function renderOverview() {
       <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์ ถ้าสอนครบ':'After tutor pay & comms, if all sessions taught'}</div>
     </div>
   `;
-
-  // Trigger default scenario on load
-  if (shortfall > 0) updateScenario(scenarios[0].schoolPerHr, shortfall);
 
   // Stacked single bar — green=realized, amber=predicted-only, red=still short
   const realizedPct   = totalExpenses > 0 ? Math.min(100, (schoolRemainder / totalExpenses) * 100)    : 0;
