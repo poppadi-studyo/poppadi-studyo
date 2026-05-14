@@ -1617,7 +1617,7 @@ function renderOverview() {
       <div class="metric-value" style="font-size:28px">${predictedNet>=0?'฿'+fmt(predictedNet):'−฿'+fmt(Math.abs(predictedNet))}</div>
       <div class="metric-sub">${predictedCovers
         ? (lang==='th'?`กำไรหลังหักค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)}`:`Profit after ฿${fmt(totalExpenses)} fixed costs`)
-        : (lang==='th'?`ยังขาดอีก ฿${fmt(Math.abs(predictedNet))} แม้สอนครบทุกคาบ — ต้องหานักเรียนเพิ่ม`:`Still ฿${fmt(Math.abs(predictedNet))} short even if every session runs — need more enrolments`)
+        : (lang==='th'?`ยังขาดอีก ฿${fmt(Math.abs(predictedNet))} จากเป้า ฿${fmt(totalExpenses)} (ค่าใช้จ่ายคงที่) — ต้องหานักเรียนเพิ่ม`:`Still ฿${fmt(Math.abs(predictedNet))} short of the ฿${fmt(totalExpenses)} fixed cost target — need more enrolments`)
       }</div>
     </div>
     <div class="metric ${gapCovered?'gap-good':''}">
@@ -1671,10 +1671,10 @@ function renderOverview() {
     </div>
     <p style="font-size:12px;color:${gapCovered?'#0F6E56':predictedCovers?'#7A4D00':'#A32D2D'};margin-top:12px;font-weight:500">
       ${gapCovered
-        ? (lang==='th'?`✅ ครอบคลุมค่าใช้จ่ายคงที่แล้ว — กำไรสุทธิ ฿${fmt(Math.abs(gap))}`:`✅ Break-even cleared — school nets ฿${fmt(Math.abs(gap))} this month`)
+        ? (lang==='th'?`ครอบคลุมค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)} แล้ว — กำไรสุทธิ ฿${fmt(Math.abs(gap))}`:`Fixed costs of ฿${fmt(totalExpenses)} covered — school nets ฿${fmt(Math.abs(gap))} this month`)
         : predictedCovers
-          ? (lang==='th'?`⚠️ ตอนนี้ขาด ฿${fmt(gap)} — แต่ถ้าสอนครบทุกคาบ จะกำไร ฿${fmt(Math.abs(predictedNet))}`:`⚠️ Short ฿${fmt(gap)} now — on track to net ฿${fmt(Math.abs(predictedNet))} if all sessions run`)
-          : (lang==='th'?`🔴 ตอนนี้ขาด ฿${fmt(gap)} — แม้สอนครบก็ยังขาด ฿${fmt(Math.abs(predictedNet))} — ต้องหานักเรียนเพิ่ม`:`🔴 Short ฿${fmt(gap)} now — even if all sessions run, still short ฿${fmt(Math.abs(predictedNet))} — need more enrolments`)}
+          ? (lang==='th'?`ตอนนี้ขาด ฿${fmt(gap)} จากเป้า ฿${fmt(totalExpenses)} — แต่ถ้าสอนครบทุกคาบ จะกำไร ฿${fmt(Math.abs(predictedNet))}`:`Short ฿${fmt(gap)} of the ฿${fmt(totalExpenses)} target now — on track to net ฿${fmt(Math.abs(predictedNet))} if all sessions run`)
+          : (lang==='th'?`ตอนนี้ขาด ฿${fmt(gap)} จากเป้า ฿${fmt(totalExpenses)} — แม้สอนครบทุกคาบ ก็ยังขาด ฿${fmt(Math.abs(predictedNet))} — ต้องหานักเรียนเพิ่ม`:`Short ฿${fmt(gap)} of the ฿${fmt(totalExpenses)} target now — even if all sessions run, still ฿${fmt(Math.abs(predictedNet))} short — need more enrolments`)}
     </p>
     ${cacheInfo}
   `;
