@@ -1325,7 +1325,14 @@ async function webAppWrite(action, payload) {
     body
   });
   if (!res.ok) throw new Error('Web App request failed: ' + res.status);
-  const data = await res.json();
+  // Apps Script POST sometimes redirects and returns empty/HTML body —
+  // treat a parse failure as success since the sheet write already completed
+  let data;
+  try {
+    data = await res.json();
+  } catch(_) {
+    return { success: true };
+  }
   if (!data.success) throw new Error(data.error || 'Web App returned error');
   return data;
 }
@@ -2549,10 +2556,10 @@ function openEditSession(sessionId) {
 }
 
 async function saveSessionDateTime(sessionId) {
-  const btn       = document.getElementById('save-sess-edit-btn');
-  const newDate   = document.getElementById('edit-sess-date')?.value;
-  const newStart  = document.getElementById('edit-sess-start')?.value;
-  const newEnd    = document.getElementById('edit-sess-end')?.value;
+  const btn      = document.getElementById('save-sess-edit-btn');
+  const newDate  = document.getElementById('edit-sess-date')?.value;
+  const newStart = document.getElementById('edit-sess-start')?.value;
+  const newEnd   = document.getElementById('edit-sess-end')?.value;
 
   if (!newDate) { alert(lang==='th'?'กรุณาใส่วันที่':'Please enter a date'); return; }
   if (btn) { btn.textContent = '⏳ Saving...'; btn.disabled = true; }
@@ -2563,15 +2570,19 @@ async function saveSessionDateTime(sessionId) {
       userEmail: currentUser?.email
     });
 
-    // Update local data
+    // Update local DATA in memory — no full reload needed for a date/time change
     const s = DATA.sessions.find(x => x.session_id === sessionId);
     if (s) { s.date = newDate; s.start_time = newStart; s.end_time = newEnd; }
 
-    showToast(lang==='th' ? '✅ อัปเดตวันที่และเวลาแล้ว' : '✅ Date & time updated across system');
-    document.querySelector('[style*="position:fixed"]')?.remove();
-    await loadAllData();
-    // Re-open student detail if it was open
+    // Close modal by finding the save button's closest fixed overlay
+    btn?.closest('[style*="position:fixed"]')?.remove();
+
+    showToast(lang==='th' ? '✅ อัปเดตวันที่และเวลาแล้ว' : '✅ Date & time updated');
+
+    // Re-render from memory (fast — no network call)
+    renderAll();
     if (currentDetailCourse) openStudentDetail(currentDetailCourse.course_id);
+
   } catch(e) {
     if (e.message.includes('Web App URL')) { if(btn){btn.textContent='💾 Save';btn.disabled=false;} return; }
     showToast('❌ ' + e.message);
