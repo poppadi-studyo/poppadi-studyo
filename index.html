@@ -1504,9 +1504,14 @@ async function loadAllData() {
 
     renderAll();
     populateEnrollTutors();
-    // Always clear spinner and show content — safe even if user is on another page
+    // Always clear spinner
     document.getElementById('overview-loading').style.display = 'none';
     document.getElementById('overview-content').style.display = 'block';
+    // Restore current page so Refresh never jumps to Overview
+    const _savedPage = localStorage.getItem('poppadi_page');
+    if (_savedPage && _savedPage !== 'overview' && document.getElementById('page-' + _savedPage)) {
+      showPage(_savedPage);
+    }
     showToast(lang==='th' ? '✓ ข้อมูลล่าสุดแล้ว' : '✓ Data up to date');
 
   } catch(e) {
@@ -2526,6 +2531,7 @@ function openEditSession(sessionId) {
   }
 
   const modal = document.createElement('div');
+  modal.id = 'edit-session-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
   modal.innerHTML = `
     <div style="background:#fff;border-radius:14px;padding:24px;max-width:400px;width:100%;font-family:'DM Sans',sans-serif">
@@ -2548,7 +2554,7 @@ function openEditSession(sessionId) {
         </select>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button onclick="this.closest('[style*=fixed]').remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ยกเลิก':'Cancel'}</button>
+        <button onclick="document.getElementById('edit-session-modal')?.remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ยกเลิก':'Cancel'}</button>
         <button id="save-sess-edit-btn" onclick="saveSessionDateTime('${sessionId}')" style="padding:8px 16px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">${lang==='th'?'💾 บันทึก':'💾 Save'}</button>
       </div>
     </div>`;
@@ -2574,8 +2580,8 @@ async function saveSessionDateTime(sessionId) {
     const s = DATA.sessions.find(x => x.session_id === sessionId);
     if (s) { s.date = newDate; s.start_time = newStart; s.end_time = newEnd; }
 
-    // Close modal by finding the save button's closest fixed overlay
-    btn?.closest('[style*="position:fixed"]')?.remove();
+    // Close modal by ID — reliable across all browsers
+    document.getElementById('edit-session-modal')?.remove();
 
     showToast(lang==='th' ? '✅ อัปเดตวันที่และเวลาแล้ว' : '✅ Date & time updated');
 
