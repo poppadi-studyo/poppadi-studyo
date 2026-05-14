@@ -268,12 +268,39 @@
   .alert-name { font-size: 13px; font-weight: 500; }
   .alert-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
 
-  /* Coverage bars */
-  .coverage-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .coverage-label { font-size: 12px; color: var(--text2); min-width: 80px; }
-  .coverage-track { flex: 1; background: var(--surface2); border-radius: 4px; height: 8px; overflow: hidden; }
-  .coverage-fill { height: 100%; border-radius: 4px; }
-  .coverage-pct { font-size: 12px; font-weight: 600; min-width: 40px; text-align: right; }
+  /* Stacked coverage bar */
+  .stacked-bar-track {
+    width: 100%;
+    height: 20px;
+    background: var(--surface2);
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    margin: 12px 0 8px;
+  }
+  .stacked-seg { height: 100%; transition: width 0.5s ease; }
+
+  /* Scenario calculator */
+  .scenario-calc { margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 14px; }
+  .scenario-calc select {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    width: 100%;
+  }
+  .scenario-calc select option { background: #333; color: #fff; }
+  .scenario-result {
+    margin-top: 10px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.6;
+  }
+  .scenario-result strong { color: #fff; font-size: 15px; }
 
   /* Makeup queue */
   .makeup-item {
@@ -1610,6 +1637,18 @@ function renderOverview() {
 
   const predictedRevenue  = activeSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
   const predictedNet = predictedSchoolRem - totalExpenses;
+  const shortfall = Math.max(0, -predictedNet); // how much still needed even if all sessions run
+
+  // Scenario: school cut per hour by class type (from pricing doc)
+  // school_cut = revenue - tutor_pay - commission(5%)
+  const scenarios = [
+    { label: lang==='th'?'1-on-1 มาตรฐาน (฿1,000/hr)':'1-on-1 standard (฿1,000/hr)',     schoolPerHr: 1000 - 650  - 1000*0.05 },  // 300
+    { label: lang==='th'?'1-on-1 พรีเมียม (฿1,100/hr)':'1-on-1 premium (฿1,100/hr)',      schoolPerHr: 1100 - 650  - 1100*0.05 },  // 395
+    { label: lang==='th'?'2 คน (฿850/คน/hr)':'2-student (฿850/student/hr)',               schoolPerHr: 1700 - 750  - 1700*0.05 },  // 865
+    { label: lang==='th'?'3 คน (฿700/คน/hr)':'3-student (฿700/student/hr)',               schoolPerHr: 2100 - 850  - 2100*0.05 },  // 1145
+    { label: lang==='th'?'4 คน (฿500/คน/hr)':'4-student (฿500/student/hr)',               schoolPerHr: 2000 - 950  - 2000*0.05 },  // 950
+  ];
+
   const metricsEl = document.getElementById('overview-metrics');
   metricsEl.innerHTML = `
     <div class="metric ${predictedCovers?'gap-good':'gap-bad'}" style="grid-column:span 2">
@@ -1619,6 +1658,14 @@ function renderOverview() {
         ? (lang==='th'?`กำไรหลังหักค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)}`:`Profit after ฿${fmt(totalExpenses)} fixed costs`)
         : (lang==='th'?`ยังขาดอีก ฿${fmt(Math.abs(predictedNet))} จากเป้า ฿${fmt(totalExpenses)} (ค่าใช้จ่ายคงที่) — ต้องหานักเรียนเพิ่ม`:`Still ฿${fmt(Math.abs(predictedNet))} short of the ฿${fmt(totalExpenses)} fixed cost target — need more enrolments`)
       }</div>
+      ${shortfall > 0 ? `
+      <div class="scenario-calc">
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">${lang==='th'?'ต้องสอนเพิ่มกี่ชั่วโมงเพื่อถึงเป้า?':'How many extra hours needed to break even?'}</div>
+        <select onchange="updateScenario(this.value, ${shortfall})">
+          ${scenarios.map((s,i) => `<option value="${s.schoolPerHr}"${i===0?' selected':''}>${s.label}</option>`).join('')}
+        </select>
+        <div class="scenario-result" id="scenario-result"></div>
+      </div>` : ''}
     </div>
     <div class="metric ${gapCovered?'gap-good':''}">
       <div class="metric-label">${lang==='th'?'กำไรสุทธิ (ตอนนี้)':'Net profit (so far)'}</div>
@@ -1655,21 +1702,31 @@ function renderOverview() {
     </div>
   `;
 
-  // Coverage bars — both now use school remainder (apples to apples vs fixed expenses)
-  const realizedPct   = totalExpenses > 0 ? Math.min(100, Math.round((schoolRemainder/totalExpenses)*100))    : 0;
-  const predictedPct  = totalExpenses > 0 ? Math.min(100, Math.round((predictedSchoolRem/totalExpenses)*100)) : 0;
+  // Trigger default scenario on load
+  if (shortfall > 0) updateScenario(scenarios[0].schoolPerHr, shortfall);
+
+  // Stacked single bar — green=realized, amber=predicted-only, red=still short
+  const realizedPct   = totalExpenses > 0 ? Math.min(100, (schoolRemainder / totalExpenses) * 100)    : 0;
+  const predictedOnly = totalExpenses > 0 ? Math.min(100 - realizedPct, Math.max(0, (predictedSchoolRem - schoolRemainder) / totalExpenses * 100)) : 0;
+  const shortPct      = Math.max(0, 100 - realizedPct - predictedOnly);
+
+  const legendItems = [
+    { color: '#1D9E75', label: lang==='th'?`จริง ${Math.round(realizedPct)}%`:`Realized ${Math.round(realizedPct)}%` },
+    { color: '#BA7517', label: lang==='th'?`คาดการณ์ +${Math.round(predictedOnly)}%`:`Predicted +${Math.round(predictedOnly)}%` },
+    ...(shortPct > 0.5 ? [{ color: 'rgba(0,0,0,0.12)', label: lang==='th'?`ขาด ${Math.round(shortPct)}%`:`Short ${Math.round(shortPct)}%` }] : []),
+  ];
+
   document.getElementById('coverage-bars').innerHTML = `
-    <div class="coverage-row">
-      <span class="coverage-label">${lang==='th'?'จริง':'Realized'}</span>
-      <div class="coverage-track"><div class="coverage-fill" style="width:${realizedPct}%;background:${gapCovered?'#1D9E75':'#E24B4A'}"></div></div>
-      <span class="coverage-pct" style="color:${gapCovered?'#1D9E75':'#E24B4A'}">${realizedPct}%</span>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:4px">${lang==='th'?`เป้าหมาย ฿${fmt(totalExpenses)}`:`Target ฿${fmt(totalExpenses)}`}</div>
+    <div class="stacked-bar-track">
+      <div class="stacked-seg" style="width:${realizedPct}%;background:#1D9E75" title="${lang==='th'?'จริง':'Realized'}: ฿${fmt(schoolRemainder)}"></div>
+      <div class="stacked-seg" style="width:${predictedOnly}%;background:#BA7517" title="${lang==='th'?'คาดการณ์เพิ่ม':'Predicted additional'}: ฿${fmt(Math.max(0,predictedSchoolRem-schoolRemainder))}"></div>
+      <div class="stacked-seg" style="width:${shortPct}%;background:rgba(0,0,0,0.08)"></div>
     </div>
-    <div class="coverage-row">
-      <span class="coverage-label">${lang==='th'?'คาดการณ์':'Predicted'}</span>
-      <div class="coverage-track"><div class="coverage-fill" style="width:${predictedPct}%;background:${predictedCovers?'#1D9E75':'#BA7517'}"></div></div>
-      <span class="coverage-pct" style="color:${predictedCovers?'#1D9E75':'#BA7517'}">${predictedPct}%${predictedCovers?'':' ⚠️'}</span>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
+      ${legendItems.map(l => `<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><span style="width:10px;height:10px;border-radius:2px;background:${l.color};flex-shrink:0"></span>${l.label}</span>`).join('')}
     </div>
-    <p style="font-size:12px;color:${gapCovered?'#0F6E56':predictedCovers?'#7A4D00':'#A32D2D'};margin-top:12px;font-weight:500">
+    <p style="font-size:12px;color:${gapCovered?'#0F6E56':predictedCovers?'#7A4D00':'#A32D2D'};font-weight:500;margin:0">
       ${gapCovered
         ? (lang==='th'?`ครอบคลุมค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)} แล้ว — กำไรสุทธิ ฿${fmt(Math.abs(gap))}`:`Fixed costs of ฿${fmt(totalExpenses)} covered — school nets ฿${fmt(Math.abs(gap))} this month`)
         : predictedCovers
@@ -1683,6 +1740,18 @@ function renderOverview() {
   renderTutorChart(monthSessions);
   renderCommissionCard(monthSessions);
   renderOtherIncomeOverviewCard();
+}
+
+function updateScenario(schoolPerHr, shortfall) {
+  const el = document.getElementById('scenario-result');
+  if (!el) return;
+  const perHr = parseFloat(schoolPerHr);
+  if (!perHr || perHr <= 0) return;
+  const hrsNeeded = Math.ceil(shortfall / perHr);
+  const sessionsOf2hrs = Math.ceil(hrsNeeded / 2);
+  el.innerHTML = lang === 'th'
+    ? `ต้องเพิ่ม <strong>${hrsNeeded} ชั่วโมง</strong> (ประมาณ ${sessionsOf2hrs} คาบ × 2 ชม.) เพื่อถึงเป้า ฿${fmt(45000)}`
+    : `Need <strong>${hrsNeeded} hrs</strong> (~${sessionsOf2hrs} sessions × 2 hrs) to reach the ฿${fmt(45000)} target`;
 }
 
 function renderInvoiceAlerts(monthSessions) {
