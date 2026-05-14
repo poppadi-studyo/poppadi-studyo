@@ -268,39 +268,12 @@
   .alert-name { font-size: 13px; font-weight: 500; }
   .alert-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
 
-  /* Stacked coverage bar */
-  .stacked-bar-track {
-    width: 100%;
-    height: 20px;
-    background: var(--surface2);
-    border-radius: 6px;
-    overflow: hidden;
-    display: flex;
-    margin: 12px 0 8px;
-  }
-  .stacked-seg { height: 100%; transition: width 0.5s ease; }
-
-  /* Scenario calculator */
-  .scenario-calc { margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 14px; }
-  .scenario-calc select {
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: #fff;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer;
-    width: 100%;
-  }
-  .scenario-calc select option { background: #333; color: #fff; }
-  .scenario-result {
-    margin-top: 10px;
-    font-size: 13px;
-    color: rgba(255,255,255,0.9);
-    line-height: 1.6;
-  }
-  .scenario-result strong { color: #fff; font-size: 15px; }
+  /* Coverage bars */
+  .coverage-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .coverage-label { font-size: 12px; color: var(--text2); min-width: 80px; }
+  .coverage-track { flex: 1; background: var(--surface2); border-radius: 4px; height: 8px; overflow: hidden; }
+  .coverage-fill { height: 100%; border-radius: 4px; }
+  .coverage-pct { font-size: 12px; font-weight: 600; min-width: 40px; text-align: right; }
 
   /* Makeup queue */
   .makeup-item {
@@ -673,7 +646,7 @@
       <div id="overview-error"></div>
       <div id="overview-loading" class="loading"><div class="spinner"></div> Loading live data from Google Sheets...</div>
       <div id="overview-content" style="display:none">
-        <div class="metrics" id="overview-metrics" style="grid-template-columns:1fr 1fr"></div>
+        <div class="metrics" id="overview-metrics"></div>
         <div class="two-col">
           <div class="card">
             <div class="card-title" data-en="Fixed cost coverage" data-th="การครอบคลุมค่าใช้จ่าย">Fixed cost coverage</div>
@@ -943,9 +916,6 @@
               <option value="Paid" data-en="Paid ✅" data-th="ชำระแล้ว ✅">Paid ✅</option>
               <option value="Pending" data-en="Payment Pending ⏳" data-th="รอชำระ ⏳">Payment Pending ⏳</option>
             </select>
-            <select id="student-filter-tutor" onchange="renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
-              <option value="" data-en="All tutors" data-th="ทุกครู">All tutors</option>
-            </select>
           </div>
           <div class="table-wrap">
             <table>
@@ -1150,9 +1120,16 @@
           <div class="form-row">
             <div class="form-group">
               <label data-en="Nickname" data-th="ชื่อเล่น">Nickname <span style="color:var(--red);font-size:11px">*</span></label>
-              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. Boss" oninput="onStudentNicknameInput();saveEnrollDraft()">
+              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. Boss" oninput="onStudentNicknameInput()">
               <datalist id="student-list"></datalist>
               <div id="student-match-hint" style="font-size:11px;color:var(--teal);margin-top:3px"></div>
+            </div>
+            <div class="form-group">
+              <label data-en="Payment status" data-th="สถานะการชำระ">Payment status</label>
+              <select id="enroll-payment-status" style="width:100%">
+                <option value="Pending" data-en="Payment Pending ⏳" data-th="รอการชำระ ⏳" selected>Payment Pending ⏳</option>
+                <option value="Paid" data-en="Paid ✅" data-th="ชำระแล้ว ✅">Paid ✅</option>
+              </select>
             </div>
           </div>
           <div id="enroll-new-student-fields" style="display:none">
@@ -1191,7 +1168,7 @@
         <div style="height:1px;background:var(--border);margin:16px 0"></div>
 
         <div class="form-row">
-          <div class="form-group"><label data-en="Subject" data-th="วิชา">Subject</label><input type="text" id="enroll-subject" list="subject-list" placeholder="e.g. IELTS" oninput="saveEnrollDraft()"><datalist id="subject-list"></datalist></div>
+          <div class="form-group"><label data-en="Subject" data-th="วิชา">Subject</label><input type="text" id="enroll-subject" list="subject-list" placeholder="e.g. IELTS"><datalist id="subject-list"></datalist></div>
           <div class="form-group">
             <label data-en="Tutor" data-th="ครู">Tutor</label>
             <select id="enroll-tutor" onchange="suggestTutorRate()"></select>
@@ -1200,11 +1177,11 @@
         <div class="form-row three">
           <div class="form-group">
             <label data-en="Total paid hours" data-th="ชั่วโมงที่จ่าย">Total paid hours</label>
-            <input type="number" id="enroll-hours" placeholder="e.g. 20" oninput="saveEnrollDraft()">
+            <input type="number" id="enroll-hours" placeholder="e.g. 20">
           </div>
           <div class="form-group">
             <label data-en="Fee per hour (฿)" data-th="ค่าเรียน/ชม. (฿)">Fee per hour (฿) <span style="font-size:10px;color:var(--text3)" data-en="per student" data-th="ต่อคน">per student</span></label>
-            <input type="number" id="enroll-fee" placeholder="e.g. 700" oninput="saveEnrollDraft()">
+            <input type="number" id="enroll-fee" placeholder="e.g. 700">
           </div>
           <div class="form-group">
             <label data-en="Tutor rate per hour (฿)" data-th="ค่าสอน/ชม. (฿)">Tutor rate/hr (฿) <span style="color:var(--teal);font-size:10px" data-en="auto-suggested" data-th="แนะนำอัตโนมัติ">auto-suggested</span></label>
@@ -1212,7 +1189,7 @@
             <div id="rate-hint" style="font-size:11px;color:var(--text3);margin-top:3px"></div>
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row three">
           <div class="form-group">
             <label data-en="Commission to?" data-th="คอมมิชชั่นให้ใคร?">Commission to?</label>
             <select id="enroll-jane">
@@ -1221,6 +1198,14 @@
               <option value="jane" data-en="Jane (5%)" data-th="เจน (5%)">Jane (5%)</option>
               <option value="eye" data-en="Eye (5%)" data-th="Eye (5%)">Eye (5%)</option>
             </select>
+          </div>
+          <div class="form-group">
+            <label data-en="Invoice reference" data-th="เลขที่ใบแจ้งหนี้">Invoice reference</label>
+            <input type="text" id="enroll-invoice" placeholder="e.g. INV-2026-045">
+          </div>
+          <div class="form-group">
+            <label data-en="Payment received date" data-th="วันที่รับชำระ">Payment received date</label>
+            <input type="date" id="enroll-date">
           </div>
         </div>
 
@@ -1612,17 +1597,14 @@ function renderOverview() {
   const completedSessions = monthSessions.filter(s =>
     s.status === 'Completed' || s.status === 'Makeup'
   );
-  const activeSessions     = monthSessions.filter(s => s.status !== 'Cancelled');
-  const realizedIncome     = completedSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
-  const schoolRemainder    = completedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
-  const predictedSchoolRem = activeSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
-  const totalExpenses      = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0)
-                           || DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
+  const realizedIncome    = completedSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
+  const predictedIncome   = monthSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
+  const schoolRemainder   = completedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  const totalExpenses     = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0)
+                          || DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0); // fallback to all expenses
 
   const gap = totalExpenses - schoolRemainder;
   const gapCovered = gap <= 0;
-  const predictedGap = totalExpenses - predictedSchoolRem;
-  const predictedCovers = predictedGap <= 0;
 
   // Cache hit info
   const cached = localStorage.getItem(CACHE_KEY);
@@ -1635,107 +1617,53 @@ function renderOverview() {
     } catch(e) {}
   }
 
-  const predictedRevenue  = activeSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
-  const predictedNet = predictedSchoolRem - totalExpenses;
-  const shortfall = Math.max(0, -predictedNet); // how much still needed even if all sessions run
-
-  // Scenarios — school cut per hr = revenue - tutor_pay - commission(5%)
-  // Private discounted rates: tutor pay stays ฿650/hr
-  const scenarios = [
-    { label: lang==='th'?'1-on-1 พรีเมียม (฿1,100/hr)':'1-on-1 premium (฿1,100/hr)',      schoolPerHr: 1100 - 650 - 1100*0.05 },  // 395
-    { label: lang==='th'?'1-on-1 มาตรฐาน (฿1,000/hr)':'1-on-1 standard (฿1,000/hr)',     schoolPerHr: 1000 - 650 - 1000*0.05 },  // 300
-    { label: lang==='th'?'1-on-1 ส่วนลด (฿990/hr)':'1-on-1 discounted (฿990/hr)',         schoolPerHr: 990  - 650 - 990*0.05  },  // 290.5
-    { label: lang==='th'?'1-on-1 ส่วนลด (฿950/hr)':'1-on-1 discounted (฿950/hr)',         schoolPerHr: 950  - 650 - 950*0.05  },  // 252.5
-    { label: lang==='th'?'2 คน (฿850/คน/hr)':'2-student (฿850/student/hr)',               schoolPerHr: 1700 - 750 - 1700*0.05 },  // 865
-    { label: lang==='th'?'3 คน (฿700/คน/hr)':'3-student (฿700/student/hr)',               schoolPerHr: 2100 - 850 - 2100*0.05 },  // 1145
-    { label: lang==='th'?'4 คน (฿500/คน/hr)':'4-student (฿500/student/hr)',               schoolPerHr: 2000 - 950 - 2000*0.05 },  // 950
-  ];
-
   const metricsEl = document.getElementById('overview-metrics');
   metricsEl.innerHTML = `
-    <div class="metric ${predictedCovers?'gap-good':'gap-bad'}" style="grid-column:span 2">
-      <div class="metric-label">${lang==='th'?'กำไรสุทธิ (ถ้าสอนครบทุกคาบ)':'Net profit if all scheduled classes run'}</div>
-      <div class="metric-value" style="font-size:28px">${predictedNet>=0?'฿'+fmt(predictedNet):'−฿'+fmt(Math.abs(predictedNet))}</div>
-      <div class="metric-sub">${predictedCovers
-        ? (lang==='th'?`กำไรหลังหักค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)}`:`Profit after ฿${fmt(totalExpenses)} fixed costs`)
-        : (lang==='th'?`ยังขาดอีก ฿${fmt(Math.abs(predictedNet))} จากเป้า ฿${fmt(totalExpenses)} (ค่าใช้จ่ายคงที่) — ต้องหานักเรียนเพิ่ม`:`Still ฿${fmt(Math.abs(predictedNet))} short of the ฿${fmt(totalExpenses)} fixed cost target — need more enrolments`)
-      }</div>
-      ${shortfall > 0 ? `
-      <div class="scenario-calc">
-        <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.nextElementSibling.style.display==='none'?(lang==='th'?'+ ดูสถานการณ์จำลอง':'+ View scenarios'):(lang==='th'?'− ซ่อน':'− Hide')"
-          style="font-size:11px;color:rgba(255,255,255,0.7);background:none;border:1px solid rgba(255,255,255,0.25);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px">
-          ${lang==='th'?'+ ดูสถานการณ์จำลอง':'+ View scenarios'}
-        </button>
-        <div style="display:none;margin-top:10px">
-          <select onchange="updateScenario(this.value, ${shortfall})">
-            ${scenarios.map((s,i) => `<option value="${s.schoolPerHr}"${i===0?' selected':''}>${s.label}</option>`).join('')}
-          </select>
-          <div class="scenario-result" id="scenario-result"></div>
-        </div>
-      </div>` : ''}
-    </div>
-    <div class="metric ${gapCovered?'gap-good':''}">
-      <div class="metric-label">${lang==='th'?'กำไรสุทธิ (ตอนนี้)':'Net profit (so far)'}</div>
-      <div class="metric-value">${gapCovered?'฿'+fmt(Math.abs(gap)):'−฿'+fmt(gap)}</div>
-      <div class="metric-sub">${gapCovered
-        ? (lang==='th'?'ครอบคลุมค่าใช้จ่ายแล้ว':'Fixed costs covered')
-        : (lang==='th'?`ขาดอีก ฿${fmt(gap)} จากคาบที่สอนแล้ว`:`Short ฿${fmt(gap)} from taught sessions so far`)
-      }</div>
+    <div class="metric">
+      <div class="metric-label">${lang==='th'?'รายได้ที่คาดการณ์':'Predicted income'}</div>
+      <div class="metric-value">฿${fmt(predictedIncome)}</div>
+      <div class="metric-sub">${lang==='th'?'ตามตารางที่ตกลงไว้':'Based on agreed schedule'}</div>
     </div>
     <div class="metric">
-      <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่':'Fixed costs'}</div>
+      <div class="metric-label">${lang==='th'?'รายได้จริง':'Realized income'}</div>
+      <div class="metric-value">฿${fmt(realizedIncome)}</div>
+      <div class="metric-sub">${lang==='th'?'จากคาบที่สอนแล้ว':'Classes taught so far'}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่':'Fixed expenses'}</div>
       <div class="metric-value">฿${fmt(totalExpenses)}</div>
       <div class="metric-sub">${lang==='th'?'เงินเดือน + ค่าเช่า':'Salaries + rent'}</div>
     </div>
-    <div class="metric" style="opacity:0.75">
-      <div class="metric-label">${lang==='th'?'รายได้รวม (คาดการณ์)':'Total revenue (predicted)'}</div>
-      <div class="metric-value" style="font-size:18px">฿${fmt(predictedRevenue)}</div>
-      <div class="metric-sub">${lang==='th'?'ก่อนหักค่าสอน+คอมม์ ถ้าสอนครบ':'Gross, before tutor pay & comms, if all run'}</div>
+    <div class="metric">
+      <div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div>
+      <div class="metric-value">฿${fmt(schoolRemainder)}</div>
+      <div class="metric-sub">${lang==='th'?'หลังหักค่าสอนและคอมม์':'After tutor pay & comms'}</div>
     </div>
-    <div class="metric" style="opacity:0.75">
-      <div class="metric-label">${lang==='th'?'รายได้รวม (จริง)':'Total revenue (realized)'}</div>
-      <div class="metric-value" style="font-size:18px">฿${fmt(realizedIncome)}</div>
-      <div class="metric-sub">${lang==='th'?'ก่อนหักค่าสอน+คอมม์ จากคาบที่สอนแล้ว':'Gross, before tutor pay & comms, taught sessions only'}</div>
-    </div>
-    <div class="metric" style="opacity:0.75">
-      <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (จริง)':'School cut (taught sessions)'}</div>
-      <div class="metric-value" style="font-size:18px">฿${fmt(schoolRemainder)}</div>
-      <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์':'After tutor pay & comms'}</div>
-    </div>
-    <div class="metric" style="opacity:0.75">
-      <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (คาดการณ์)':'School cut (if all run)'}</div>
-      <div class="metric-value" style="font-size:18px">฿${fmt(predictedSchoolRem)}</div>
-      <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์ ถ้าสอนครบ':'After tutor pay & comms, if all sessions taught'}</div>
+    <div class="metric ${gapCovered?'gap-good':'gap-bad'}">
+      <div class="metric-label">${gapCovered?(lang==='th'?'ครอบคลุมแล้ว':'Costs covered'):(lang==='th'?'ยอดที่ยังขาด':'Coverage gap')}</div>
+      <div class="metric-value">${gapCovered?'✓ ฿'+fmt(Math.abs(gap)):'฿'+fmt(gap)}</div>
+      <div class="metric-sub">${gapCovered?(lang==='th'?'กำไรหลังหักค่าใช้จ่าย':'Profit after fixed costs'):(lang==='th'?'ยังต้องหารายได้เพิ่ม':'Still needed to cover costs')}</div>
     </div>
   `;
 
-  // Stacked single bar — green=realized, amber=predicted-only, red=still short
-  const realizedPct   = totalExpenses > 0 ? Math.min(100, (schoolRemainder / totalExpenses) * 100)    : 0;
-  const predictedOnly = totalExpenses > 0 ? Math.min(100 - realizedPct, Math.max(0, (predictedSchoolRem - schoolRemainder) / totalExpenses * 100)) : 0;
-  const shortPct      = Math.max(0, 100 - realizedPct - predictedOnly);
-
-  const legendItems = [
-    { color: '#1D9E75', label: lang==='th'?`จริง ${Math.round(realizedPct)}%`:`Realized ${Math.round(realizedPct)}%` },
-    { color: '#BA7517', label: lang==='th'?`คาดการณ์ +${Math.round(predictedOnly)}%`:`Predicted +${Math.round(predictedOnly)}%` },
-    ...(shortPct > 0.5 ? [{ color: 'rgba(0,0,0,0.12)', label: lang==='th'?`ขาด ${Math.round(shortPct)}%`:`Short ${Math.round(shortPct)}%` }] : []),
-  ];
-
+  // Coverage bars
+  const realizedPct  = totalExpenses > 0 ? Math.min(100, Math.round((schoolRemainder/totalExpenses)*100)) : 0;
+  const predictedPct = totalExpenses > 0 ? Math.min(100, Math.round((predictedIncome/totalExpenses)*100)) : 0;
   document.getElementById('coverage-bars').innerHTML = `
-    <div style="font-size:12px;color:var(--text3);margin-bottom:4px">${lang==='th'?`เป้าหมาย ฿${fmt(totalExpenses)}`:`Target ฿${fmt(totalExpenses)}`}</div>
-    <div class="stacked-bar-track">
-      <div class="stacked-seg" style="width:${realizedPct}%;background:#1D9E75" title="${lang==='th'?'จริง':'Realized'}: ฿${fmt(schoolRemainder)}"></div>
-      <div class="stacked-seg" style="width:${predictedOnly}%;background:#BA7517" title="${lang==='th'?'คาดการณ์เพิ่ม':'Predicted additional'}: ฿${fmt(Math.max(0,predictedSchoolRem-schoolRemainder))}"></div>
-      <div class="stacked-seg" style="width:${shortPct}%;background:rgba(0,0,0,0.08)"></div>
+    <div class="coverage-row">
+      <span class="coverage-label">${lang==='th'?'จริง':'Realized'}</span>
+      <div class="coverage-track"><div class="coverage-fill" style="width:${realizedPct}%;background:${gapCovered?'#1D9E75':'#E24B4A'}"></div></div>
+      <span class="coverage-pct" style="color:${gapCovered?'#1D9E75':'#E24B4A'}">${realizedPct}%</span>
     </div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
-      ${legendItems.map(l => `<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><span style="width:10px;height:10px;border-radius:2px;background:${l.color};flex-shrink:0"></span>${l.label}</span>`).join('')}
+    <div class="coverage-row">
+      <span class="coverage-label">${lang==='th'?'คาดการณ์':'Predicted'}</span>
+      <div class="coverage-track"><div class="coverage-fill" style="width:${Math.min(100,predictedPct)}%;background:#1D9E75"></div></div>
+      <span class="coverage-pct" style="color:#1D9E75">${predictedPct}%+</span>
     </div>
-    <p style="font-size:12px;color:${gapCovered?'#0F6E56':predictedCovers?'#7A4D00':'#A32D2D'};font-weight:500;margin:0">
+    <p style="font-size:12px;color:${gapCovered?'#0F6E56':'#A32D2D'};margin-top:12px">
       ${gapCovered
-        ? (lang==='th'?`ครอบคลุมค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)} แล้ว — กำไรสุทธิ ฿${fmt(Math.abs(gap))}`:`Fixed costs of ฿${fmt(totalExpenses)} covered — school nets ฿${fmt(Math.abs(gap))} this month`)
-        : predictedCovers
-          ? (lang==='th'?`ตอนนี้ขาด ฿${fmt(gap)} จากเป้า ฿${fmt(totalExpenses)} — แต่ถ้าสอนครบทุกคาบ จะกำไร ฿${fmt(Math.abs(predictedNet))}`:`Short ฿${fmt(gap)} of the ฿${fmt(totalExpenses)} target now — on track to net ฿${fmt(Math.abs(predictedNet))} if all sessions run`)
-          : (lang==='th'?`ตอนนี้ขาด ฿${fmt(gap)} จากเป้า ฿${fmt(totalExpenses)} — แม้สอนครบทุกคาบ ก็ยังขาด ฿${fmt(Math.abs(predictedNet))} — ต้องหานักเรียนเพิ่ม`:`Short ฿${fmt(gap)} of the ฿${fmt(totalExpenses)} target now — even if all sessions run, still ฿${fmt(Math.abs(predictedNet))} short — need more enrolments`)}
+        ? (lang==='th'?'ครอบคลุมค่าใช้จ่ายคงที่แล้ว':'Fixed costs are fully covered this month')
+        : (lang==='th'?`ต้องการรายได้เพิ่มอีก ฿${fmt(gap)} เพื่อครอบคลุมค่าใช้จ่าย`:`Need ฿${fmt(gap)} more to cover fixed costs`)}
     </p>
     ${cacheInfo}
   `;
@@ -1744,18 +1672,6 @@ function renderOverview() {
   renderTutorChart(monthSessions);
   renderCommissionCard(monthSessions);
   renderOtherIncomeOverviewCard();
-}
-
-function updateScenario(schoolPerHr, shortfall) {
-  const el = document.getElementById('scenario-result');
-  if (!el) return;
-  const perHr = parseFloat(schoolPerHr);
-  if (!perHr || perHr <= 0) return;
-  const hrsNeeded = Math.ceil(shortfall / perHr);
-  const sessionsOf2hrs = Math.ceil(hrsNeeded / 2);
-  el.innerHTML = lang === 'th'
-    ? `ต้องเพิ่ม <strong>${hrsNeeded} ชั่วโมง</strong> (ประมาณ ${sessionsOf2hrs} คาบ × 2 ชม.) เพื่อถึงเป้า ฿${fmt(45000)}`
-    : `Need <strong>${hrsNeeded} hrs</strong> (~${sessionsOf2hrs} sessions × 2 hrs) to reach the ฿${fmt(45000)} target`;
 }
 
 function renderInvoiceAlerts(monthSessions) {
@@ -1997,7 +1913,7 @@ function unlockPastMonths() {
       sessionUnlocked = false;
       updateUnlockBanner();
       renderSchedule();
-      if (currentDetailCourse) openStudentDetail(currentDetailCourse.course_id);
+      if (currentDetailCourse) { const _st=captureDetailSectionState(); openStudentDetail(currentDetailCourse.course_id); restoreDetailSectionState(_st); }
     }
     return;
   }
@@ -2013,7 +1929,7 @@ function unlockPastMonths() {
   sessionUnlocked = true;
   updateUnlockBanner();
   renderSchedule();
-  if (currentDetailCourse) openStudentDetail(currentDetailCourse.course_id);
+  if (currentDetailCourse) { const _st=captureDetailSectionState(); openStudentDetail(currentDetailCourse.course_id); restoreDetailSectionState(_st); }
   showToast(lang==='th' ? '🔓 ปลดล็อคแล้ว — รีเฟรชเพื่อล็อคคืน' : '🔓 Unlocked — refresh page to re-lock');
 }
 
@@ -2409,15 +2325,7 @@ function renderStudentDetailSchedule(courseId) {
 
 // ─── MAKEUP ───────────────────────────────────────────────
 function renderMakeupQueue() {
-  // Sessions that need a makeup = Cancelled or Missed, AND no makeup session exists referencing them yet
-  const makeupExists = new Set(
-    DATA.sessions
-      .filter(s => s.makeup_ref && (s.status === 'Scheduled' || s.status === 'Completed' || s.status === 'Makeup'))
-      .map(s => s.makeup_ref)
-  );
-  const pending = DATA.sessions.filter(s =>
-    (s.status === 'Cancelled' || s.status === 'Missed') && !makeupExists.has(s.session_id)
-  );
+  const pending = DATA.sessions.filter(s => s.status === 'Cancelled' || s.status === 'Missed');
   const el = document.getElementById('makeup-queue');
   if (!pending.length) {
     el.innerHTML = `<div class="empty">${lang==='th'?'ไม่มีคาบที่รอชดเชย':'No pending makeups'}</div>`;
@@ -2478,71 +2386,34 @@ function clearMakeup() {
   document.getElementById('makeup-fields').style.display = 'none';
 }
 
-let isMakeupSaving = false;
 async function confirmMakeup() {
-  if (isMakeupSaving) return;
   const d = document.getElementById('makeup-date').value;
   const s = document.getElementById('makeup-start').value;
   const e = document.getElementById('makeup-end').value;
   if (!d || !s) { alert(lang==='th'?'กรุณาระบุวันที่และเวลา':'Please fill in date and time'); return; }
-  if (!selectedMakeup) { alert('No session selected'); return; }
 
-  isMakeupSaving = true;
-
-  // Progress modal
-  const modal = document.createElement('div');
-  modal.id = 'makeup-save-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.innerHTML = `
-    <div id="makeup-save-inner" style="background:#fff;border-radius:14px;padding:24px;max-width:360px;width:100%;font-family:'DM Sans',sans-serif;text-align:center">
-      <div style="font-size:15px;font-weight:600;margin-bottom:20px">${lang==='th'?'กำลังบันทึกชดเชย...':'Scheduling makeup...'}</div>
-      <div style="background:#f0f0f0;border-radius:100px;height:8px;overflow:hidden;margin-bottom:12px">
-        <div id="makeup-progress-bar" style="height:100%;background:var(--teal);border-radius:100px;width:0%;transition:width 0.4s ease"></div>
-      </div>
-      <div style="font-size:12px;color:var(--text3)">${lang==='th'?'กำลังอัปเดต...':'Updating...'}</div>
-    </div>`;
-  document.body.appendChild(modal);
-  setTimeout(() => { const b = document.getElementById('makeup-progress-bar'); if(b) b.style.width='80%'; }, 50);
-
-  const inner = document.getElementById('makeup-save-inner');
-  const snap = selectedMakeup;
+  showToast(lang==='th' ? '⏳ กำลังบันทึก...' : '⏳ Saving...');
 
   try {
     await webAppWrite('scheduleMakeup', {
-      originalSessionId: snap.session_id,
-      newDate: d, startTime: s, endTime: e,
+      originalSessionId: selectedMakeup?.session_id,
+      newDate: d,
+      startTime: s,
+      endTime: e,
       notes: document.getElementById('makeup-notes').value
     });
 
-    // Update local DATA in memory — mark original as Cancelled, no full reload needed
-    const orig = DATA.sessions.find(x => x.session_id === snap.session_id);
-    if (orig) orig.status = 'Cancelled';
+    document.getElementById('makeup-fields').style.display = 'none';
+    document.getElementById('makeup-done').style.display = 'block';
+    document.getElementById('makeup-confirm-text').textContent =
+      (lang==='th'?'นัดชดเชย ':'Makeup scheduled for ') +
+      (selectedMakeup?.student_id||'') + ' → ' + d + ' ' + s +
+      (lang==='th'?` (เชื่อมโยงกับ ${selectedMakeup?.date})`:(` (linked to ${selectedMakeup?.date})`));
 
-    const bar = document.getElementById('makeup-progress-bar');
-    if (bar) bar.style.width = '100%';
-
-    const student = DATA.students.find(st => st.student_id === snap.student_id);
-    const name = student?.nickname || snap.student_id;
-
-    setTimeout(() => {
-      if (inner) inner.innerHTML = `
-        <div style="font-size:36px;margin-bottom:12px">✅</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:6px">${lang==='th'?'นัดชดเชยแล้ว!':'Makeup scheduled!'}</div>
-        <div style="font-size:13px;color:var(--text3);margin-bottom:4px">${name} → ${fmtDate(d)} ${formatTime(s)}${e?'–'+formatTime(e):''}</div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:20px">${lang==='th'?'เชื่อมโยงกับ':'Linked to'} ${fmtDate(snap.date)}</div>
-        <button onclick="document.getElementById('makeup-save-modal')?.remove();isMakeupSaving=false;renderAll();"
-          style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">OK</button>`;
-    }, 400);
-
+    await loadAllData();
   } catch(err) {
-    isMakeupSaving = false;
-    if (err.message.includes('Web App URL')) { modal.remove(); return; }
-    if (inner) inner.innerHTML = `
-      <div style="font-size:36px;margin-bottom:12px">❌</div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:8px">${lang==='th'?'เกิดข้อผิดพลาด':'Save failed'}</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:20px">${err.message}</div>
-      <button onclick="document.getElementById('makeup-save-modal')?.remove()"
-        style="padding:8px 20px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ปิด':'Close'}</button>`;
+    if (err.message.includes('Web App URL')) return;
+    showToast('❌ ' + err.message);
   }
 }
 
@@ -2763,7 +2634,7 @@ async function saveSessionDateTime(sessionId, thisHrs, remaining) {
             <div style="font-size:13px;color:var(--text3);margin-bottom:20px">
               ${fmtDate(newDate)}${newStart?' · '+formatTime(newStart):''}${newEnd?'–'+formatTime(newEnd):''}
             </div>
-            <button onclick="(function(){const st=captureDetailSectionState();document.getElementById('edit-session-modal')?.remove();renderAll();${currentDetailCourse?`openStudentDetail('${currentDetailCourse.course_id}');restoreDetailSectionState(st);`:''}})();" 
+            <button onclick="(function(){const _st=captureDetailSectionState();document.getElementById('edit-session-modal')?.remove();renderAll();if(currentDetailCourse){openStudentDetail(currentDetailCourse.course_id);restoreDetailSectionState(_st);}})()" 
               style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">
               OK
             </button>
@@ -3210,7 +3081,7 @@ async function updateSessionStatus(sessionId, newStatus) {
           <div style="font-size:36px;margin-bottom:12px">${emoji}</div>
           <div style="font-size:16px;font-weight:600;margin-bottom:6px">${lang==='th'?'อัปเดตแล้ว!':'Updated!'}</div>
           <div style="font-size:13px;color:var(--text3);margin-bottom:20px">${lang==='th'?'สถานะ:':'Status:'} <strong>${statusLabel}</strong></div>
-          <button onclick="(function(){const st=captureDetailSectionState();document.getElementById('status-update-modal')?.remove();renderAll();if(currentDetailCourse){openStudentDetail(currentDetailCourse.course_id);restoreDetailSectionState(st);}})()"
+          <button onclick="(function(){const _st=captureDetailSectionState();document.getElementById('status-update-modal')?.remove();renderAll();if(currentDetailCourse){openStudentDetail(currentDetailCourse.course_id);restoreDetailSectionState(_st);}})()"
             style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">
             OK
           </button>`;
@@ -3518,20 +3389,6 @@ function renderStudents() {
 
   const statusFilter  = document.getElementById('student-filter-status')?.value  || '';
   const paymentFilter = document.getElementById('student-filter-payment')?.value || '';
-  const tutorFilter   = document.getElementById('student-filter-tutor')?.value   || '';
-
-  // Populate tutor dropdown dynamically (preserve selected value)
-  const tutorSel = document.getElementById('student-filter-tutor');
-  if (tutorSel) {
-    const activeTutorIds = [...new Set(DATA.courses.map(c => c.tutor_id).filter(Boolean))];
-    const currentVal = tutorSel.value;
-    tutorSel.innerHTML = `<option value="" data-en="All tutors" data-th="ทุกครู">${lang==='th'?'ทุกครู':'All tutors'}</option>` +
-      activeTutorIds.map(tid => {
-        const t = getTutor(tid);
-        const name = t.name || tid;
-        return `<option value="${tid}" ${currentVal===tid?'selected':''}>${name}</option>`;
-      }).join('');
-  }
 
   // Group courses by group_id (for group courses)
   const groupMap = {};
@@ -3552,8 +3409,6 @@ function renderStudents() {
   Object.entries(groupMap).forEach(([groupId, courses]) => {
     const firstCourse = courses[0];
     const tutor = getTutor(firstCourse.tutor_id);
-    // Apply tutor filter to group rows
-    if (tutorFilter && firstCourse.tutor_id !== tutorFilter) return;
     const color = COLOR_MAP[tutor.color]||'#888';
     const subject = firstCourse.subject||'—';
     const anyPending = courses.some(c => getPayStatus(c) === 'Pending');
@@ -3627,7 +3482,6 @@ function renderStudents() {
     // Apply filters
     if (statusFilter && lifecycle !== statusFilter && !(statusFilter==='Pending'&&payStatus==='Pending')) return;
     if (paymentFilter && payStatus !== paymentFilter) return;
-    if (tutorFilter && course.tutor_id !== tutorFilter) return;
 
     html += `<tr style="cursor:pointer;${rowBg}" onclick="openStudentDetail('${course.course_id}')">
       <td><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_nickname||course.student_id}</td>
@@ -3653,27 +3507,6 @@ function toggleGroup(groupId) {
   if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
 }
 
-// ─── SECTION STATE SAVE/RESTORE ───────────────────────────
-function captureDetailSectionState() {
-  const state = {};
-  ['detsess-prev','detsess-curr'].forEach(id => {
-    const rows = document.querySelectorAll(`[data-section="${id}"]`);
-    if (rows.length) state[id] = rows[0].style.display !== 'none';
-  });
-  return state;
-}
-function restoreDetailSectionState(state) {
-  ['detsess-prev','detsess-curr'].forEach(id => {
-    if (!(id in state)) return;
-    const rows = document.querySelectorAll(`[data-section="${id}"]`);
-    const header = document.querySelector(`[onclick="toggleScheduleSection('${id}')"]`);
-    const arrow = header?.querySelector('span');
-    const expanded = state[id];
-    rows.forEach(r => r.style.display = expanded ? '' : 'none');
-    if (arrow) arrow.textContent = expanded ? '▼' : '▶';
-  });
-}
-
 // ─── STUDENT DETAIL VIEW ──────────────────────────────────
 function openStudentDetail(courseId) {
   const course  = DATA.courses.find(c=>c.course_id===courseId);
@@ -3691,7 +3524,7 @@ function openStudentDetail(courseId) {
   const paid     = Number(course.total_paid_hrs||0);
   const sessions = getValidSessions(courseId).sort((a,b)=>new Date(a.date)-new Date(b.date));
 
-  // Calculate totals
+  // Calculate totals for current course
   let totalCharged=0, totalStudied=0, totalRevenue=0;
   sessions.forEach(s=>{
     const hrs = Number(s.hours||0);
@@ -3708,24 +3541,21 @@ function openStudentDetail(courseId) {
     <div class="metric"><div class="metric-label">${lang==='th'?'รายได้รวม':'Total revenue'}</div><div class="metric-value">฿${fmt(totalRevenue)}</div></div>`;
 
   const body = document.getElementById('detail-sessions-body');
-  if (!sessions.length){body.innerHTML=`<tr><td colspan="8" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet'}</td></tr>`;return;}
-
-  // Split into previous month and current+future
+  const colSpan = 9;
   const now = new Date();
   const currYM = now.getFullYear() * 12 + now.getMonth();
-  const prevSess = sessions.filter(s => {
-    const d = parseSessionDate(String(s.date||'').trim());
-    if (!d || isNaN(d.getTime())) return false;
-    return d.getFullYear() * 12 + d.getMonth() === currYM - 1;
-  });
-  const currSess = sessions.filter(s => {
-    const d = parseSessionDate(String(s.date||'').trim());
-    if (!d || isNaN(d.getTime())) return true;
-    return d.getFullYear() * 12 + d.getMonth() >= currYM;
-  });
+  const MNAMES = lang==='th' ? MONTHS_TH : MONTHS_EN;
 
+  // ── Helper: month label string ──────────────────────────
+  function ymLabel(ym) {
+    const y = Math.floor(ym / 12);
+    const m = ym % 12;
+    return MNAMES[m] + ' ' + y;
+  }
+
+  // ── Helper: build a session row ─────────────────────────
   let sessionNum = 0;
-  function buildDetailRow(s, sectionId) {
+  function buildDetailRow(s, sectionId, editable) {
     const hrs=Number(s.hours||0);
     const timeStr=s.start_time&&s.end_time?`${s.start_time}–${s.end_time}`:(s.start_time||'—');
     let hrsCharged='—', hrsStudied='—', notes='';
@@ -3735,7 +3565,7 @@ function openStudentDetail(courseId) {
     else if (s.status==='Cancelled'){hrsCharged=0;hrsStudied=0;notes=lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup';}
     else{hrsCharged='—';hrsStudied='—';}
     const num = s.status==='Scheduled'?'—':sessionNum||'—';
-    const isEditable = s.status === 'Scheduled' && !isMonthLocked(s.date);
+    const isEditable = (editable !== false) && s.status === 'Scheduled' && !isMonthLocked(s.date);
     const rowAttr = sectionId ? `data-section="${sectionId}"` : '';
     return `<tr ${rowAttr}>
       <td>${num}</td>
@@ -3753,44 +3583,153 @@ function openStudentDetail(courseId) {
     </tr>`;
   }
 
-  const prevMonthLabel = (() => {
-    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-1);
-    return (lang==='th'?MONTHS_TH:MONTHS_EN)[d.getMonth()] + ' ' + d.getFullYear();
-  })();
-  const currMonthLabel = (() => {
-    const d = new Date();
-    return (lang==='th'?MONTHS_TH:MONTHS_EN)[d.getMonth()] + ' ' + d.getFullYear();
-  })();
-
-  const colSpan = 9;
-  const prevCollapsed = !isPrevMonthWindow();
-  let html = '';
-  if (prevSess.length) {
-    html += renderSectionHeaderRow(
-      `${lang==='th'?'เดือนที่แล้ว':'Previous month'} — ${prevMonthLabel} (${prevSess.length})`,
-      'detsess-prev', prevCollapsed, colSpan
+  // ── Helper: collapse rows by injecting display:none ─────
+  function collapseRows(html, sectionId) {
+    return html.replace(
+      new RegExp(`<tr data-section="${sectionId}">`, 'g'),
+      `<tr data-section="${sectionId}" style="display:none">`
     );
-    const prevRows = prevSess.map(s => buildDetailRow(s, 'detsess-prev')).join('');
-    html += prevCollapsed
-      ? prevRows.replace(/<tr data-section="detsess-prev">/g, '<tr data-section="detsess-prev" style="display:none">')
-      : prevRows;
   }
+
+  let html = '';
+
+  // ── Section A: Previous courses (other blocks of same student) ──
+  const prevCourses = DATA.courses.filter(c =>
+    c.student_id === course.student_id &&
+    c.course_id  !== course.course_id
+  ).sort((a,b) => Number(a.block_number||0) - Number(b.block_number||0));
+
+  if (prevCourses.length) {
+    const sid = 'detsess-prevcourses';
+    html += renderSectionHeaderRow(
+      `${lang==='th'?'คอร์สก่อนหน้า':'Previous courses'} (${prevCourses.length})`,
+      sid, true, colSpan
+    );
+    // Build sub-rows for each previous course
+    prevCourses.forEach(pc => {
+      const pcTutor = getTutor(pc.tutor_id);
+      const pcPaid  = Number(pc.total_paid_hrs||0);
+      const pcSessions = getValidSessions(pc.course_id)
+        .sort((a,b)=>new Date(a.date)-new Date(b.date));
+      const pcTaught = pcSessions.filter(s=>s.status==='Completed'||s.status==='Makeup')
+        .reduce((sum,s)=>sum+Number(s.hours||0),0);
+      const lcBadge = (() => {
+        const lc = pc.lifecycle_status || 'Active';
+        const lcColor = lc==='Graduated'?'var(--teal)':lc==='Active'?'var(--blue)':'var(--text3)';
+        return `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:var(--surface2);color:${lcColor}">${lc}</span>`;
+      })();
+      // Sub-header row for this block
+      html += `<tr data-section="${sid}" style="display:none;background:var(--surface2)">
+        <td colspan="${colSpan}" style="padding:8px 14px 4px;font-size:12px;font-weight:600;color:var(--text2);border-top:1px solid var(--border)">
+          📚 Block ${pc.block_number||'?'} — ${pc.subject||'—'} &nbsp;·&nbsp; ${pcTutor.name||pc.tutor_id}
+          &nbsp;·&nbsp; ${pcPaid} hrs paid, ${pcTaught} taught
+          &nbsp;&nbsp;${lcBadge}
+        </td>
+      </tr>`;
+      if (!pcSessions.length) {
+        html += `<tr data-section="${sid}" style="display:none"><td colspan="${colSpan}" class="empty" style="padding-left:28px">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions'}</td></tr>`;
+      } else {
+        pcSessions.forEach(s => {
+          const row = buildDetailRow(s, sid, false);
+          // inject display:none since section starts collapsed
+          html += row.replace(`data-section="${sid}">`, `data-section="${sid}" style="display:none">`);
+        });
+      }
+    });
+  }
+
+  // ── Section B: Previous months of THIS course ───────────
+  // All sessions before the current calendar month
+  const prevSess = sessions.filter(s => {
+    const d = parseSessionDate(String(s.date||'').trim());
+    if (!d || isNaN(d.getTime())) return false;
+    return d.getFullYear() * 12 + d.getMonth() < currYM;
+  });
+
+  // Sessions in current month and future
+  const currSess = sessions.filter(s => {
+    const d = parseSessionDate(String(s.date||'').trim());
+    if (!d || isNaN(d.getTime())) return true; // undated → current
+    return d.getFullYear() * 12 + d.getMonth() >= currYM;
+  });
+
+  if (prevSess.length) {
+    // Compute actual date range of prevSess
+    const prevYMs = prevSess.map(s => {
+      const d = parseSessionDate(String(s.date||'').trim());
+      return d ? d.getFullYear() * 12 + d.getMonth() : currYM - 1;
+    });
+    const minYM = Math.min(...prevYMs);
+    const maxYM = Math.max(...prevYMs);
+    const prevLabel = minYM === maxYM
+      ? ymLabel(minYM)
+      : ymLabel(minYM) + ' – ' + ymLabel(maxYM);
+    const prevHeaderLabel = minYM === maxYM
+      ? `${lang==='th'?'เดือนที่แล้ว':'Previous month'} — ${prevLabel} (${prevSess.length})`
+      : `${lang==='th'?'เดือนก่อนหน้า':'Previous months'} — ${prevLabel} (${prevSess.length})`;
+
+    const prevCollapsed = !isPrevMonthWindow();
+    html += renderSectionHeaderRow(prevHeaderLabel, 'detsess-prev', prevCollapsed, colSpan);
+    const prevRows = prevSess.map(s => buildDetailRow(s, 'detsess-prev')).join('');
+    html += prevCollapsed ? collapseRows(prevRows, 'detsess-prev') : prevRows;
+  }
+
+  // ── Section C: This month (and future Scheduled) ─────────
   if (currSess.length) {
-    if (prevSess.length) {
+    const needsHeader = prevSess.length || prevCourses.length;
+    if (needsHeader) {
+      const currMonthLabel = ymLabel(currYM);
       html += renderSectionHeaderRow(
         `${lang==='th'?'เดือนนี้':'This month'} — ${currMonthLabel} (${currSess.length})`,
         'detsess-curr', false, colSpan
       );
     }
-    html += currSess.map(s => buildDetailRow(s, prevSess.length ? 'detsess-curr' : null)).join('');
+    html += currSess.map(s => buildDetailRow(s, needsHeader ? 'detsess-curr' : null)).join('');
   }
-  body.innerHTML = html;
+
+  if (!html) {
+    body.innerHTML = `<tr><td colspan="${colSpan}" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet'}</td></tr>`;
+  } else {
+    body.innerHTML = html;
+  }
 }
 
 function closeStudentDetail() {
   currentDetailCourse = null;
   document.getElementById('students-list-view').style.display   = 'block';
   document.getElementById('students-detail-view').style.display = 'none';
+}
+
+// ─── DETAIL SECTION STATE CAPTURE / RESTORE ──────────────
+// Captures which sections are expanded AND the scroll position of the
+// detail view, so re-renders after status/date updates feel instant.
+function captureDetailSectionState() {
+  const state = { sections: {}, scrollTop: 0 };
+  // Capture all known section IDs (prev courses, prev months, this month)
+  ['detsess-prevcourses', 'detsess-prev', 'detsess-curr'].forEach(id => {
+    const rows = document.querySelectorAll(`tr[data-section="${id}"]`);
+    if (rows.length) state.sections[id] = rows[0].style.display !== 'none';
+  });
+  // Capture scroll of the outer scrollable area (table-wrap inside detail view)
+  const wrap = document.querySelector('#students-detail-view .table-wrap');
+  if (wrap) state.scrollTop = wrap.scrollTop;
+  return state;
+}
+
+function restoreDetailSectionState(state) {
+  if (!state) return;
+  Object.keys(state.sections).forEach(id => {
+    const rows = document.querySelectorAll(`tr[data-section="${id}"]`);
+    const arrow = document.getElementById(id + '-arrow');
+    const expanded = state.sections[id];
+    rows.forEach(r => r.style.display = expanded ? '' : 'none');
+    if (arrow) arrow.style.transform = expanded ? 'rotate(0deg)' : 'rotate(-90deg)';
+  });
+  // Restore scroll position
+  const wrap = document.querySelector('#students-detail-view .table-wrap');
+  if (wrap && state.scrollTop) {
+    requestAnimationFrame(() => { wrap.scrollTop = state.scrollTop; });
+  }
 }
 
 function copyStudentDetail() {
@@ -5539,6 +5478,9 @@ async function submitEnrollment() {
   const feePerHr     = parseFloat(document.getElementById('enroll-fee').value) || 0;
   const tutorRate    = parseFloat(document.getElementById('enroll-rate').value) || 0;
   const commTo       = document.getElementById('enroll-jane').value;
+  const invoiceRef   = document.getElementById('enroll-invoice').value.trim();
+  const payDate      = document.getElementById('enroll-date').value;
+  const payStatus    = document.getElementById('enroll-payment-status')?.value || 'Paid';
   const enrollmentType = enrollType || 'new';
 
   if (!studentName || !subject || !tutorId || !paidHrs || !feePerHr) {
@@ -5586,6 +5528,7 @@ async function submitEnrollment() {
   try {
     const tutor = getTutor(tutorId);
     setSaveProgress(30, lang==='th'?'กำลังบันทึกนักเรียน...':'Writing student...');
+
     setSaveProgress(60, lang==='th'?'กำลังสร้างคาบเรียน...':'Creating sessions...');
 
     const result = await webAppWrite('addEnrollment', {
@@ -5606,9 +5549,9 @@ async function submitEnrollment() {
         fee_per_hr: feePerHr,
         tutor_rate_per_hr: tutorRate,
         commission_to: commTo,
-        invoice_ref: '',
-        payment_date: '',
-        payment_status: 'Pending',
+        invoice_ref: invoiceRef,
+        payment_date: payDate,
+        payment_status: payStatus,
         enrollment_type: enrollmentType,
         block_number: 1,
         num_students: 1
@@ -5616,27 +5559,34 @@ async function submitEnrollment() {
       sessions
     });
 
-    // ✅ Write succeeded — show success immediately, THEN reload data in background
-    setSaveProgress(100, lang==='th'?'บันทึกแล้ว!':'Saved!');
-    clearEnrollDraft();
+    setSaveProgress(90, lang==='th'?'กำลังโหลดข้อมูล...':'Loading data...');
 
-    // Show post-save summary modal — user must click Done before form resets
+    showToast(lang==='th'
+      ? `✅ บันทึกแล้ว — ${result.course_id} (${sessions.length} คาบ)`
+      : `✅ Saved — ${result.course_id} (${sessions.length} sessions)`
+    );
+
+    // Show post-save summary
     showEnrollmentSummary({
       studentName, subject, tutor: tutor.name||tutorId,
       paidHrs, feePerHr, tutorRate, commTo,
-      courseId: result.course_id, sessions,
-      onDone: async () => {
-        // Reset form after user dismisses modal
-        document.getElementById('enroll-student').value = '';
-        document.getElementById('enroll-subject').value = '';
-        document.getElementById('enroll-hours').value   = '';
-        document.getElementById('enroll-fee').value     = '';
-        initScheduleBody();
-        resetSaveBtn();
-        await loadAllData();
-        renderPendingPayments();
-      }
+      invoiceRef, payDate, payStatus,
+      courseId: result.course_id, sessions
     });
+
+    // Reset form
+    document.getElementById('enroll-student').value = '';
+    document.getElementById('enroll-subject').value = '';
+    document.getElementById('enroll-hours').value   = '';
+    document.getElementById('enroll-fee').value     = '';
+    document.getElementById('enroll-invoice').value = '';
+    document.getElementById('enroll-date').value    = '';
+    if (document.getElementById('enroll-payment-status'))
+      document.getElementById('enroll-payment-status').value = 'Pending';
+    initScheduleBody();
+    resetSaveBtn();
+    await loadAllData();
+    renderPendingPayments();
 
   } catch(err) {
     if (err.message.includes('Web App URL')) { resetSaveBtn(); return; }
@@ -5646,46 +5596,10 @@ async function submitEnrollment() {
   }
 }
 
-// ─── ENROLLMENT DRAFT PERSISTENCE ────────────────────────
-function saveEnrollDraft() {
-  try {
-    const draft = {
-      student: document.getElementById('enroll-student')?.value || '',
-      subject: document.getElementById('enroll-subject')?.value || '',
-      hours:   document.getElementById('enroll-hours')?.value   || '',
-      fee:     document.getElementById('enroll-fee')?.value     || '',
-      rate:    document.getElementById('enroll-rate')?.value    || '',
-      tutor:   document.getElementById('enroll-tutor')?.value   || '',
-      comm:    document.getElementById('enroll-jane')?.value    || 'none',
-      type:    enrollType || 'new',
-    };
-    localStorage.setItem('poppadi_enroll_draft', JSON.stringify(draft));
-  } catch(_) {}
-}
-function restoreEnrollDraft() {
-  try {
-    const raw = localStorage.getItem('poppadi_enroll_draft');
-    if (!raw) return;
-    const d = JSON.parse(raw);
-    if (d.student) document.getElementById('enroll-student').value = d.student;
-    if (d.subject) document.getElementById('enroll-subject').value = d.subject;
-    if (d.hours)   document.getElementById('enroll-hours').value   = d.hours;
-    if (d.fee)     document.getElementById('enroll-fee').value     = d.fee;
-    if (d.rate)    document.getElementById('enroll-rate').value    = d.rate;
-    if (d.tutor)   { const s = document.getElementById('enroll-tutor'); if(s) s.value = d.tutor; }
-    if (d.comm)    { const s = document.getElementById('enroll-jane');  if(s) s.value = d.comm;  }
-    if (d.type)    setEnrollType(d.type);
-    if (d.student || d.subject) showToast(lang==='th' ? '📝 โหลดข้อมูลร่างแล้ว' : '📝 Draft restored');
-  } catch(_) {}
-}
-function clearEnrollDraft() {
-  try { localStorage.removeItem('poppadi_enroll_draft'); } catch(_) {}
-}
-
 // ─── POST-SAVE ENROLLMENT SUMMARY ────────────────────────
 function showEnrollmentSummary(data) {
   const { studentName, subject, tutor, paidHrs, feePerHr, tutorRate,
-          commTo, courseId, sessions, onDone } = data;
+          commTo, invoiceRef, payDate, courseId, sessions } = data;
   const commRate    = commTo !== 'none' ? 0.05 : 0;
   const modal       = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -5715,8 +5629,8 @@ function showEnrollmentSummary(data) {
         <div>
           <div style="font-size:18px;font-weight:600">✅ ${lang==='th'?'ลงทะเบียนสำเร็จ':'Enrollment saved'}</div>
           <div style="font-size:13px;color:#888;margin-top:2px">${courseId} · ${studentName} · ${subject}</div>
-          <div style="font-size:12px;color:var(--amber);margin-top:4px">⏳ ${lang==='th'?'สถานะ: รอชำระเงิน — ยืนยันการชำระที่ด้านล่างของหน้า':'Payment pending — confirm payment in the section below'}</div>
         </div>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">✕</button>
       </div>
 
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
@@ -5752,18 +5666,12 @@ function showEnrollmentSummary(data) {
       </table>
 
       <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
-        <button onclick="copyEnrollmentSummary(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⎘ ${lang==='th'?'คัดลอก':'Copy'}</button>
-        <button onclick="downloadEnrollmentPDF(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⬇ PDF</button>
-        <button id="enroll-summary-done-btn" class="btn btn-primary">Done</button>
+        <button onclick="copyEnrollmentSummary(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,invoiceRef,payDate,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⎘ ${lang==='th'?'คัดลอก':'Copy'}</button>
+        <button onclick="downloadEnrollmentPDF(${JSON.stringify({studentName,subject,tutor,sessions,feePerHr,tutorRate,commTo,invoiceRef,payDate,courseId}).replace(/"/g,'&quot;')})" class="btn btn-sm">⬇ PDF</button>
+        <button onclick="this.closest('[style*=fixed]').remove()" class="btn btn-primary">Done</button>
       </div>
     </div>`;
-
   document.body.appendChild(modal);
-
-  document.getElementById('enroll-summary-done-btn').onclick = () => {
-    modal.remove();
-    if (typeof onDone === 'function') onDone();
-  };
 }
 
 function copyEnrollmentSummary(data) {
@@ -6147,7 +6055,6 @@ function showPage(id, btn) {
     setEnrollType(enrollType || 'new');
     const feeInput = document.getElementById('enroll-fee');
     if (feeInput && !feeInput.value) feeInput.value = 1100;
-    restoreEnrollDraft();
   }
   if (id === 'schedule') applyTutorScheduleFilter();
   if (id === 'audit') renderAuditLog();
