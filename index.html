@@ -2336,7 +2336,15 @@ function renderStudentDetailSchedule(courseId) {
 
 // ─── MAKEUP ───────────────────────────────────────────────
 function renderMakeupQueue() {
-  const pending = DATA.sessions.filter(s => s.status === 'Cancelled' || s.status === 'Missed');
+  // Sessions that need a makeup = Cancelled or Missed, AND no makeup session exists referencing them yet
+  const makeupExists = new Set(
+    DATA.sessions
+      .filter(s => s.makeup_ref && (s.status === 'Scheduled' || s.status === 'Completed' || s.status === 'Makeup'))
+      .map(s => s.makeup_ref)
+  );
+  const pending = DATA.sessions.filter(s =>
+    (s.status === 'Cancelled' || s.status === 'Missed') && !makeupExists.has(s.session_id)
+  );
   const el = document.getElementById('makeup-queue');
   if (!pending.length) {
     el.innerHTML = `<div class="empty">${lang==='th'?'ไม่มีคาบที่รอชดเชย':'No pending makeups'}</div>`;
