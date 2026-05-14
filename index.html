@@ -916,6 +916,9 @@
               <option value="Paid" data-en="Paid ✅" data-th="ชำระแล้ว ✅">Paid ✅</option>
               <option value="Pending" data-en="Payment Pending ⏳" data-th="รอชำระ ⏳">Payment Pending ⏳</option>
             </select>
+            <select id="student-filter-tutor" onchange="renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <option value="" data-en="All tutors" data-th="ทุกครู">All tutors</option>
+            </select>
           </div>
           <div class="table-wrap">
             <table>
@@ -3389,6 +3392,20 @@ function renderStudents() {
 
   const statusFilter  = document.getElementById('student-filter-status')?.value  || '';
   const paymentFilter = document.getElementById('student-filter-payment')?.value || '';
+  const tutorFilter   = document.getElementById('student-filter-tutor')?.value   || '';
+
+  // Populate tutor dropdown dynamically (preserve selected value)
+  const tutorSel = document.getElementById('student-filter-tutor');
+  if (tutorSel) {
+    const activeTutorIds = [...new Set(DATA.courses.map(c => c.tutor_id).filter(Boolean))];
+    const currentVal = tutorSel.value;
+    tutorSel.innerHTML = `<option value="" data-en="All tutors" data-th="ทุกครู">${lang==='th'?'ทุกครู':'All tutors'}</option>` +
+      activeTutorIds.map(tid => {
+        const t = getTutor(tid);
+        const name = t.name || tid;
+        return `<option value="${tid}" ${currentVal===tid?'selected':''}>${name}</option>`;
+      }).join('');
+  }
 
   // Group courses by group_id (for group courses)
   const groupMap = {};
@@ -3409,6 +3426,8 @@ function renderStudents() {
   Object.entries(groupMap).forEach(([groupId, courses]) => {
     const firstCourse = courses[0];
     const tutor = getTutor(firstCourse.tutor_id);
+    // Apply tutor filter to group rows
+    if (tutorFilter && firstCourse.tutor_id !== tutorFilter) return;
     const color = COLOR_MAP[tutor.color]||'#888';
     const subject = firstCourse.subject||'—';
     const anyPending = courses.some(c => getPayStatus(c) === 'Pending');
@@ -3482,6 +3501,7 @@ function renderStudents() {
     // Apply filters
     if (statusFilter && lifecycle !== statusFilter && !(statusFilter==='Pending'&&payStatus==='Pending')) return;
     if (paymentFilter && payStatus !== paymentFilter) return;
+    if (tutorFilter && course.tutor_id !== tutorFilter) return;
 
     html += `<tr style="cursor:pointer;${rowBg}" onclick="openStudentDetail('${course.course_id}')">
       <td><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_nickname||course.student_id}</td>
