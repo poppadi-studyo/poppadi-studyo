@@ -735,10 +735,10 @@
         <div class="card" style="padding:0">
           <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between">
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-              <select id="filter-tutor" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <select id="filter-tutor" onchange="localStorage.setItem('poppadi_sched_tutor',this.value);renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
                 <option value="" data-en="All tutors" data-th="ครูทุกคน">All tutors</option>
               </select>
-              <select id="filter-status" onchange="renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <select id="filter-status" onchange="localStorage.setItem('poppadi_sched_status',this.value);renderSchedule()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
                 <option value="" data-en="All statuses" data-th="ทุกสถานะ">All statuses</option>
                 <option value="Completed" data-en="Completed" data-th="สอนแล้ว">Completed</option>
                 <option value="Cancelled" data-en="Cancelled" data-th="ยกเลิก">Cancelled</option>
@@ -858,7 +858,7 @@
             <button id="tutor-view-all" onclick="setTutorView('all')" class="btn btn-sm" style="border:none;border-radius:0;background:var(--text);color:#fff;font-size:12px" data-en="All tutors" data-th="ทุกคน">All tutors</button>
             <button id="tutor-view-single" onclick="setTutorView('single')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="Individual" data-th="รายคน">Individual</button>
           </div>
-          <select id="tutor-select" onchange="renderTutorDetail()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif;display:none"></select>
+          <select id="tutor-select" onchange="localStorage.setItem('poppadi_tutor_select',this.value);renderTutorDetail()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif;display:none"></select>
           <button onclick="downloadTutorExcel()" class="btn btn-sm" data-en="⬇ Download Excel (internal)" data-th="⬇ ดาวน์โหลด (ภายใน)">⬇ Download Excel (internal)</button>
           <button onclick="downloadTutorFacing()" class="btn btn-sm" data-en="⬇ Download for tutor" data-th="⬇ ดาวน์โหลดสำหรับครู">⬇ Download for tutor</button>
           <button onclick="copyTutorTable()" class="btn btn-sm" data-en="⎘ Copy table" data-th="⎘ คัดลอกตาราง">⎘ Copy table</button>
@@ -937,7 +937,7 @@
       <div id="students-list-view">
         <div class="card" style="padding:0">
           <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <select id="student-filter-status" onchange="renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+            <select id="student-filter-status" onchange="localStorage.setItem('poppadi_student_status',this.value);renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
               <option value="" data-en="All statuses" data-th="ทุกสถานะ">All statuses</option>
               <option value="Active" data-en="Active" data-th="กำลังเรียน">Active</option>
               <option value="Pending" data-en="Payment Pending ⏳" data-th="รอชำระ ⏳">Payment Pending ⏳</option>
@@ -946,12 +946,12 @@
               <option value="Graduated" data-en="Graduated 🎓" data-th="จบคอร์ส 🎓">Graduated 🎓</option>
               <option value="Pending-Decision" data-en="Pending Decision" data-th="รอตัดสินใจ">Pending Decision</option>
             </select>
-            <select id="student-filter-payment" onchange="renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+            <select id="student-filter-payment" onchange="localStorage.setItem('poppadi_student_payment',this.value);renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
               <option value="" data-en="All payments" data-th="ทุกการชำระ">All payments</option>
               <option value="Paid" data-en="Paid ✅" data-th="ชำระแล้ว ✅">Paid ✅</option>
               <option value="Pending" data-en="Payment Pending ⏳" data-th="รอชำระ ⏳">Payment Pending ⏳</option>
             </select>
-            <select id="student-filter-tutor" onchange="renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+            <select id="student-filter-tutor" onchange="localStorage.setItem('poppadi_student_tutor',this.value);renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
               <option value="" data-en="All tutors" data-th="ทุกครู">All tutors</option>
             </select>
           </div>
@@ -1607,6 +1607,7 @@ function populateMonthPicker() {
 
 function changeMonth(val) {
   selectedMonth = val;
+  localStorage.setItem('poppadi_month', val);
   renderAll();
 }
 
@@ -1706,6 +1707,7 @@ function renderOverview() {
         const btn=document.getElementById('overview-details-toggle');
         const open=body.style.display!=='none';
         body.style.display=open?'none':'grid';
+        localStorage.setItem('poppadi_overview_breakdown', open?'closed':'open');
         btn.textContent=open?(lang==='th'?'+ ดูรายละเอียดรายได้':'+ View revenue breakdown'):(lang==='th'?'− ซ่อน':'− Hide breakdown');
       })()" style="font-size:12px;color:var(--text2);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:'DM Sans',sans-serif">
         ${lang==='th'?'+ ดูรายละเอียดรายได้':'+ View revenue breakdown'}
@@ -1753,6 +1755,14 @@ function renderOverview() {
       </div>
     </div>
   `;
+
+  // Re-apply breakdown open/closed state after re-render (innerHTML resets it each time)
+  if (localStorage.getItem('poppadi_overview_breakdown') === 'open') {
+    const body = document.getElementById('overview-details-body');
+    const btn  = document.getElementById('overview-details-toggle');
+    if (body) body.style.display = 'grid';
+    if (btn)  btn.textContent = lang==='th' ? '− ซ่อน' : '− Hide breakdown';
+  }
 
   // Stacked single bar — green=realized, amber=predicted-only, red=still short
   const realizedPct   = totalExpenses > 0 ? Math.min(100, (schoolRemainder / totalExpenses) * 100)    : 0;
@@ -2579,6 +2589,7 @@ let currentDetailCourse = null;
 
 function setTutorView(mode) {
   tutorViewMode = mode;
+  localStorage.setItem('poppadi_tutor_view', mode);
   document.getElementById('tutor-all-view').style.display    = mode==='all'    ? 'block':'none';
   document.getElementById('tutor-single-view').style.display = mode==='single' ? 'block':'none';
   document.getElementById('tutor-select').style.display      = mode==='single' ? 'inline-block':'none';
@@ -2596,6 +2607,7 @@ function setTutorView(mode) {
         `<option value="${t.tutor_id}">${t.name}</option>`
       ).join('');
     }
+    localStorage.setItem('poppadi_tutor_select', sel.value);
     renderTutorDetail();
   }
 }
@@ -4004,7 +4016,9 @@ function downloadStudentPDFForStudent() {
     else if (s.status==='Missed'||s.status==='Cancelled') hrsStudied = '0';
     const dateDisplay = fmtDate(s.date);
 
-    return `<tr style="border-bottom:1px solid #eee">
+    const rowColor = s.status==='Cancelled' ? 'color:#C0392B' : s.status==='Missed' ? 'color:#B7560A' : '';
+
+    return `<tr style="border-bottom:1px solid #eee;${rowColor}">
       <td style="padding:7px 10px">${num}</td>
       <td style="padding:7px 10px">${dateDisplay}</td>
       <td style="padding:7px 10px">${timeStr}</td>
@@ -6105,6 +6119,10 @@ function onAppReady() {
     const langBtn = document.querySelector(`.lang-btn[onclick*="${savedLang}"]`);
     if (langBtn) setLang(savedLang, langBtn);
   }
+  // Restore selected month (overview, expenses, other income)
+  const savedMonth = localStorage.getItem('poppadi_month');
+  if (savedMonth) selectedMonth = savedMonth;
+
   loadAllData().then(() => {
     const savedPage = localStorage.getItem('poppadi_page');
     if (savedPage && document.getElementById('page-'+savedPage)) {
@@ -6114,6 +6132,45 @@ function onAppReady() {
     const savedCourse = localStorage.getItem('poppadi_detail_course');
     if (savedCourse && savedPage === 'students') {
       openStudentDetail(savedCourse);
+    }
+
+    // Restore schedule filters
+    const schedTutor  = localStorage.getItem('poppadi_sched_tutor');
+    const schedStatus = localStorage.getItem('poppadi_sched_status');
+    if (schedTutor)  { const el = document.getElementById('filter-tutor');  if (el) { el.value = schedTutor;  renderSchedule(); } }
+    if (schedStatus) { const el = document.getElementById('filter-status'); if (el) { el.value = schedStatus; renderSchedule(); } }
+
+    // Restore student filters
+    const stuStatus  = localStorage.getItem('poppadi_student_status');
+    const stuPayment = localStorage.getItem('poppadi_student_payment');
+    const stuTutor   = localStorage.getItem('poppadi_student_tutor');
+    if (stuStatus)  { const el = document.getElementById('student-filter-status');  if (el) el.value = stuStatus; }
+    if (stuPayment) { const el = document.getElementById('student-filter-payment'); if (el) el.value = stuPayment; }
+    if (stuTutor)   { const el = document.getElementById('student-filter-tutor');   if (el) el.value = stuTutor; }
+    if (stuStatus || stuPayment || stuTutor) renderStudents();
+
+    // Restore tutor view mode + selected tutor
+    const savedTutorView   = localStorage.getItem('poppadi_tutor_view');
+    const savedTutorSelect = localStorage.getItem('poppadi_tutor_select');
+    if (savedTutorView === 'single') {
+      // populate dropdown first, then set value, then switch view
+      const sel = document.getElementById('tutor-select');
+      if (sel) {
+        sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
+          `<option value="${t.tutor_id}">${t.name}</option>`
+        ).join('');
+        if (savedTutorSelect) sel.value = savedTutorSelect;
+      }
+      setTutorView('single');
+    }
+
+    // Restore overview breakdown toggle
+    const breakdownOpen = localStorage.getItem('poppadi_overview_breakdown');
+    if (breakdownOpen === 'open') {
+      const body = document.getElementById('overview-details-body');
+      const btn  = document.getElementById('overview-details-toggle');
+      if (body) body.style.display = 'grid';
+      if (btn)  btn.textContent = lang==='th' ? '− ซ่อน' : '− Hide breakdown';
     }
     setTimeout(() => {
       suggestTutorRate();
