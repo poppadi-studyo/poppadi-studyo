@@ -1223,7 +1223,7 @@
             <div id="group-rate-locked" style="display:none">
               <div id="group-rate-locked-value" style="padding:7px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:500;color:var(--text);display:flex;align-items:center;justify-content:space-between">
                 <span id="group-rate-locked-num">—</span>
-                <span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'คำนวณอัตโนมัติ':'auto-calculated'}</span>
+                <span id="group-rate-locked-label" style="font-size:11px;color:var(--text3)">🔒 auto-calculated</span>
               </div>
               <div id="group-rate-locked-hint" style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5"></div>
               <button id="group-rate-edit-btn" onclick="(function(){
@@ -1233,10 +1233,10 @@
                 document.getElementById('group-rate-warning').style.display='block';
                 document.getElementById('enroll-rate').focus();
               })()" style="font-size:11px;color:var(--text2);background:none;border:none;cursor:pointer;padding:2px 0;font-family:'DM Sans',sans-serif;text-decoration:underline;margin-top:2px">
-                ✏️ ${lang==='th'?'แก้ไข (ขั้นสูง)':'Edit (advanced)'}
+                ✏️ Edit (advanced)
               </button>
               <div id="group-rate-warning" style="display:none;margin-top:6px;font-size:11px;color:var(--red);background:#FCEBEB;padding:6px 10px;border-radius:6px">
-                ⚠️ ${lang==='th'?'การแก้ไขค่านี้จะส่งผลต่อการคำนวณรายได้ — ค่าที่ระบบคำนวณให้คือ':'Editing this affects revenue calculations — system value is'} <strong id="group-rate-warning-val"></strong>
+                ⚠️ Editing this affects revenue calculations — system value is <strong id="group-rate-warning-val"></strong>
               </div>
             </div>
           </div>
@@ -3157,6 +3157,13 @@ function updateGroupRateHint() {
     const rateHintEl   = document.getElementById('rate-hint');
 
     if (lockedEl && lockedNum && lockedHint) {
+      // Update static label text for current language
+      const lockedLabel = document.getElementById('group-rate-locked-label');
+      const editBtn = document.getElementById('group-rate-edit-btn');
+      const warningDiv = document.getElementById('group-rate-warning');
+      if (lockedLabel) lockedLabel.textContent = `🔒 ${lang==='th'?'คำนวณอัตโนมัติ':'auto-calculated'}`;
+      if (editBtn) editBtn.textContent = `✏️ ${lang==='th'?'แก้ไข (ขั้นสูง)':'Edit (advanced)'}`;
+
       lockedEl.style.display = 'block';
       rateInput.style.display = 'none';
       if (rateHintEl) rateHintEl.style.display = 'none';
@@ -4634,7 +4641,41 @@ function calToday() { calDate = new Date(); localStorage.setItem('poppadi_cal_da
 
 function getCalSessions() {
   const tutorFilter = document.getElementById('cal-filter-tutor')?.value || '';
-  return DATA.sessions.filter(s => !tutorFilter || s.tutor_id===tutorFilter);
+  const all = DATA.sessions.filter(s => !tutorFilter || s.tutor_id===tutorFilter);
+
+  // Deduplicate group sessions — keep only one representative per group
+  // Group = same tutor + normalised date + normalised start_time + subject
+  const seen = new Set();
+  return all.filter(s => {
+    const sDate = normDate(s);
+    const sTime = normTime(s.start_time);
+    const subj  = getSubjectForSession(s);
+    const key   = `${s.tutor_id}|${sDate}|${sTime}|${subj}`;
+    // Find all siblings
+    const siblings = all.filter(x =>
+      x.tutor_id === s.tutor_id &&
+      normDate(x) === sDate &&
+      normTime(x.start_time) === sTime &&
+      getSubjectForSession(x) === subj
+    );
+    if (siblings.length <= 1) return true; // not a group — always include
+    // For groups: only include the first session_id alphabetically (consistent representative)
+    const repId = siblings.map(x => x.session_id).sort()[0];
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return s.session_id === repId;
+  });
+}
+
+// Normalise helpers used by grouping (also in buildRows)
+function normDate(s) {
+  const d = parseSessionDate(String(s.date||'').trim());
+  if (!d || isNaN(d.getTime())) return s.date||'';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function normTime(t) {
+  const str = String(t||'').trim();
+  return str.length >= 5 ? str.substring(0,5) : str;
 }
 
 function getEventColor(session) {
@@ -4704,8 +4745,6 @@ function isSameDay(d1,d2) {
 
 function renderCalEventPill(s, compact=false) {
   const color=getEventColor(s);
-  const student=DATA.students.find(st=>st.student_id===s.student_id);
-  const name=getStudentNickname(s.student_id, s.course_id);
   const subject=getSubjectForSession(s);
   const startFmt=s.start_time?formatTime(s.start_time):'';
   const endFmt=s.end_time?formatTime(s.end_time):'';
@@ -4713,12 +4752,23 @@ function renderCalEventPill(s, compact=false) {
   const opacity=s.status==='Cancelled'?'0.45':s.status==='Missed'?'0.6':'1';
   const statusLabel = s.status==='Completed' ? ' ✓' : s.status==='Cancelled' ? ' ✕' : s.status==='Missed' ? ' ⚠' : '';
   const statusLabelFull = s.status==='Completed' ? (lang==='th'?'สอนแล้ว ✓':'Completed ✓') : s.status==='Cancelled' ? (lang==='th'?'ยกเลิก ✕':'Cancelled ✕') : s.status==='Missed' ? (lang==='th'?'ขาดเรียน ⚠':'Missed ⚠') : '';
-  const label=timeStr?`${name} ${timeStr}`:name;
+
+  // Find group siblings to show all names on one chip
+  const sDate = normDate(s), sTime = normTime(s.start_time);
+  const siblings = DATA.sessions.filter(x =>
+    x.tutor_id === s.tutor_id && normDate(x) === sDate && normTime(x.start_time) === sTime && getSubjectForSession(x) === subject
+  );
+  const isGroup = siblings.length > 1;
+  const names = isGroup
+    ? siblings.map(x => getStudentNickname(x.student_id, x.course_id)).join(', ')
+    : getStudentNickname(s.student_id, s.course_id);
+
+  const label=timeStr?`${names} ${timeStr}`:names;
   if(compact){
-    return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="background:${color};opacity:${opacity};color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer" title="${name} · ${subject} · ${timeStr}">${label}${statusLabel}</div>`;
+    return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="background:${color};opacity:${opacity};color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer" title="${names} · ${subject} · ${timeStr}">${label}${statusLabel}</div>`;
   }
   return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="background:${color};opacity:${opacity};color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer">
-    <div style="font-weight:500">${name}</div>
+    <div style="font-weight:500">${names}${isGroup?` <span style="font-size:9px;opacity:0.75">(group)</span>`:''}</div>
     <div style="opacity:0.85;font-size:10px">${timeStr}${subject&&subject!=='—'?' · '+subject:''}${statusLabelFull?' · '+statusLabelFull:''}</div>
   </div>`;
 }
@@ -5000,16 +5050,36 @@ function renderCalendar() {
           </div>`;
         }
       }
-      // Sessions
-      day.sessions.forEach(s => {
+      // Sessions — deduplicate groups (one chip per group)
+      const seenGrid = new Set();
+      const dedupedSessions = day.sessions.filter(s => {
+        const sDate = normDate(s), sTime = normTime(s.start_time), subj = getSubjectForSession(s);
+        const gridSiblings = day.sessions.filter(x =>
+          x.tutor_id === s.tutor_id && normDate(x) === sDate && normTime(x.start_time) === sTime && getSubjectForSession(x) === subj
+        );
+        if (gridSiblings.length <= 1) return true;
+        const key = `${s.tutor_id}|${sDate}|${sTime}|${subj}`;
+        if (seenGrid.has(key)) return false;
+        seenGrid.add(key);
+        const repId = gridSiblings.map(x => x.session_id).sort()[0];
+        return s.session_id === repId;
+      });
+      dedupedSessions.forEach(s => {
         const startMins = timeToMinutes(s.start_time);
         const endMins   = timeToMinutes(s.end_time) || (startMins ? startMins+60 : null);
         if (startMins === null) return;
+        // Get group names
+        const sDate2 = normDate(s), sTime2 = normTime(s.start_time), subj2 = getSubjectForSession(s);
+        const gridSibs = day.sessions.filter(x =>
+          x.tutor_id === s.tutor_id && normDate(x) === sDate2 && normTime(x.start_time) === sTime2 && getSubjectForSession(x) === subj2
+        );
+        const isGroupChip = gridSibs.length > 1;
+        const chipName = isGroupChip
+          ? gridSibs.map(x => getStudentNickname(x.student_id, x.course_id)).join(', ')
+          : getStudentNickname(s.student_id, s.course_id);
         const top   = Math.max(0, (startMins - CAL_START_HOUR*60) / 60 * HOUR_HEIGHT);
         const dur   = endMins ? Math.max(20, (endMins-startMins)/60*HOUR_HEIGHT) : 40;
         const color = getEventColor(s);
-        const student = DATA.students.find(st=>st.student_id===s.student_id);
-        const name  = getStudentNickname(s.student_id, s.course_id);
         const subject = getSubjectForSession(s);
         const startFmt = formatTime(s.start_time);
         const endFmt   = s.end_time ? formatTime(s.end_time) : '';
@@ -5017,8 +5087,8 @@ function renderCalendar() {
         const opacity = s.status==='Cancelled'?0.4:s.status==='Missed'?0.6:1;
         const isShort = dur < 40;
         const gridStatusLabel = s.status==='Completed'?' ✓':s.status==='Cancelled'?' ✕':s.status==='Missed'?' ⚠':'';
-        html += `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="position:absolute;top:${top+1}px;left:2px;right:2px;height:${dur-2}px;background:${color};opacity:${opacity};border-radius:6px;padding:${isShort?'2px 6px':'4px 8px'};overflow:hidden;cursor:pointer;z-index:1" title="${name} · ${subject} · ${timeLabel} · ${s.status}">
-          <div style="color:#fff;font-size:${isShort?'10':'11'}px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}${isShort?gridStatusLabel:''}</div>
+        html += `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="position:absolute;top:${top+1}px;left:2px;right:2px;height:${dur-2}px;background:${color};opacity:${opacity};border-radius:6px;padding:${isShort?'2px 6px':'4px 8px'};overflow:hidden;cursor:pointer;z-index:1" title="${chipName} · ${subject} · ${timeLabel} · ${s.status}">
+          <div style="color:#fff;font-size:${isShort?'10':'11'}px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${chipName}${isShort?gridStatusLabel:''}</div>
           ${!isShort?`<div style="color:rgba(255,255,255,0.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${timeLabel}${subject&&subject!=='—'?' · '+subject:''}${gridStatusLabel?' · '+s.status+gridStatusLabel:''}</div>`:''}
         </div>`;
       });
