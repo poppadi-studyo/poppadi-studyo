@@ -2273,18 +2273,34 @@ function renderSchedule() {
   }
 
   function buildRows(list, sectionId) {
+    // Normalise date to YYYY-MM-DD for reliable grouping comparison
+    function normDate(s) {
+      const d = parseSessionDate(String(s.date||'').trim());
+      if (!d || isNaN(d.getTime())) return s.date||'';
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    // Normalise start_time to HH:MM
+    function normTime(t) {
+      if (!t) return '';
+      const str = String(t).trim();
+      if (/^\d{2}:\d{2}/.test(str)) return str.substring(0,5);
+      return str;
+    }
+
     // Group sessions that share tutor + date + start_time + subject
     const groups = [];
     const used = new Set();
     list.forEach(s => {
       if (used.has(s.session_id)) return;
-      const key = s.tutor_id + '|' + s.date + '|' + (s.start_time||'') + '|' + getSubjectForSession(s);
+      const sDate = normDate(s);
+      const sTime = normTime(s.start_time);
+      const sSubj = getSubjectForSession(s);
       const siblings = list.filter(x =>
         !used.has(x.session_id) &&
         x.tutor_id === s.tutor_id &&
-        x.date === s.date &&
-        (x.start_time||'') === (s.start_time||'') &&
-        getSubjectForSession(x) === getSubjectForSession(s)
+        normDate(x) === sDate &&
+        normTime(x.start_time) === sTime &&
+        getSubjectForSession(x) === sSubj
       );
       siblings.forEach(x => used.add(x.session_id));
       groups.push(siblings);
@@ -4604,6 +4620,72 @@ function renderCalEventPill(s, compact=false) {
 }
 
 // ─── CALENDAR SESSION CLICK POPUP ────────────────────────
+// ─── CALENDAR POPUP STATUS HELPERS ───────────────────────
+function calPopupShowProgress(msg) {
+  const popup = document.getElementById('cal-session-popup');
+  if (!popup) return;
+  // Insert a progress bar at the bottom of the popup
+  let bar = document.getElementById('cal-popup-progress');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'cal-popup-progress';
+    bar.style.cssText = 'margin-top:10px;border-top:1px solid var(--border);padding-top:10px';
+    popup.appendChild(bar);
+  }
+  bar.innerHTML = `
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${msg}</div>
+    <div style="background:var(--surface2);border-radius:100px;height:4px;overflow:hidden">
+      <div id="cal-popup-bar" style="height:100%;background:var(--teal);border-radius:100px;width:0%;transition:width 0.4s ease"></div>
+    </div>`;
+  setTimeout(() => { const b = document.getElementById('cal-popup-bar'); if(b) b.style.width='70%'; }, 30);
+}
+
+function calPopupShowDone(msg) {
+  const bar = document.getElementById('cal-popup-bar');
+  if (bar) bar.style.width = '100%';
+  const prog = document.getElementById('cal-popup-progress');
+  if (prog) {
+    setTimeout(() => {
+      prog.innerHTML = `<div style="font-size:12px;color:var(--teal);font-weight:500">✓ ${msg}</div>`;
+    }, 300);
+    setTimeout(() => { document.getElementById('cal-session-popup')?.remove(); }, 1200);
+  }
+}
+
+async function calPopupUpdateStatus(sessionId, newStatus, selectEl) {
+  // Disable all selects in popup while saving
+  document.querySelectorAll('#cal-session-popup select').forEach(s => s.disabled = true);
+  document.querySelectorAll('#cal-session-popup button').forEach(b => b.disabled = true);
+  const label = {Scheduled:lang==='th'?'กำหนดการ':'Scheduled',Completed:lang==='th'?'สอนแล้ว':'Completed',Missed:lang==='th'?'ขาดเรียน':'Missed',Cancelled:lang==='th'?'ยกเลิก':'Cancelled'}[newStatus] || newStatus;
+  calPopupShowProgress(lang==='th'?`กำลังบันทึก ${label}...`:`Saving ${label}...`);
+  try {
+    await updateSessionStatus(sessionId, newStatus, true);
+    renderAll();
+    calPopupShowDone(lang==='th'?`อัปเดตแล้ว — ${label}`:`Updated — ${label}`);
+  } catch(e) {
+    const prog = document.getElementById('cal-popup-progress');
+    if (prog) prog.innerHTML = `<div style="font-size:12px;color:var(--red)">❌ ${e.message}</div>`;
+    document.querySelectorAll('#cal-session-popup select').forEach(s => s.disabled = false);
+    document.querySelectorAll('#cal-session-popup button').forEach(b => b.disabled = false);
+  }
+}
+
+async function calPopupMarkAll(sessionIds, newStatus) {
+  document.querySelectorAll('#cal-session-popup select').forEach(s => s.disabled = true);
+  document.querySelectorAll('#cal-session-popup button').forEach(b => b.disabled = true);
+  const label = newStatus==='Completed'?(lang==='th'?'สอนครบทุกคน':'All Completed'):(lang==='th'?'ยกเลิกทุกคน':'All Cancelled');
+  calPopupShowProgress(lang==='th'?`กำลังบันทึก ${label}...`:`Saving ${label}...`);
+  try {
+    await markGroupAll(sessionIds, newStatus);
+    calPopupShowDone(lang==='th'?`อัปเดตแล้ว — ${label}`:`Updated — ${label}`);
+  } catch(e) {
+    const prog = document.getElementById('cal-popup-progress');
+    if (prog) prog.innerHTML = `<div style="font-size:12px;color:var(--red)">❌ ${e.message}</div>`;
+    document.querySelectorAll('#cal-session-popup select').forEach(s => s.disabled = false);
+    document.querySelectorAll('#cal-session-popup button').forEach(b => b.disabled = false);
+  }
+}
+
 function openCalSessionPopup(sessionId, anchorEl) {
   // Remove any existing popup
   document.getElementById('cal-session-popup')?.remove();
@@ -4611,12 +4693,19 @@ function openCalSessionPopup(sessionId, anchorEl) {
   const s = DATA.sessions.find(x => x.session_id === sessionId);
   if (!s) return;
 
-  // Find group siblings (same tutor + date + start_time + subject)
+  // Find group siblings (same tutor + date + start_time + subject) — normalise for reliable match
   const subject = getSubjectForSession(s);
+  function normD(x) {
+    const d = parseSessionDate(String(x.date||'').trim());
+    if (!d||isNaN(d.getTime())) return x.date||'';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function normT(t) { const str=String(t||'').trim(); return str.length>=5?str.substring(0,5):str; }
+  const sDate = normD(s), sTime = normT(s.start_time);
   const siblings = DATA.sessions.filter(x =>
     x.tutor_id === s.tutor_id &&
-    x.date === s.date &&
-    (x.start_time||'') === (s.start_time||'') &&
+    normD(x) === sDate &&
+    normT(x.start_time) === sTime &&
     getSubjectForSession(x) === subject
   );
 
@@ -4631,7 +4720,7 @@ function openCalSessionPopup(sessionId, anchorEl) {
     const nick = getStudentNickname(x.student_id, x.course_id);
     const dropdown = isLocked
       ? statusBadge(x.status)
-      : `<select onchange="updateSessionStatus('${x.session_id}',this.value,true).then(()=>{renderAll();document.getElementById('cal-session-popup')?.remove();showToast('✓ ${lang==='th'?'อัปเดตแล้ว':'Updated'}');})" style="font-size:12px;padding:3px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
+      : `<select onchange="calPopupUpdateStatus('${x.session_id}',this.value,this)" style="font-size:12px;padding:3px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
           ${statusOptions.map(v=>`<option value="${v}" ${x.status===v?'selected':''}>${statusLabels[v]}</option>`).join('')}
         </select>`;
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
@@ -4643,11 +4732,11 @@ function openCalSessionPopup(sessionId, anchorEl) {
   const allSessionIds = siblings.map(x => x.session_id);
   const markAllBtns = (!isLocked && siblings.length > 1) ? `
     <div style="display:flex;gap:6px;margin-top:8px">
-      <button onclick="markGroupAll(${JSON.stringify(allSessionIds)},'Completed').then(()=>document.getElementById('cal-session-popup')?.remove())"
+      <button onclick="calPopupMarkAll(${JSON.stringify(allSessionIds)},'Completed')"
         style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--teal);border-radius:5px;background:var(--teal-bg);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">
         ✓ ${lang==='th'?'ทุกคน':'All done'}
       </button>
-      <button onclick="markGroupAll(${JSON.stringify(allSessionIds)},'Cancelled').then(()=>document.getElementById('cal-session-popup')?.remove())"
+      <button onclick="calPopupMarkAll(${JSON.stringify(allSessionIds)},'Cancelled')"
         style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">
         ✕ ${lang==='th'?'ยกเลิกทุกคน':'All cancel'}
       </button>
