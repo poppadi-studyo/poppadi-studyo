@@ -819,8 +819,16 @@
             <div id="makeup-fields" style="display:none">
               <div id="makeup-selected-info" style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px"></div>
               <div class="form-group" style="margin-bottom:10px"><label data-en="New date" data-th="วันที่ใหม่">New date</label><input type="date" id="makeup-date" style="width:100%"></div>
-              <div class="form-group" style="margin-bottom:10px"><label data-en="Start time" data-th="เวลาเริ่ม">Start time</label><select id="makeup-start" style="width:100%;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px"></select></div>
-              <div class="form-group" style="margin-bottom:10px"><label data-en="End time" data-th="เวลาสิ้นสุด">End time</label><select id="makeup-end" style="width:100%;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px"></select></div>
+              <div class="form-group" style="margin-bottom:10px"><label data-en="Start time" data-th="เวลาเริ่ม">Start time</label><select id="makeup-start" onchange="updateMakeupEndTime()" style="width:100%;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px"></select></div>
+              <div class="form-group" style="margin-bottom:10px">
+                <label data-en="End time (auto)" data-th="เวลาสิ้นสุด (อัตโนมัติ)">End time (auto)</label>
+                <div id="makeup-end-display" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface2);color:var(--text2)">—</div>
+                <input type="hidden" id="makeup-end">
+              </div>
+              <div class="form-group" style="margin-bottom:6px">
+                <label data-en="Duration" data-th="ระยะเวลา">Duration</label>
+                <div id="makeup-hrs-display" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:var(--teal-bg);border-radius:20px;font-size:12px;font-weight:500;color:var(--teal)">—</div>
+              </div>
               <div class="form-group" style="margin-bottom:14px"><label data-en="Notes" data-th="หมายเหตุ">Notes</label><input type="text" id="makeup-notes" placeholder="e.g. confirmed via LINE" style="width:100%"></div>
               <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
                 <button class="btn btn-sm" onclick="clearMakeup()" data-en="Cancel" data-th="ยกเลิก">Cancel</button>
@@ -1659,11 +1667,11 @@ function renderOverview() {
   const metricsEl = document.getElementById('overview-metrics');
   metricsEl.innerHTML = `
     <div class="metric ${predictedCovers?'gap-good':'gap-bad'}" style="grid-column:span 2">
-      <div class="metric-label">${lang==='th'?'กำไรสุทธิ (ถ้าสอนครบทุกคาบ)':'Net profit if all scheduled classes run'}</div>
+      <div class="metric-label">${lang==='th'?'เดือนนี้จะครอบคลุมค่าใช้จ่ายไหม? (ถ้าสอนครบ)':'Will this month cover costs? (if all classes run)'}</div>
       <div class="metric-value" style="font-size:28px">${predictedNet>=0?'฿'+fmt(predictedNet):'−฿'+fmt(Math.abs(predictedNet))}</div>
       <div class="metric-sub">${predictedCovers
-        ? (lang==='th'?`กำไรหลังหักค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)}`:`Profit after ฿${fmt(totalExpenses)} fixed costs`)
-        : (lang==='th'?`ยังขาดอีก ฿${fmt(Math.abs(predictedNet))} จากเป้า ฿${fmt(totalExpenses)} (ค่าใช้จ่ายคงที่) — ต้องหานักเรียนเพิ่ม`:`Still ฿${fmt(Math.abs(predictedNet))} short of the ฿${fmt(totalExpenses)} fixed cost target — need more enrolments`)
+        ? (lang==='th'?`✅ ครอบคลุมแล้ว — เหลือกำไร ฿${fmt(predictedNet)} หลังหักค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)}`:`✅ Costs covered — ฿${fmt(predictedNet)} profit after ฿${fmt(totalExpenses)} fixed costs`)
+        : (lang==='th'?`ส่วนแบ่งโรงเรียน (฿${fmt(predictedSchoolRem)}) ยังขาดอีก ฿${fmt(Math.abs(predictedNet))} จากเป้า ฿${fmt(totalExpenses)} — ต้องหานักเรียนเพิ่ม`:`School earnings (฿${fmt(predictedSchoolRem)}) still ฿${fmt(Math.abs(predictedNet))} short of the ฿${fmt(totalExpenses)} target — need more enrolments`)
       }</div>
       ${shortfall > 0 ? `
       <div class="scenario-calc">
@@ -1680,17 +1688,17 @@ function renderOverview() {
       </div>` : ''}
     </div>
     <div class="metric ${gapCovered?'gap-good':''}">
-      <div class="metric-label">${lang==='th'?'กำไรสุทธิ (ตอนนี้)':'Net profit (so far)'}</div>
-      <div class="metric-value">${gapCovered?'฿'+fmt(Math.abs(gap)):'−฿'+fmt(gap)}</div>
+      <div class="metric-label">${lang==='th'?'โรงเรียนได้รับจริงแล้ว (เดือนนี้)':'School earned so far (this month)'}</div>
+      <div class="metric-value">฿${fmt(schoolRemainder)}</div>
       <div class="metric-sub">${gapCovered
-        ? (lang==='th'?'ครอบคลุมค่าใช้จ่ายแล้ว':'Fixed costs covered')
-        : (lang==='th'?`ขาดอีก ฿${fmt(gap)} จากคาบที่สอนแล้ว`:`Short ฿${fmt(gap)} from taught sessions so far`)
+        ? (lang==='th'?`✅ ครอบคลุมค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)} แล้ว`:`✅ ฿${fmt(totalExpenses)} fixed costs already covered`)
+        : (lang==='th'?`จากคาบที่สอนแล้ว — ยังต้องการอีก ฿${fmt(gap)} เพื่อครอบคลุม ฿${fmt(totalExpenses)}`:`From completed sessions — ฿${fmt(gap)} still needed to cover ฿${fmt(totalExpenses)}`)
       }</div>
     </div>
     <div class="metric">
-      <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่':'Fixed costs'}</div>
+      <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่ (เป้าหมาย)':'Fixed costs (monthly target)'}</div>
       <div class="metric-value">฿${fmt(totalExpenses)}</div>
-      <div class="metric-sub">${lang==='th'?'เงินเดือน + ค่าเช่า':'Salaries + rent'}</div>
+      <div class="metric-sub">${lang==='th'?'เงินเดือนพนักงาน + ค่าเช่า — ต้องการส่วนแบ่งโรงเรียนเท่านี้ต่อเดือน':'Staff salaries + rent — school cut needed each month to break even'}</div>
     </div>
     <div style="grid-column:span 2;margin-top:4px">
       <button id="overview-details-toggle" onclick="(function(){
@@ -1702,27 +1710,46 @@ function renderOverview() {
       })()" style="font-size:12px;color:var(--text2);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:'DM Sans',sans-serif">
         ${lang==='th'?'+ ดูรายละเอียดรายได้':'+ View revenue breakdown'}
       </button>
-      <div id="overview-details-body" style="display:none;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
-        <div class="metric">
-          <div class="metric-label">${lang==='th'?'รายได้รวม (คาดการณ์)':'Total revenue (predicted)'}</div>
-          <div class="metric-value" style="font-size:18px">฿${fmt(predictedRevenue)}</div>
-          <div class="metric-sub">${lang==='th'?'ก่อนหักค่าสอน+คอมม์ ถ้าสอนครบ':'Gross, before tutor pay & comms, if all run'}</div>
+      <div id="overview-details-body" style="display:none;gap:12px;margin-top:16px">
+
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--amber);margin-bottom:8px">
+          ${lang==='th'?'📊 คาดการณ์ — ถ้าสอนครบทุกคาบ':'📊 Predicted — if all scheduled classes run'}
         </div>
-        <div class="metric">
-          <div class="metric-label">${lang==='th'?'รายได้รวม (จริง)':'Total revenue (realized)'}</div>
-          <div class="metric-value" style="font-size:18px">฿${fmt(realizedIncome)}</div>
-          <div class="metric-sub">${lang==='th'?'ก่อนหักค่าสอน+คอมม์ จากคาบที่สอนแล้ว':'Gross, before tutor pay & comms, taught sessions only'}</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
+          ${lang==='th'?'รายได้รวม = ค่าเรียน × จำนวนชั่วโมง · ส่วนแบ่งโรงเรียน = รายได้รวม หักค่าสอนครู และคอมมิชชั่น':'Total revenue = fee × hours · School cut = revenue minus tutor pay and commission'}
         </div>
-        <div class="metric">
-          <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (จริง)':'School cut (taught sessions)'}</div>
-          <div class="metric-value" style="font-size:18px">฿${fmt(schoolRemainder)}</div>
-          <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์':'After tutor pay & comms'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+          <div class="metric">
+            <div class="metric-label">${lang==='th'?'รายได้รวม (คาดการณ์)':'Total revenue (predicted)'}</div>
+            <div class="metric-value" style="font-size:18px">฿${fmt(predictedRevenue)}</div>
+            <div class="metric-sub">${lang==='th'?'ยอดรวมก่อนหักค่าสอน และคอมมิชชั่น':'Gross student fees collected, before any deductions'}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (คาดการณ์)':'School cut (predicted)'}</div>
+            <div class="metric-value" style="font-size:18px">฿${fmt(predictedSchoolRem)}</div>
+            <div class="metric-sub">${lang==='th'?'หลังหักค่าสอนครู และคอมมิชชั่น — นี่คือเงินที่โรงเรียนได้จริง':'After tutor pay & commission — this is what the school actually keeps'}</div>
+          </div>
         </div>
-        <div class="metric">
-          <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (คาดการณ์)':'School cut (if all run)'}</div>
-          <div class="metric-value" style="font-size:18px">฿${fmt(predictedSchoolRem)}</div>
-          <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์ ถ้าสอนครบ':'After tutor pay & comms, if all sessions taught'}</div>
+
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--teal);margin-bottom:8px">
+          ${lang==='th'?'✅ จริง — จากคาบที่สอนแล้วเท่านั้น':'✅ Realized — from completed sessions only'}
         </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
+          ${lang==='th'?'รายได้และส่วนแบ่งที่ได้รับจริง จากคาบที่มีสถานะ "สอนแล้ว" หรือ "ชดเชย" เท่านั้น':'Revenue and school cut locked in from sessions marked Completed or Makeup only'}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="metric">
+            <div class="metric-label">${lang==='th'?'รายได้รวม (จริง)':'Total revenue (realized)'}</div>
+            <div class="metric-value" style="font-size:18px">฿${fmt(realizedIncome)}</div>
+            <div class="metric-sub">${lang==='th'?'ยอดรวมจากคาบที่สอนแล้ว — คาบที่ยังไม่สอนยังไม่นับ':'Gross from taught sessions — scheduled classes not yet counted'}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (จริง)':'School cut (realized)'}</div>
+            <div class="metric-value" style="font-size:18px">฿${fmt(schoolRemainder)}</div>
+            <div class="metric-sub">${lang==='th'?'หลังหักค่าสอนครู และคอมมิชชั่น — ยืนยันแล้ว ไม่เปลี่ยน':'After tutor pay & commission — confirmed, will not change'}</div>
+          </div>
+        </div>
+
       </div>
     </div>
   `;
@@ -2366,22 +2393,63 @@ function selectMakeup(sessionId) {
   const tutor   = getTutor(s.tutor_id);
   const student = DATA.students.find(st => st.student_id === s.student_id);
   const name    = student?.nickname || s.student_id;
+  const hrs     = Number(s.hours || 1);
 
   document.getElementById('makeup-placeholder').style.display = 'none';
   document.getElementById('makeup-done').style.display = 'none';
   document.getElementById('makeup-fields').style.display = 'block';
 
-  // Populate time dropdowns with :00/:30 options
+  // Populate start time dropdown
   const startSel = document.getElementById('makeup-start');
-  const endSel   = document.getElementById('makeup-end');
-  if (startSel && !startSel.options.length) startSel.innerHTML = generateTimeOptions('');
-  if (endSel   && !endSel.options.length)   endSel.innerHTML   = generateTimeOptions('');
+  startSel.innerHTML = generateTimeOptions('');
+
+  // Auto-set start time from original session
+  if (s.start_time) {
+    // Normalise to HH:MM for matching select options
+    const normStart = s.start_time.length === 5 ? s.start_time : s.start_time.substring(0,5);
+    Array.from(startSel.options).forEach(opt => {
+      if (opt.value === normStart || opt.value === s.start_time) opt.selected = true;
+    });
+  }
+
+  // Store hours on the element so updateMakeupEndTime can read it
+  startSel.dataset.hrs = hrs;
+
+  // Calculate and show end time
+  updateMakeupEndTime();
+
+  // Show hours badge
+  const hrsDisplay = document.getElementById('makeup-hrs-display');
+  if (hrsDisplay) {
+    hrsDisplay.textContent = `${hrs} ${hrs === 1 ? (lang==='th'?'ชั่วโมง':'hr') : (lang==='th'?'ชั่วโมง':'hrs')} — ${lang==='th'?'เท่ากับคาบเดิม':'same as original class'}`;
+  }
 
   document.getElementById('makeup-selected-info').innerHTML = `
     <div style="font-weight:500">${name}</div>
     <div style="font-size:12px;color:var(--text2);margin-top:2px">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${fmtDate(s.date)}</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:2px">${lang==='th'?'เวลาเดิม:':'Original time:'} ${formatTimeRange(s.start_time, s.end_time)} · ${hrs} ${lang==='th'?'ชม.':'hrs'}</div>
     <div style="margin-top:6px"><span class="badge ${s.status==='Missed'?'badge-miss':'badge-cancel'}">${s.status==='Missed'?(lang==='th'?'ขาดเรียน — ชดเชย 50%':'Missed — 50% makeup'):(lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup')}</span></div>
   `;
+}
+
+function updateMakeupEndTime() {
+  const startSel = document.getElementById('makeup-start');
+  const endDisplay = document.getElementById('makeup-end-display');
+  const endHidden  = document.getElementById('makeup-end');
+  if (!startSel || !endDisplay || !endHidden) return;
+
+  const startVal = startSel.value; // HH:MM
+  const hrs = Number(startSel.dataset.hrs || selectedMakeup?.hours || 1);
+  if (!startVal) return;
+
+  const [h, m] = startVal.split(':').map(Number);
+  const endTotalMins = h * 60 + m + hrs * 60;
+  const endH = Math.floor(endTotalMins / 60) % 24;
+  const endM = endTotalMins % 60;
+  const endStr = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
+
+  endHidden.value  = endStr;
+  endDisplay.textContent = formatTime(endStr);
 }
 
 function openMakeupFromSchedule(sessionId) {
@@ -2401,7 +2469,7 @@ async function confirmMakeup() {
   if (isMakeupSaving) return;
   const d = document.getElementById('makeup-date').value;
   const s = document.getElementById('makeup-start').value;
-  const e = document.getElementById('makeup-end').value;
+  const e = document.getElementById('makeup-end').value; // hidden, auto-calculated
   if (!d || !s) { alert(lang==='th'?'กรุณาระบุวันที่และเวลา':'Please fill in date and time'); return; }
   if (!selectedMakeup) { alert('No session selected'); return; }
 
@@ -2432,13 +2500,28 @@ async function confirmMakeup() {
       notes: document.getElementById('makeup-notes').value
     });
 
-    // Update local DATA in memory — mark original as having a makeup so it leaves the queue immediately
+    // Update local DATA in memory with a proper stub makeup session
+    // so makeupExists Set correctly excludes this from the queue on renderAll()
     const orig = DATA.sessions.find(x => x.session_id === snap.session_id);
-    if (orig) {
-      orig.status = 'Cancelled';
-      orig.makeup_ref = orig.makeup_ref || ('MAKEUP_' + snap.session_id + '_pending');
+    const stubId = 'MAKEUP_' + snap.session_id + '_stub';
+    if (orig) orig.status = 'Cancelled';
+    // Add stub makeup session — makeupExists checks for sessions where makeup_ref === snap.session_id
+    if (!DATA.sessions.find(x => x.makeup_ref === snap.session_id)) {
+      DATA.sessions.push({
+        session_id:   stubId,
+        course_id:    snap.course_id,
+        student_id:   snap.student_id,
+        tutor_id:     snap.tutor_id,
+        date:         d,
+        start_time:   s,
+        end_time:     e,
+        hours:        snap.hours,
+        status:       'Scheduled',
+        makeup_ref:   snap.session_id,
+        total_revenue: '0', tutor_pay: '0', commission_amt: '0', school_remainder: '0'
+      });
     }
-    // Remove from queue immediately — don't wait for OK click
+    // Remove from queue DOM immediately — don't wait for OK click
     const queueItem = document.getElementById('mitem-' + snap.session_id);
     if (queueItem) queueItem.remove();
     // If queue is now empty, show the empty state
@@ -2478,7 +2561,14 @@ async function confirmMakeup() {
 function resetMakeup() {
   document.getElementById('makeup-done').style.display = 'none';
   document.getElementById('makeup-placeholder').style.display = 'block';
-  ['makeup-date','makeup-start','makeup-end','makeup-notes'].forEach(id => { document.getElementById(id).value=''; });
+  ['makeup-date','makeup-start','makeup-end','makeup-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const endDisplay = document.getElementById('makeup-end-display');
+  if (endDisplay) endDisplay.textContent = '—';
+  const hrsDisplay = document.getElementById('makeup-hrs-display');
+  if (hrsDisplay) hrsDisplay.textContent = '—';
   selectedMakeup = null;
   document.querySelectorAll('.makeup-item').forEach(el => el.classList.remove('selected'));
 }
