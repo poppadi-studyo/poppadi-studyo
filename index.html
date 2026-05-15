@@ -2148,20 +2148,24 @@ function renderSchedule() {
   }
   if (statusFilter) sessions = sessions.filter(s => s.status === statusFilter);
 
-  // Previous month sessions
-  const prevStr = getPrevMonthStr();
-  let prevSessions = DATA.sessions.filter(s => {
+  // Build past sessions — all months before current month
+  // When unlocked: all history. When locked: previous month only.
+  const now = new Date();
+  const currYM = now.getFullYear() * 12 + now.getMonth();
+
+  let pastSessions = DATA.sessions.filter(s => {
     const d = parseSessionDate(String(s.date||'').trim());
     if (!d || isNaN(d.getTime())) return false;
-    const ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    return ym === prevStr;
+    const sYM = d.getFullYear() * 12 + d.getMonth();
+    if (sessionUnlocked) return sYM < currYM;          // all history when unlocked
+    return sYM === currYM - 1;                          // previous month only when locked
   });
   if (currentRole === 'tutor' && currentTutorId) {
-    prevSessions = prevSessions.filter(s => s.tutor_id === currentTutorId);
+    pastSessions = pastSessions.filter(s => s.tutor_id === currentTutorId);
   } else {
-    if (tutorFilter) prevSessions = prevSessions.filter(s => s.tutor_id === tutorFilter);
+    if (tutorFilter) pastSessions = pastSessions.filter(s => s.tutor_id === tutorFilter);
   }
-  if (statusFilter) prevSessions = prevSessions.filter(s => s.status === statusFilter);
+  if (statusFilter) pastSessions = pastSessions.filter(s => s.status === statusFilter);
 
   const sortFn = (a,b) => {
     const da=parseSessionDate(a.date)||new Date(0), db=parseSessionDate(b.date)||new Date(0);
@@ -2169,13 +2173,13 @@ function renderSchedule() {
     return (a.start_time||'').localeCompare(b.start_time||'');
   };
   sessions.sort(sortFn);
-  prevSessions.sort(sortFn);
+  pastSessions.sort(sortFn);
 
   const showRevenue = currentRole !== 'tutor' && !tutorFilter;
   const colSpan = showRevenue ? 9 : 8;
   const body = document.getElementById('schedule-body');
 
-  if (!sessions.length && !prevSessions.length) {
+  if (!sessions.length && !pastSessions.length) {
     body.innerHTML = `<tr><td colspan="${colSpan}" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet — add your first enrollment'}</td></tr>`;
     const thead = body.closest('table')?.querySelector('thead tr');
     if (thead) { const revTh = thead.querySelector('th[data-col="revenue"]'); if (revTh) revTh.style.display = showRevenue ? '' : 'none'; }
@@ -2191,7 +2195,7 @@ function renderSchedule() {
       const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
       const isCompleted = s.status === 'Completed' || s.status === 'Makeup';
       const isLocked = isMonthLocked(s.date);
-      const isPastLocked = isMonthLocked(s.date) && !isCompleted;
+      const isPastLocked = isLocked && !isCompleted;
 
       const statusDropdown = isLocked
         ? `${statusBadge(s.status)}${isPastLocked?`<span style="font-size:10px;color:var(--text3);margin-left:4px">🔒</span>`:''}`
@@ -2222,37 +2226,47 @@ function renderSchedule() {
     }).join('');
   }
 
-  const prevMonthLabel = (() => {
-    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-1);
+  // Build dynamic past section label from actual date range in data
+  function pastSectionLabel(list) {
     const months = lang==='th'?MONTHS_TH:MONTHS_EN;
-    return months[d.getMonth()] + ' ' + d.getFullYear();
-  })();
+    const yms = [...new Set(list.map(s => {
+      const d = parseSessionDate(String(s.date||'').trim());
+      return d ? d.getFullYear() * 12 + d.getMonth() : null;
+    }).filter(Boolean))].sort();
+    if (!yms.length) return '';
+    const toLabel = ym => {
+      const yr = Math.floor(ym / 12), mo = ym % 12;
+      return months[mo] + ' ' + yr;
+    };
+    if (yms.length === 1) return `${lang==='th'?'เดือนที่แล้ว':'Previous month'} — ${toLabel(yms[0])}`;
+    return `${lang==='th'?'เดือนก่อนหน้า':'Previous months'} — ${toLabel(yms[0])} ${lang==='th'?'ถึง':'to'} ${toLabel(yms[yms.length-1])}`;
+  }
+
   const currMonthLabel = (() => {
-    const d = new Date();
     const months = lang==='th'?MONTHS_TH:MONTHS_EN;
-    return months[d.getMonth()] + ' ' + d.getFullYear();
+    return months[now.getMonth()] + ' ' + now.getFullYear();
   })();
 
-  const prevCollapsed = !isPrevMonthWindow();
+  const pastCollapsed = !isPrevMonthWindow() && !sessionUnlocked;
   let html = '';
-  if (prevSessions.length) {
-    html += renderSectionHeaderRow(
-      `${lang==='th'?'เดือนที่แล้ว':'Previous month'} — ${prevMonthLabel} (${prevSessions.length})`,
-      'sched-prev', prevCollapsed, colSpan
-    );
-    const prevRows = buildRows(prevSessions, 'sched-prev');
-    html += prevCollapsed
-      ? prevRows.replace(/<tr data-section="sched-prev">/g, '<tr data-section="sched-prev" style="display:none">')
-      : prevRows;
+
+  if (pastSessions.length) {
+    const sectionId = 'sched-prev';
+    const label = `${pastSectionLabel(pastSessions)} (${pastSessions.length})`;
+    html += renderSectionHeaderRow(label, sectionId, pastCollapsed, colSpan);
+    const rows = buildRows(pastSessions, sectionId);
+    html += pastCollapsed
+      ? rows.replace(/<tr data-section="sched-prev">/g, '<tr data-section="sched-prev" style="display:none">')
+      : rows;
   }
   if (sessions.length) {
-    if (prevSessions.length) {
+    if (pastSessions.length) {
       html += renderSectionHeaderRow(
         `${lang==='th'?'เดือนนี้':'This month'} — ${currMonthLabel} (${sessions.length})`,
         'sched-curr', false, colSpan
       );
     }
-    html += buildRows(sessions, prevSessions.length ? 'sched-curr' : null);
+    html += buildRows(sessions, pastSessions.length ? 'sched-curr' : null);
   }
   body.innerHTML = html;
 
@@ -2263,7 +2277,6 @@ function renderSchedule() {
     if (revTh) revTh.style.display = showRevenue ? '' : 'none';
   }
 }
-
 
 // ─── SHARED HELPERS — previous month two-section view ────────────
 function getPrevMonthStr() {
@@ -2294,119 +2307,6 @@ function toggleScheduleSection(sectionId) {
 }
 
 // ─── SCHEDULE (Student detail view) ──────────────────────
-function renderStudentDetailSchedule(courseId) {
-  const course = DATA.courses.find(c => c.course_id === courseId);
-  if (!course) return;
-
-  const allSessions = DATA.sessions.filter(s =>
-    s.course_id === courseId &&
-    s.student_id === course.student_id &&
-    s.tutor_id === course.tutor_id
-  );
-
-  const prevStr = getPrevMonthStr();
-  const now = new Date();
-  const currYM = now.getFullYear() * 12 + now.getMonth();
-
-  const prevSessions = allSessions.filter(s => {
-    const d = parseSessionDate(String(s.date||'').trim());
-    if (!d || isNaN(d.getTime())) return false;
-    return d.getFullYear() * 12 + d.getMonth() === currYM - 1;
-  });
-  const currSessions = allSessions.filter(s => {
-    const d = parseSessionDate(String(s.date||'').trim());
-    if (!d || isNaN(d.getTime())) return true; // show undated in current
-    return d.getFullYear() * 12 + d.getMonth() >= currYM;
-  });
-
-  const sortFn = (a,b) => {
-    const da=parseSessionDate(a.date)||new Date(0), db=parseSessionDate(b.date)||new Date(0);
-    if(da-db!==0) return da-db;
-    return (a.start_time||'').localeCompare(b.start_time||'');
-  };
-  prevSessions.sort(sortFn);
-  currSessions.sort(sortFn);
-
-  const body = document.getElementById('schedule-body');
-  if (!body) return;
-  const colSpan = 9;
-
-  if (!prevSessions.length && !currSessions.length) {
-    body.innerHTML = `<tr><td colspan="${colSpan}" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet'}</td></tr>`;
-    return;
-  }
-
-  function buildRows(list, sectionId) {
-    return list.map(s => {
-      const tutor = getTutor(s.tutor_id);
-      const color = COLOR_MAP[tutor.color] || '#888';
-      const subject = getSubjectForSession(s);
-      const timeStr = formatTimeRange(s.start_time, s.end_time);
-      const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
-      const isCompleted = s.status === 'Completed' || s.status === 'Makeup';
-      const isLocked = isMonthLocked(s.date);
-      const isPastLocked = isMonthLocked(s.date) && !isCompleted;
-      const statusDropdown = isLocked
-        ? `${statusBadge(s.status)}${isPastLocked?`<span style="font-size:10px;color:var(--text3);margin-left:4px">🔒</span>`:''}`
-        : `<select onchange="updateSessionStatus('${s.session_id}', this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
-            <option value="Scheduled"  ${s.status==='Scheduled' ?'selected':''}>${lang==='th'?'กำหนดการ':'Scheduled'}</option>
-            <option value="Completed"  ${s.status==='Completed' ?'selected':''}>${lang==='th'?'สอนแล้ว':'Completed'}</option>
-            <option value="Missed"     ${s.status==='Missed'    ?'selected':''}>${lang==='th'?'ขาดเรียน':'Missed'}</option>
-            <option value="Cancelled"  ${s.status==='Cancelled' ?'selected':''}>${lang==='th'?'ยกเลิก':'Cancelled'}</option>
-          </select>`;
-      const rowAttr = sectionId ? `data-section="${sectionId}"` : '';
-      return `<tr ${rowAttr}>
-        <td><span class="dot" style="background:${color}"></span>${getStudentNickname(s.student_id, s.course_id)}</td>
-        <td>${tutor.name||s.tutor_id}</td>
-        <td>${subject}</td>
-        <td>${fmtDate(s.date)}</td>
-        <td style="white-space:nowrap">${timeStr}</td>
-        <td>${s.hours||'—'}</td>
-        <td>฿${fmt(s.total_revenue)}</td>
-        <td>${statusDropdown}</td>
-        <td>
-          ${isCompleted?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`
-            :isPastLocked?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'เดือนที่ผ่านมา':'Past month'}</span>`
-            :canMakeup?`<button class="btn btn-sm" onclick="openMakeupFromSchedule('${s.session_id}')">${lang==='th'?'นัดชดเชย':'Schedule makeup'}</button>`:'—'}
-          ${s.makeup_ref?`<span class="linked-tag" style="margin-left:4px">↩ ${s.makeup_ref}</span>`:''}
-        </td>
-      </tr>`;
-    }).join('');
-  }
-
-  const prevMonthLabel = (() => {
-    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-1);
-    return (lang==='th'?MONTHS_TH:MONTHS_EN)[d.getMonth()] + ' ' + d.getFullYear();
-  })();
-  const currMonthLabel = (() => {
-    const d = new Date();
-    return (lang==='th'?MONTHS_TH:MONTHS_EN)[d.getMonth()] + ' ' + d.getFullYear();
-  })();
-
-  const prevCollapsed = !isPrevMonthWindow();
-  let html = '';
-  if (prevSessions.length) {
-    html += renderSectionHeaderRow(
-      `${lang==='th'?'เดือนที่แล้ว':'Previous month'} — ${prevMonthLabel} (${prevSessions.length})`,
-      'detail-prev', prevCollapsed, colSpan
-    );
-    const prevRows = buildRows(prevSessions, 'detail-prev');
-    html += prevCollapsed
-      ? prevRows.replace(/<tr data-section="detail-prev">/g, '<tr data-section="detail-prev" style="display:none">')
-      : prevRows;
-  }
-  if (currSessions.length) {
-    if (prevSessions.length) {
-      html += renderSectionHeaderRow(
-        `${lang==='th'?'เดือนนี้':'This month'} — ${currMonthLabel} (${currSessions.length})`,
-        'detail-curr', false, colSpan
-      );
-    }
-    html += buildRows(currSessions, prevSessions.length ? 'detail-curr' : null);
-  }
-  body.innerHTML = html;
-}
-
 // ─── MAKEUP ───────────────────────────────────────────────
 function renderMakeupQueue() {
   // Sessions that need a makeup = Cancelled or Missed, AND no makeup session exists referencing them yet
@@ -3656,19 +3556,17 @@ function toggleGroup(groupId) {
 // ─── SECTION STATE SAVE/RESTORE ───────────────────────────
 function captureDetailSectionState() {
   const state = {};
-  ['detsess-prev','detsess-curr'].forEach(id => {
-    const rows = document.querySelectorAll(`[data-section="${id}"]`);
-    if (rows.length) state[id] = rows[0].style.display !== 'none';
+  document.querySelectorAll('[data-section]').forEach(row => {
+    const id = row.getAttribute('data-section');
+    if (!(id in state)) state[id] = row.style.display !== 'none';
   });
   return state;
 }
 function restoreDetailSectionState(state) {
-  ['detsess-prev','detsess-curr'].forEach(id => {
-    if (!(id in state)) return;
+  Object.entries(state).forEach(([id, expanded]) => {
     const rows = document.querySelectorAll(`[data-section="${id}"]`);
     const header = document.querySelector(`[onclick="toggleScheduleSection('${id}')"]`);
     const arrow = header?.querySelector('span');
-    const expanded = state[id];
     rows.forEach(r => r.style.display = expanded ? '' : 'none');
     if (arrow) arrow.textContent = expanded ? '▼' : '▶';
   });
@@ -3708,15 +3606,23 @@ function openStudentDetail(courseId) {
     <div class="metric"><div class="metric-label">${lang==='th'?'รายได้รวม':'Total revenue'}</div><div class="metric-value">฿${fmt(totalRevenue)}</div></div>`;
 
   const body = document.getElementById('detail-sessions-body');
-  if (!sessions.length){body.innerHTML=`<tr><td colspan="8" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet'}</td></tr>`;return;}
+  if (!sessions.length){body.innerHTML=`<tr><td colspan="9" class="empty">${lang==='th'?'ยังไม่มีคาบเรียน':'No sessions yet'}</td></tr>`;return;}
 
-  // Split into previous month and current+future
-  const now = new Date();
-  const currYM = now.getFullYear() * 12 + now.getMonth();
-  const prevSess = sessions.filter(s => {
+  // ── Previous courses (other blocks for same student) ──────────
+  const otherCourses = DATA.courses.filter(c =>
+    c.student_id === course.student_id && c.course_id !== courseId
+  ).sort((a,b) => Number(a.block_number||1) - Number(b.block_number||1));
+
+  // ── Split current course sessions by month ────────────────────
+  const nowD = new Date();
+  const currYM = nowD.getFullYear() * 12 + nowD.getMonth();
+
+  const pastSess = sessions.filter(s => {
     const d = parseSessionDate(String(s.date||'').trim());
     if (!d || isNaN(d.getTime())) return false;
-    return d.getFullYear() * 12 + d.getMonth() === currYM - 1;
+    const sYM = d.getFullYear() * 12 + d.getMonth();
+    if (sessionUnlocked) return sYM < currYM;
+    return sYM === currYM - 1;
   });
   const currSess = sessions.filter(s => {
     const d = parseSessionDate(String(s.date||'').trim());
@@ -3724,10 +3630,26 @@ function openStudentDetail(courseId) {
     return d.getFullYear() * 12 + d.getMonth() >= currYM;
   });
 
+  // ── Dynamic label for past section ───────────────────────────
+  function pastSectionLabel(list) {
+    const months = lang==='th'?MONTHS_TH:MONTHS_EN;
+    const yms = [...new Set(list.map(s => {
+      const d = parseSessionDate(String(s.date||'').trim());
+      return d ? d.getFullYear() * 12 + d.getMonth() : null;
+    }).filter(Boolean))].sort();
+    if (!yms.length) return '';
+    const toLabel = ym => months[ym % 12] + ' ' + Math.floor(ym / 12);
+    if (yms.length === 1) return `${lang==='th'?'เดือนที่แล้ว':'Previous month'} — ${toLabel(yms[0])}`;
+    return `${lang==='th'?'เดือนก่อนหน้า':'Previous months'} — ${toLabel(yms[0])} ${lang==='th'?'ถึง':'to'} ${toLabel(yms[yms.length-1])}`;
+  }
+
+  const currMonthLabel = (lang==='th'?MONTHS_TH:MONTHS_EN)[nowD.getMonth()] + ' ' + nowD.getFullYear();
+  const colSpan = 9;
+
   let sessionNum = 0;
   function buildDetailRow(s, sectionId) {
     const hrs=Number(s.hours||0);
-    const timeStr=s.start_time&&s.end_time?`${s.start_time}–${s.end_time}`:(s.start_time||'—');
+    const timeStr=s.start_time&&s.end_time?`${formatTime(s.start_time)}–${formatTime(s.end_time)}`:(s.start_time||'—');
     let hrsCharged='—', hrsStudied='—', notes='';
     if (s.status==='Completed'){sessionNum++;hrsCharged=hrs;hrsStudied=hrs;notes='';}
     else if (s.status==='Missed'){hrsCharged=hrs*0.5+' (50%)';hrsStudied=0;notes=lang==='th'?'ขาดเรียน — เก็บ 50%':'Missed — 50% charged';}
@@ -3735,7 +3657,7 @@ function openStudentDetail(courseId) {
     else if (s.status==='Cancelled'){hrsCharged=0;hrsStudied=0;notes=lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup';}
     else{hrsCharged='—';hrsStudied='—';}
     const num = s.status==='Scheduled'?'—':sessionNum||'—';
-    const isEditable = s.status === 'Scheduled' && !isMonthLocked(s.date);
+    const isEditable = !isMonthLocked(s.date);
     const rowAttr = sectionId ? `data-section="${sectionId}"` : '';
     return `<tr ${rowAttr}>
       <td>${num}</td>
@@ -3753,37 +3675,75 @@ function openStudentDetail(courseId) {
     </tr>`;
   }
 
-  const prevMonthLabel = (() => {
-    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-1);
-    return (lang==='th'?MONTHS_TH:MONTHS_EN)[d.getMonth()] + ' ' + d.getFullYear();
-  })();
-  const currMonthLabel = (() => {
-    const d = new Date();
-    return (lang==='th'?MONTHS_TH:MONTHS_EN)[d.getMonth()] + ' ' + d.getFullYear();
-  })();
-
-  const colSpan = 9;
-  const prevCollapsed = !isPrevMonthWindow();
   let html = '';
-  if (prevSess.length) {
+
+  // ── Previous courses section ─────────────────────────────────
+  if (otherCourses.length) {
+    const pcId = 'detsess-prevcourses';
     html += renderSectionHeaderRow(
-      `${lang==='th'?'เดือนที่แล้ว':'Previous month'} — ${prevMonthLabel} (${prevSess.length})`,
-      'detsess-prev', prevCollapsed, colSpan
+      lang==='th'?`คอร์สก่อนหน้า (${otherCourses.length})`:`Previous courses (${otherCourses.length})`,
+      pcId, true, colSpan
     );
-    const prevRows = prevSess.map(s => buildDetailRow(s, 'detsess-prev')).join('');
-    html += prevCollapsed
+    otherCourses.forEach(oc => {
+      const ocTutor = getTutor(oc.tutor_id);
+      const ocSessions = getValidSessions(oc.course_id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+      const ocTaught = ocSessions.filter(s=>s.status==='Completed'||s.status==='Makeup').length;
+      const ocBlockId = `detsess-block-${oc.course_id}`;
+      // Summary card row — clicking toggles inline session list
+      html += `<tr data-section="${pcId}" style="display:none">
+        <td colspan="${colSpan}" style="padding:0">
+          <div onclick="toggleScheduleSection('${ocBlockId}')"
+            style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface2);cursor:pointer;border-bottom:1px solid var(--border)">
+            <span id="${ocBlockId}-arrow" style="display:inline-block;transition:transform 0.2s;transform:rotate(-90deg)">▾</span>
+            <span style="font-size:13px;font-weight:500">Block ${oc.block_number||'?'} · ${oc.course_id} · ${oc.subject}</span>
+            <span style="font-size:12px;color:var(--text3)">${ocTutor.name||oc.tutor_id} · ${oc.total_paid_hrs||'?'} hrs · ${ocTaught} taught</span>
+            <span style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--surface);border:1px solid var(--border);color:var(--text2)">${oc.lifecycle_status||'—'}</span>
+          </div>
+        </td>
+      </tr>`;
+      // Session rows for this old block
+      let ocNum = 0;
+      ocSessions.forEach(s => {
+        if (s.status==='Completed'||s.status==='Makeup') ocNum++;
+        html += `<tr data-section="${ocBlockId}" style="display:none">
+          <td style="padding-left:32px;color:var(--text3);font-size:12px">${s.status==='Scheduled'?'—':ocNum||'—'}</td>
+          <td style="font-size:12px">${fmtDate(s.date)}</td>
+          <td style="font-size:12px">${s.start_time&&s.end_time?`${formatTime(s.start_time)}–${formatTime(s.end_time)}`:(s.start_time||'—')}</td>
+          <td>${statusBadge(s.status)}</td>
+          <td style="font-size:12px">${s.hours||'—'}</td>
+          <td style="font-size:12px">${s.status==='Completed'?s.hours:s.status==='Missed'?(Number(s.hours)*0.5):0}</td>
+          <td style="font-size:12px">${s.status==='Scheduled'?'—':'฿'+fmt(s.total_revenue)}</td>
+          <td colspan="2" style="font-size:11px;color:var(--text3)">${oc.subject}</td>
+        </tr>`;
+      });
+      if (!ocSessions.length) {
+        html += `<tr data-section="${ocBlockId}" style="display:none"><td colspan="${colSpan}" class="empty" style="font-size:12px">${lang==='th'?'ไม่มีคาบ':'No sessions'}</td></tr>`;
+      }
+    });
+  }
+
+  // ── Past months section (current course) ─────────────────────
+  const pastCollapsed = !isPrevMonthWindow() && !sessionUnlocked;
+  if (pastSess.length) {
+    const label = `${pastSectionLabel(pastSess)} (${pastSess.length})`;
+    html += renderSectionHeaderRow(label, 'detsess-prev', pastCollapsed, colSpan);
+    const prevRows = pastSess.map(s => buildDetailRow(s, 'detsess-prev')).join('');
+    html += pastCollapsed
       ? prevRows.replace(/<tr data-section="detsess-prev">/g, '<tr data-section="detsess-prev" style="display:none">')
       : prevRows;
   }
+
+  // ── This month section ────────────────────────────────────────
   if (currSess.length) {
-    if (prevSess.length) {
+    if (pastSess.length || otherCourses.length) {
       html += renderSectionHeaderRow(
         `${lang==='th'?'เดือนนี้':'This month'} — ${currMonthLabel} (${currSess.length})`,
         'detsess-curr', false, colSpan
       );
     }
-    html += currSess.map(s => buildDetailRow(s, prevSess.length ? 'detsess-curr' : null)).join('');
+    html += currSess.map(s => buildDetailRow(s, (pastSess.length||otherCourses.length) ? 'detsess-curr' : null)).join('');
   }
+
   body.innerHTML = html;
 }
 
