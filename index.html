@@ -1202,7 +1202,7 @@
           <div class="form-group"><label data-en="Subject" data-th="วิชา">Subject</label><input type="text" id="enroll-subject" list="subject-list" placeholder="e.g. IELTS" oninput="saveEnrollDraft()"><datalist id="subject-list"></datalist></div>
           <div class="form-group">
             <label data-en="Tutor" data-th="ครู">Tutor</label>
-            <select id="enroll-tutor" onchange="suggestTutorRate()"></select>
+            <select id="enroll-tutor" onchange="suggestTutorRate();if(enrollType==='group')updateGroupRateHint()"></select>
           </div>
         </div>
         <div class="form-row three">
@@ -1216,8 +1216,29 @@
           </div>
           <div class="form-group">
             <label data-en="Tutor rate per hour (฿)" data-th="ค่าสอน/ชม. (฿)">Tutor rate/hr (฿) <span style="color:var(--teal);font-size:10px" data-en="auto-suggested" data-th="แนะนำอัตโนมัติ">auto-suggested</span></label>
+            <!-- Single mode: editable input -->
             <input type="number" id="enroll-rate" placeholder="e.g. 650">
             <div id="rate-hint" style="font-size:11px;color:var(--text3);margin-top:3px"></div>
+            <!-- Group mode: locked display (shown instead of input) -->
+            <div id="group-rate-locked" style="display:none">
+              <div id="group-rate-locked-value" style="padding:7px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:500;color:var(--text);display:flex;align-items:center;justify-content:space-between">
+                <span id="group-rate-locked-num">—</span>
+                <span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'คำนวณอัตโนมัติ':'auto-calculated'}</span>
+              </div>
+              <div id="group-rate-locked-hint" style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5"></div>
+              <button id="group-rate-edit-btn" onclick="(function(){
+                document.getElementById('group-rate-locked').style.display='none';
+                document.getElementById('enroll-rate').style.display='';
+                document.getElementById('rate-hint').style.display='';
+                document.getElementById('group-rate-warning').style.display='block';
+                document.getElementById('enroll-rate').focus();
+              })()" style="font-size:11px;color:var(--text2);background:none;border:none;cursor:pointer;padding:2px 0;font-family:'DM Sans',sans-serif;text-decoration:underline;margin-top:2px">
+                ✏️ ${lang==='th'?'แก้ไข (ขั้นสูง)':'Edit (advanced)'}
+              </button>
+              <div id="group-rate-warning" style="display:none;margin-top:6px;font-size:11px;color:var(--red);background:#FCEBEB;padding:6px 10px;border-radius:6px">
+                ⚠️ ${lang==='th'?'การแก้ไขค่านี้จะส่งผลต่อการคำนวณรายได้ — ค่าที่ระบบคำนวณให้คือ':'Editing this affects revenue calculations — system value is'} <strong id="group-rate-warning-val"></strong>
+              </div>
+            </div>
           </div>
         </div>
         <div class="form-row">
@@ -3058,9 +3079,23 @@ function setEnrollType(type) {
   const isGroup = type === 'group';
   document.getElementById('enroll-single-student').style.display = isGroup ? 'none' : 'block';
   document.getElementById('enroll-group-students').style.display = isGroup ? 'block' : 'none';
-  if (isGroup && document.getElementById('group-students-body').children.length === 0) {
-    addGroupStudentRow();
-    addGroupStudentRow();
+  if (isGroup) {
+    if (document.getElementById('group-students-body').children.length === 0) {
+      addGroupStudentRow();
+      addGroupStudentRow();
+    }
+    updateGroupRateHint(); // show locked display
+  } else {
+    // Reset rate field to editable for non-group modes
+    const lockedEl  = document.getElementById('group-rate-locked');
+    const rateInput = document.getElementById('enroll-rate');
+    const rateHintEl = document.getElementById('rate-hint');
+    const warningEl = document.getElementById('group-rate-warning');
+    if (lockedEl)  { lockedEl.style.display = 'none'; }
+    if (rateInput) { rateInput.style.display = ''; }
+    if (rateHintEl){ rateHintEl.style.display = ''; }
+    if (warningEl) { warningEl.style.display = 'none'; }
+    suggestTutorRate();
   }
   updateEnrollPreview();
 }
@@ -3084,24 +3119,67 @@ function addGroupStudentRow() {
 }
 
 function updateGroupRateHint() {
-  const count = document.getElementById('group-students-body').children.length;
+  const count   = document.getElementById('group-students-body').children.length;
   const tutorId = document.getElementById('enroll-tutor').value;
-  const tutor = getTutor(tutorId);
-  const hint = document.getElementById('group-rate-hint');
-  if (!hint) return;
-  if (count > 0) {
-    const extra = Math.max(0, count - 1);
-    let base = 650;
-    if (tutorId === 'T001' || tutorId === 'T005') base = 700;
-    if (tutorId === 'T006' || tutorId === 'T007') base = 350;
-    const extraPer = (tutorId === 'T006' || tutorId === 'T007') ? 50 : 100;
-    const rate = base + extra * extraPer;
-    hint.style.display = 'block';
-    hint.textContent = `${count} ${lang==='th'?'คน':'students'} → ${lang==='th'?'ค่าสอนครู':'Tutor rate'}: ฿${base} + ฿${extraPer}×${extra} = ฿${rate}/hr`;
-    document.getElementById('enroll-rate').value = rate;
-  } else {
-    hint.style.display = 'none';
+  const tutor   = getTutor(tutorId);
+  const hint    = document.getElementById('group-rate-hint');
+
+  // Tier lookup
+  let base     = 650;
+  if (tutorId === 'T001' || tutorId === 'T005') base = 700;
+  if (tutorId === 'T006' || tutorId === 'T007') base = 350;
+  if (tutorId === 'T008') base = 500;
+  const extraPer = (tutorId === 'T006' || tutorId === 'T007') ? 50
+                 : (tutorId === 'T008') ? 50 : 100;
+  const extra    = Math.max(0, count - 1);
+  const totalRate = base + extra * extraPer;
+  const splitRate = count > 0 ? Math.round((totalRate / count) * 100) / 100 : totalRate;
+
+  if (hint) {
+    if (count > 0) {
+      hint.style.display = 'block';
+      hint.textContent = `${count} ${lang==='th'?'คน':'students'} → ${lang==='th'?'ค่าสอนครูรวม':'Total tutor pay'}: ฿${base} + ฿${extraPer}×${extra} = ฿${totalRate}/hr`;
+    } else {
+      hint.style.display = 'none';
+    }
   }
+
+  const isGroupMode = document.getElementById('group-students-body')?.closest('[style*="display: block"]') !== null
+    || document.getElementById('group-course-section')?.style.display !== 'none';
+
+  if (count >= 1) {
+    // Show locked display, hide editable input
+    const lockedEl     = document.getElementById('group-rate-locked');
+    const lockedNum    = document.getElementById('group-rate-locked-num');
+    const lockedHint   = document.getElementById('group-rate-locked-hint');
+    const warningVal   = document.getElementById('group-rate-warning-val');
+    const rateInput    = document.getElementById('enroll-rate');
+    const rateHintEl   = document.getElementById('rate-hint');
+
+    if (lockedEl && lockedNum && lockedHint) {
+      lockedEl.style.display = 'block';
+      rateInput.style.display = 'none';
+      if (rateHintEl) rateHintEl.style.display = 'none';
+
+      lockedNum.textContent = `฿${splitRate}/hr per record`;
+      const tutorName = tutor?.name || tutorId;
+      const extraLabel = extra > 0 ? ` + ฿${extraPer}×${extra}` : '';
+      lockedHint.innerHTML = `<span style="color:var(--text2)">${tutorName} · ${count} ${lang==='th'?'คน':'students'} · ฿${base}${extraLabel} = ฿${totalRate} ${lang==='th'?'รวม':'total'} ÷ ${count} = <strong style="color:var(--teal)">฿${splitRate}/hr</strong> ${lang==='th'?'ต่อ record':'per record'}</span>`;
+      if (warningVal) warningVal.textContent = `฿${splitRate}/hr`;
+
+      // Always write the split value to the hidden input so submitEnrollment reads it
+      rateInput.value = splitRate;
+    }
+  } else {
+    // Back to single mode — show editable input
+    const lockedEl  = document.getElementById('group-rate-locked');
+    const rateInput = document.getElementById('enroll-rate');
+    const rateHintEl = document.getElementById('rate-hint');
+    if (lockedEl) lockedEl.style.display = 'none';
+    if (rateInput) { rateInput.style.display = ''; rateInput.value = ''; }
+    if (rateHintEl) rateHintEl.style.display = '';
+  }
+
   updateEnrollPreview();
 }
 
