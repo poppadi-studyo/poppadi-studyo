@@ -1527,6 +1527,11 @@ async function loadAllData() {
     if (_savedPage && _savedPage !== 'overview' && document.getElementById('page-' + _savedPage)) {
       showPage(_savedPage);
     }
+    // Restore open student detail if user was inside one
+    const _savedCourse = localStorage.getItem('poppadi_detail_course');
+    if (_savedCourse && _savedPage === 'students') {
+      openStudentDetail(_savedCourse);
+    }
     showToast(lang==='th' ? '✓ ข้อมูลล่าสุดแล้ว' : '✓ Data up to date');
 
   } catch(e) {
@@ -3577,6 +3582,7 @@ function openStudentDetail(courseId) {
   const course  = DATA.courses.find(c=>c.course_id===courseId);
   if (!course) return;
   currentDetailCourse = course;
+  localStorage.setItem('poppadi_detail_course', courseId);
   const student = DATA.students.find(s=>s.student_id===course.student_id);
   const tutor   = getTutor(course.tutor_id);
   document.getElementById('students-list-view').style.display   = 'none';
@@ -3749,6 +3755,7 @@ function openStudentDetail(courseId) {
 
 function closeStudentDetail() {
   currentDetailCourse = null;
+  localStorage.removeItem('poppadi_detail_course');
   document.getElementById('students-list-view').style.display   = 'block';
   document.getElementById('students-detail-view').style.display = 'none';
 }
@@ -5899,6 +5906,11 @@ function onAppReady() {
     const savedPage = localStorage.getItem('poppadi_page');
     if (savedPage && document.getElementById('page-'+savedPage)) {
       showPage(savedPage);
+    }
+    // Restore open student detail if user was inside one
+    const savedCourse = localStorage.getItem('poppadi_detail_course');
+    if (savedCourse && savedPage === 'students') {
+      openStudentDetail(savedCourse);
     }
     setTimeout(() => {
       suggestTutorRate();
