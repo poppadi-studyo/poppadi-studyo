@@ -1692,25 +1692,38 @@ function renderOverview() {
       <div class="metric-value">฿${fmt(totalExpenses)}</div>
       <div class="metric-sub">${lang==='th'?'เงินเดือน + ค่าเช่า':'Salaries + rent'}</div>
     </div>
-    <div class="metric" style="opacity:0.75">
-      <div class="metric-label">${lang==='th'?'รายได้รวม (คาดการณ์)':'Total revenue (predicted)'}</div>
-      <div class="metric-value" style="font-size:18px">฿${fmt(predictedRevenue)}</div>
-      <div class="metric-sub">${lang==='th'?'ก่อนหักค่าสอน+คอมม์ ถ้าสอนครบ':'Gross, before tutor pay & comms, if all run'}</div>
-    </div>
-    <div class="metric" style="opacity:0.75">
-      <div class="metric-label">${lang==='th'?'รายได้รวม (จริง)':'Total revenue (realized)'}</div>
-      <div class="metric-value" style="font-size:18px">฿${fmt(realizedIncome)}</div>
-      <div class="metric-sub">${lang==='th'?'ก่อนหักค่าสอน+คอมม์ จากคาบที่สอนแล้ว':'Gross, before tutor pay & comms, taught sessions only'}</div>
-    </div>
-    <div class="metric" style="opacity:0.75">
-      <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (จริง)':'School cut (taught sessions)'}</div>
-      <div class="metric-value" style="font-size:18px">฿${fmt(schoolRemainder)}</div>
-      <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์':'After tutor pay & comms'}</div>
-    </div>
-    <div class="metric" style="opacity:0.75">
-      <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (คาดการณ์)':'School cut (if all run)'}</div>
-      <div class="metric-value" style="font-size:18px">฿${fmt(predictedSchoolRem)}</div>
-      <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์ ถ้าสอนครบ':'After tutor pay & comms, if all sessions taught'}</div>
+    <div style="grid-column:span 2;margin-top:4px">
+      <button id="overview-details-toggle" onclick="(function(){
+        const body=document.getElementById('overview-details-body');
+        const btn=document.getElementById('overview-details-toggle');
+        const open=body.style.display!=='none';
+        body.style.display=open?'none':'grid';
+        btn.textContent=open?(lang==='th'?'+ ดูรายละเอียดรายได้':'+ View revenue breakdown'):(lang==='th'?'− ซ่อน':'− Hide breakdown');
+      })()" style="font-size:12px;color:var(--text2);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+        ${lang==='th'?'+ ดูรายละเอียดรายได้':'+ View revenue breakdown'}
+      </button>
+      <div id="overview-details-body" style="display:none;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+        <div class="metric">
+          <div class="metric-label">${lang==='th'?'รายได้รวม (คาดการณ์)':'Total revenue (predicted)'}</div>
+          <div class="metric-value" style="font-size:18px">฿${fmt(predictedRevenue)}</div>
+          <div class="metric-sub">${lang==='th'?'ก่อนหักค่าสอน+คอมม์ ถ้าสอนครบ':'Gross, before tutor pay & comms, if all run'}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">${lang==='th'?'รายได้รวม (จริง)':'Total revenue (realized)'}</div>
+          <div class="metric-value" style="font-size:18px">฿${fmt(realizedIncome)}</div>
+          <div class="metric-sub">${lang==='th'?'ก่อนหักค่าสอน+คอมม์ จากคาบที่สอนแล้ว':'Gross, before tutor pay & comms, taught sessions only'}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (จริง)':'School cut (taught sessions)'}</div>
+          <div class="metric-value" style="font-size:18px">฿${fmt(schoolRemainder)}</div>
+          <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์':'After tutor pay & comms'}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">${lang==='th'?'ส่วนแบ่งโรงเรียน (คาดการณ์)':'School cut (if all run)'}</div>
+          <div class="metric-value" style="font-size:18px">฿${fmt(predictedSchoolRem)}</div>
+          <div class="metric-sub">${lang==='th'?'หลังหักค่าสอน+คอมม์ ถ้าสอนครบ':'After tutor pay & comms, if all sessions taught'}</div>
+        </div>
+      </div>
     </div>
   `;
 
@@ -2754,15 +2767,6 @@ function addGroupStudentRow() {
     </div>
     <div style="flex:1;min-width:100px">
       <input type="number" placeholder="฿/hr" title="Fee per hour" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif" oninput="updateEnrollPreview()">
-    </div>
-    <div style="flex:1;min-width:120px">
-      <input type="text" placeholder="INV-ref" title="Invoice ref" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif">
-    </div>
-    <div style="min-width:130px">
-      <select title="Payment status" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif">
-        <option value="Paid">Paid ✅</option>
-        <option value="Pending">Pending ⏳</option>
-      </select>
     </div>
     <button onclick="this.closest('div').remove();updateGroupRateHint()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:4px">✕</button>`;
   body.appendChild(div);
@@ -5499,34 +5503,51 @@ function populateEnrollTutors() {
 }
 
 async function submitEnrollment() {
-  const studentName  = document.getElementById('enroll-student').value.trim();
+  const isGroupMode  = enrollType === 'group';
   const subject      = document.getElementById('enroll-subject').value.trim();
   const tutorId      = document.getElementById('enroll-tutor').value;
   const paidHrs      = parseFloat(document.getElementById('enroll-hours').value) || 0;
-  const feePerHr     = parseFloat(document.getElementById('enroll-fee').value) || 0;
   const tutorRate    = parseFloat(document.getElementById('enroll-rate').value) || 0;
   const commTo       = document.getElementById('enroll-jane').value;
   const enrollmentType = enrollType || 'new';
 
-  if (!studentName || !subject || !tutorId || !paidHrs || !feePerHr) {
-    alert(lang==='th'
-      ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
-      : 'Please fill in required fields:\n• Student name\n• Subject\n• Total paid hours\n• Fee per hour');
-    return;
+  // ── Collect group students ───────────────────────────────
+  let groupStudents = []; // [{ name, feePerHr }]
+  if (isGroupMode) {
+    const groupRows = document.querySelectorAll('#group-students-body > div');
+    groupRows.forEach(row => {
+      const nameInput = row.querySelectorAll('input')[0];
+      const feeInput  = row.querySelectorAll('input')[1];
+      const name = nameInput?.value.trim() || '';
+      const fee  = parseFloat(feeInput?.value) || 0;
+      if (name) groupStudents.push({ name, feePerHr: fee });
+    });
+    if (groupStudents.length === 0) {
+      alert(lang==='th'
+        ? 'กรุณากรอกชื่อนักเรียนอย่างน้อย 1 คน'
+        : 'Please add at least one student name');
+      return;
+    }
+    const missingFee = groupStudents.find(s => !s.feePerHr);
+    if (!subject || !paidHrs || missingFee) {
+      alert(lang==='th'
+        ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม. (ทุกคน)'
+        : 'Please fill in required fields:\n• Student names\n• Subject\n• Total paid hours\n• Fee per hour (for each student)');
+      return;
+    }
+  } else {
+    // ── Single student validation ────────────────────────
+    const studentName = document.getElementById('enroll-student').value.trim();
+    const feePerHr    = parseFloat(document.getElementById('enroll-fee').value) || 0;
+    if (!studentName || !subject || !tutorId || !paidHrs || !feePerHr) {
+      alert(lang==='th'
+        ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
+        : 'Please fill in required fields:\n• Student name\n• Subject\n• Total paid hours\n• Fee per hour');
+      return;
+    }
   }
 
-  // Find or create student
-  const existingStudent = DATA.students.find(s =>
-    (s.nickname||'').toLowerCase() === studentName.toLowerCase() ||
-    (s.full_name||'').toLowerCase() === studentName.toLowerCase()
-  );
-  const isNewStudent = !existingStudent;
-  const studentId    = existingStudent?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
-  const fullName     = document.getElementById('enroll-fullname')?.value.trim() || '';
-  const phone        = document.getElementById('enroll-phone')?.value.trim()    || '';
-  const notes        = document.getElementById('enroll-notes')?.value.trim()    || '';
-
-  // Collect schedule rows — handle both select (start) and input (end, date)
+  // ── Collect schedule rows ────────────────────────────────
   const schedRows = document.querySelectorAll('#enroll-schedule-body tr');
   const sessions  = [];
   schedRows.forEach(row => {
@@ -5552,58 +5573,139 @@ async function submitEnrollment() {
 
   try {
     const tutor = getTutor(tutorId);
-    setSaveProgress(30, lang==='th'?'กำลังบันทึกนักเรียน...':'Writing student...');
-    setSaveProgress(60, lang==='th'?'กำลังสร้างคาบเรียน...':'Creating sessions...');
 
-    const result = await webAppWrite('addEnrollment', {
-      student: {
-        student_id:   studentId,
-        nickname:     studentName,
-        full_name:    fullName,
-        phone,
-        notes,
-        is_new:       isNewStudent
-      },
-      course: {
-        student_id: studentId,
-        student_name: studentName,
-        tutor_id: tutorId,
-        subject,
-        total_paid_hrs: paidHrs,
-        fee_per_hr: feePerHr,
-        tutor_rate_per_hr: tutorRate,
-        commission_to: commTo,
-        invoice_ref: '',
-        payment_date: '',
-        payment_status: 'Pending',
-        enrollment_type: enrollmentType,
-        block_number: 1,
-        num_students: 1
-      },
-      sessions
-    });
+    if (isGroupMode) {
+      // ── GROUP: enroll each student individually ──────────
+      const numStudents = groupStudents.length;
+      for (let i = 0; i < groupStudents.length; i++) {
+        const { name, feePerHr } = groupStudents[i];
+        const pct = 20 + Math.round((i / numStudents) * 70);
+        setSaveProgress(pct, lang==='th'
+          ? `กำลังบันทึก ${name}... (${i+1}/${numStudents})`
+          : `Enrolling ${name}... (${i+1}/${numStudents})`);
 
-    // ✅ Write succeeded — show success immediately, THEN reload data in background
-    setSaveProgress(100, lang==='th'?'บันทึกแล้ว!':'Saved!');
-    clearEnrollDraft();
+        const existingStudent = DATA.students.find(s =>
+          (s.nickname||'').toLowerCase() === name.toLowerCase() ||
+          (s.full_name||'').toLowerCase() === name.toLowerCase()
+        );
+        const isNewStudent = !existingStudent;
+        const studentId    = existingStudent?.student_id || 'S' + String(DATA.students.length + 1 + i).padStart(3,'0');
 
-    // Show post-save summary modal — user must click Done before form resets
-    showEnrollmentSummary({
-      studentName, subject, tutor: tutor.name||tutorId,
-      paidHrs, feePerHr, tutorRate, commTo,
-      courseId: result.course_id, sessions,
-      onDone: async () => {
-        // Reset form after user dismisses modal
-        document.getElementById('enroll-student').value = '';
-        document.getElementById('enroll-subject').value = '';
-        document.getElementById('enroll-hours').value   = '';
-        document.getElementById('enroll-fee').value     = '';
-        initScheduleBody();
-        resetSaveBtn();
-        await loadAllData();
-        renderPendingPayments();
+        await webAppWrite('addEnrollment', {
+          student: {
+            student_id: studentId,
+            nickname:   name,
+            full_name:  '',
+            phone:      '',
+            notes:      '',
+            is_new:     isNewStudent
+          },
+          course: {
+            student_id:        studentId,
+            student_name:      name,
+            tutor_id:          tutorId,
+            subject,
+            total_paid_hrs:    paidHrs,
+            fee_per_hr:        feePerHr,
+            tutor_rate_per_hr: tutorRate,
+            commission_to:     commTo,
+            invoice_ref:       '',
+            payment_date:      '',
+            payment_status:    'Pending',
+            enrollment_type:   'group',
+            block_number:      1,
+            num_students:      numStudents
+          },
+          sessions
+        });
       }
-    });
+
+      setSaveProgress(100, lang==='th'?'บันทึกแล้ว!':'Saved!');
+      clearEnrollDraft();
+
+      // Simple success modal for group
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+      modal.innerHTML = `<div style="background:#fff;border-radius:14px;padding:28px 32px;max-width:420px;width:90%;font-family:'DM Sans',sans-serif">
+        <div style="font-size:28px;margin-bottom:8px">✅</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px">${lang==='th'?'ลงทะเบียนกลุ่มสำเร็จ!':'Group enrolled!'}</div>
+        <div style="font-size:13px;color:#666;margin-bottom:16px">
+          ${groupStudents.map(s=>`<div>• ${s.name} — ฿${fmt(s.feePerHr)}/hr</div>`).join('')}
+          <div style="margin-top:8px;color:#999">${subject} · ${paidHrs} hrs · ${tutor.name||tutorId} · ${sessions.length} ${lang==='th'?'คาบ':'sessions'}</div>
+          <div style="margin-top:6px;font-size:12px;color:var(--amber)">⏳ ${lang==='th'?'ยืนยันการชำระเงินด้านล่าง':'Confirm payment in Pending payments below'}</div>
+        </div>
+        <button onclick="this.closest('div').parentElement.remove();document.getElementById('group-students-body').innerHTML='';document.getElementById('enroll-subject').value='';document.getElementById('enroll-hours').value='';initScheduleBody();resetSaveBtn();loadAllData().then(()=>renderPendingPayments())"
+          style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">
+          ${lang==='th'?'เสร็จแล้ว':'Done'}
+        </button>
+      </div>`;
+      document.body.appendChild(modal);
+
+    } else {
+      // ── SINGLE STUDENT ───────────────────────────────────
+      const studentName = document.getElementById('enroll-student').value.trim();
+      const feePerHr    = parseFloat(document.getElementById('enroll-fee').value) || 0;
+      const fullName    = document.getElementById('enroll-fullname')?.value.trim() || '';
+      const phone       = document.getElementById('enroll-phone')?.value.trim()    || '';
+      const notes       = document.getElementById('enroll-notes')?.value.trim()    || '';
+
+      const existingStudent = DATA.students.find(s =>
+        (s.nickname||'').toLowerCase() === studentName.toLowerCase() ||
+        (s.full_name||'').toLowerCase() === studentName.toLowerCase()
+      );
+      const isNewStudent = !existingStudent;
+      const studentId    = existingStudent?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
+
+      setSaveProgress(30, lang==='th'?'กำลังบันทึกนักเรียน...':'Writing student...');
+      setSaveProgress(60, lang==='th'?'กำลังสร้างคาบเรียน...':'Creating sessions...');
+
+      const result = await webAppWrite('addEnrollment', {
+        student: {
+          student_id:   studentId,
+          nickname:     studentName,
+          full_name:    fullName,
+          phone,
+          notes,
+          is_new:       isNewStudent
+        },
+        course: {
+          student_id:        studentId,
+          student_name:      studentName,
+          tutor_id:          tutorId,
+          subject,
+          total_paid_hrs:    paidHrs,
+          fee_per_hr:        feePerHr,
+          tutor_rate_per_hr: tutorRate,
+          commission_to:     commTo,
+          invoice_ref:       '',
+          payment_date:      '',
+          payment_status:    'Pending',
+          enrollment_type:   enrollmentType,
+          block_number:      1,
+          num_students:      1
+        },
+        sessions
+      });
+
+      setSaveProgress(100, lang==='th'?'บันทึกแล้ว!':'Saved!');
+      clearEnrollDraft();
+
+      showEnrollmentSummary({
+        studentName, subject, tutor: tutor.name||tutorId,
+        paidHrs, feePerHr, tutorRate, commTo,
+        courseId: result.course_id, sessions,
+        onDone: async () => {
+          document.getElementById('enroll-student').value = '';
+          document.getElementById('enroll-subject').value = '';
+          document.getElementById('enroll-hours').value   = '';
+          document.getElementById('enroll-fee').value     = '';
+          initScheduleBody();
+          resetSaveBtn();
+          await loadAllData();
+          renderPendingPayments();
+        }
+      });
+    }
 
   } catch(err) {
     if (err.message.includes('Web App URL')) { resetSaveBtn(); return; }
