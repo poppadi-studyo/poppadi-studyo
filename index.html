@@ -1543,6 +1543,17 @@ async function loadAllData() {
     if (_savedCourse && _savedPage === 'students') {
       openStudentDetail(_savedCourse);
     }
+    // Restore schedule view (list vs calendar) AFTER showPage, so DOM is ready
+    if (_savedPage === 'schedule') {
+      const _sv = localStorage.getItem('poppadi_sched_view');
+      if (_sv === 'calendar') {
+        const _cv = localStorage.getItem('poppadi_cal_view') || 'month';
+        calView = _cv;
+        const _cd = localStorage.getItem('poppadi_cal_date');
+        if (_cd) { try { calDate = new Date(_cd); } catch(_) {} }
+        setScheduleView('calendar');
+      }
+    }
     showToast(lang==='th' ? '✓ ข้อมูลล่าสุดแล้ว' : '✓ Data up to date');
 
   } catch(e) {
@@ -2412,7 +2423,16 @@ function renderSchedule() {
         <td>${fmtDate(s.date)}</td>
         <td style="white-space:nowrap">${timeStr}</td>
         <td>${s.hours||'—'}</td>
-        ${showRevenue ? `<td>฿${fmt(group.reduce((sum,x)=>sum+Number(x.total_revenue||0),0))}</td>` : ''}
+        ${showRevenue ? `<td>${(()=>{
+          const total = group.reduce((sum,x)=>sum+Number(x.total_revenue||0),0);
+          if (total > 0) return '฿'+fmt(total);
+          // Fallback: compute from course fee × hours when total_revenue is missing
+          const fallback = group.reduce((sum,x)=>{
+            const course = DATA.courses.find(c=>c.course_id===x.course_id);
+            return sum + (Number(course?.fee_per_hr||0) * Number(x.hours||0));
+          }, 0);
+          return fallback > 0 ? '฿'+fmt(fallback) : '<span style="color:var(--text3)">—</span>';
+        })()}</td>` : ''}
         <td colspan="2">
           ${studentRows}
           ${markAllBtns}
@@ -4496,7 +4516,7 @@ function setScheduleView(mode) {
 }
 
 // ─── CALENDAR ─────────────────────────────────────────────
-let calView = 'week'; // day | week | month | year
+let calView = 'month'; // day | week | month | year
 let calDate = new Date();
 
 const WEEKDAYS_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -6500,7 +6520,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '1.2';
+  const cacheVersion = '1.3';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -6548,6 +6568,18 @@ function onAppReady() {
     if (stuPayment) { const el = document.getElementById('student-filter-payment'); if (el) el.value = stuPayment; }
     if (stuTutor)   { const el = document.getElementById('student-filter-tutor');   if (el) el.value = stuTutor; }
     if (stuStatus || stuPayment || stuTutor) renderStudents();
+
+    // Restore schedule view (list vs calendar) AFTER page is shown
+    if (savedPage === 'schedule') {
+      const _sv = localStorage.getItem('poppadi_sched_view');
+      if (_sv === 'calendar') {
+        const _cv = localStorage.getItem('poppadi_cal_view') || 'month';
+        calView = _cv;
+        const _cd = localStorage.getItem('poppadi_cal_date');
+        if (_cd) { try { calDate = new Date(_cd); } catch(_) {} }
+        setScheduleView('calendar');
+      }
+    }
 
     // Restore tutor view mode + selected tutor
     const savedTutorView   = localStorage.getItem('poppadi_tutor_view');
