@@ -2432,9 +2432,20 @@ async function confirmMakeup() {
       notes: document.getElementById('makeup-notes').value
     });
 
-    // Update local DATA in memory — mark original as Cancelled, no full reload needed
+    // Update local DATA in memory — mark original as having a makeup so it leaves the queue immediately
     const orig = DATA.sessions.find(x => x.session_id === snap.session_id);
-    if (orig) orig.status = 'Cancelled';
+    if (orig) {
+      orig.status = 'Cancelled';
+      orig.makeup_ref = orig.makeup_ref || ('MAKEUP_' + snap.session_id + '_pending');
+    }
+    // Remove from queue immediately — don't wait for OK click
+    const queueItem = document.getElementById('mitem-' + snap.session_id);
+    if (queueItem) queueItem.remove();
+    // If queue is now empty, show the empty state
+    const queueEl = document.getElementById('makeup-queue');
+    if (queueEl && queueEl.querySelectorAll('.makeup-item').length === 0) {
+      queueEl.innerHTML = `<div class="empty">${lang==='th'?'ไม่มีคาบที่รอชดเชย':'No pending makeups'}</div>`;
+    }
 
     const bar = document.getElementById('makeup-progress-bar');
     if (bar) bar.style.width = '100%';
