@@ -2242,40 +2242,130 @@ function renderSchedule() {
   }
 
   function buildRows(list, sectionId) {
-    return list.map(s => {
+    // Group sessions that share tutor + date + start_time + subject
+    const groups = [];
+    const used = new Set();
+    list.forEach(s => {
+      if (used.has(s.session_id)) return;
+      const key = s.tutor_id + '|' + s.date + '|' + (s.start_time||'') + '|' + getSubjectForSession(s);
+      const siblings = list.filter(x =>
+        !used.has(x.session_id) &&
+        x.tutor_id === s.tutor_id &&
+        x.date === s.date &&
+        (x.start_time||'') === (s.start_time||'') &&
+        getSubjectForSession(x) === getSubjectForSession(s)
+      );
+      siblings.forEach(x => used.add(x.session_id));
+      groups.push(siblings);
+    });
+
+    return groups.map(group => {
+      const s = group[0]; // representative session for shared fields
       const tutor = getTutor(s.tutor_id);
       const color = COLOR_MAP[tutor.color] || '#888';
       const subject = getSubjectForSession(s);
       const timeStr = formatTimeRange(s.start_time, s.end_time);
-      const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
-      const isCompleted = s.status === 'Completed' || s.status === 'Makeup';
-      const isLocked = isMonthLocked(s.date);
-      const isPastLocked = isLocked && !isCompleted;
-
-      const statusDropdown = isLocked
-        ? `${statusBadge(s.status)}${isPastLocked?`<span style="font-size:10px;color:var(--text3);margin-left:4px">🔒</span>`:''}`
-        : `<select onchange="updateSessionStatus('${s.session_id}', this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
-            <option value="Scheduled"  ${s.status==='Scheduled' ?'selected':''}>${lang==='th'?'กำหนดการ':'Scheduled'}</option>
-            <option value="Completed"  ${s.status==='Completed' ?'selected':''}>${lang==='th'?'สอนแล้ว':'Completed'}</option>
-            <option value="Missed"     ${s.status==='Missed'    ?'selected':''}>${lang==='th'?'ขาดเรียน':'Missed'}</option>
-            <option value="Cancelled"  ${s.status==='Cancelled' ?'selected':''}>${lang==='th'?'ยกเลิก':'Cancelled'}</option>
-          </select>`;
-
+      const isGroup = group.length > 1;
       const rowAttr = sectionId ? `data-section="${sectionId}"` : '';
+
+      if (!isGroup) {
+        // ── Single student row (unchanged) ──────────────────
+        const isLocked = isMonthLocked(s.date);
+        const isCompleted = s.status === 'Completed' || s.status === 'Makeup';
+        const isPastLocked = isLocked && !isCompleted;
+        const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
+
+        const statusDropdown = isLocked
+          ? `${statusBadge(s.status)}${isPastLocked?`<span style="font-size:10px;color:var(--text3);margin-left:4px">🔒</span>`:''}`
+          : `<select onchange="updateSessionStatus('${s.session_id}', this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
+              <option value="Scheduled"  ${s.status==='Scheduled' ?'selected':''}>${lang==='th'?'กำหนดการ':'Scheduled'}</option>
+              <option value="Completed"  ${s.status==='Completed' ?'selected':''}>${lang==='th'?'สอนแล้ว':'Completed'}</option>
+              <option value="Missed"     ${s.status==='Missed'    ?'selected':''}>${lang==='th'?'ขาดเรียน':'Missed'}</option>
+              <option value="Cancelled"  ${s.status==='Cancelled' ?'selected':''}>${lang==='th'?'ยกเลิก':'Cancelled'}</option>
+            </select>`;
+
+        return `<tr ${rowAttr}>
+          <td><span class="dot" style="background:${color}"></span>${getStudentNickname(s.student_id, s.course_id)}</td>
+          <td>${tutor.name||s.tutor_id}</td>
+          <td>${subject}</td>
+          <td>${fmtDate(s.date)}</td>
+          <td style="white-space:nowrap">${timeStr}</td>
+          <td>${s.hours||'—'}</td>
+          ${showRevenue ? `<td>฿${fmt(s.total_revenue)}</td>` : ''}
+          <td>${statusDropdown}</td>
+          <td>
+            ${isCompleted?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`
+              :isPastLocked?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'เดือนที่ผ่านมา':'Past month'}</span>`
+              :canMakeup?`<button class="btn btn-sm" onclick="openMakeupFromSchedule('${s.session_id}')">${lang==='th'?'นัดชดเชย':'Schedule makeup'}</button>`:'—'}
+            ${s.makeup_ref?`<span class="linked-tag" style="margin-left:4px">↩ ${s.makeup_ref}</span>`:''}
+          </td>
+        </tr>`;
+      }
+
+      // ── Group row ────────────────────────────────────────
+      const isLocked = isMonthLocked(s.date);
+      const allSessionIds = group.map(x => x.session_id);
+      const sessionIdsJson = JSON.stringify(allSessionIds);
+
+      // Per-student status rows
+      const studentRows = group.map(x => {
+        const nick = getStudentNickname(x.student_id, x.course_id);
+        const isComp = x.status === 'Completed' || x.status === 'Makeup';
+        const isPastLock = isLocked && !isComp;
+        const canMakeup = x.status === 'Cancelled' || x.status === 'Missed';
+
+        const dropdown = isLocked
+          ? `${statusBadge(x.status)}${isPastLock?`<span style="font-size:10px;color:var(--text3);margin-left:4px">🔒</span>`:''}`
+          : `<select onchange="updateSessionStatus('${x.session_id}', this.value)" style="font-size:12px;padding:3px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
+              <option value="Scheduled"  ${x.status==='Scheduled' ?'selected':''}>${lang==='th'?'กำหนดการ':'Scheduled'}</option>
+              <option value="Completed"  ${x.status==='Completed' ?'selected':''}>${lang==='th'?'สอนแล้ว':'Completed'}</option>
+              <option value="Missed"     ${x.status==='Missed'    ?'selected':''}>${lang==='th'?'ขาดเรียน':'Missed'}</option>
+              <option value="Cancelled"  ${x.status==='Cancelled' ?'selected':''}>${lang==='th'?'ยกเลิก':'Cancelled'}</option>
+            </select>
+            ${canMakeup ? `<button class="btn btn-sm" style="margin-left:4px" onclick="openMakeupFromSchedule('${x.session_id}')">${lang==='th'?'นัดชดเชย':'Makeup'}</button>` : ''}`;
+
+        return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+          <span style="font-size:12px;font-weight:500;min-width:60px">${nick}</span>
+          ${dropdown}
+        </div>`;
+      }).join('');
+
+      // Mark all buttons (only if not locked)
+      const markAllBtns = isLocked ? '' : `
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button onclick="markGroupAll(${sessionIdsJson}, 'Completed')"
+            style="font-size:11px;padding:3px 10px;border:1px solid var(--teal);border-radius:5px;background:var(--teal-bg);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">
+            ✓ ${lang==='th'?'สอนครบทุกคน':'Mark all Completed'}
+          </button>
+          <button onclick="markGroupAll(${sessionIdsJson}, 'Cancelled')"
+            style="font-size:11px;padding:3px 10px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">
+            ✕ ${lang==='th'?'ยกเลิกทุกคน':'Mark all Cancelled'}
+          </button>
+        </div>`;
+
+      // Edit date/time button (updates all in group)
+      const editBtn = isLocked ? '' :
+        `<button onclick="openEditSessionGroup(${sessionIdsJson})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2)">✏️</button>`;
+
+      const names = group.map(x => getStudentNickname(x.student_id, x.course_id)).join(', ');
+
       return `<tr ${rowAttr}>
-        <td><span class="dot" style="background:${color}"></span>${getStudentNickname(s.student_id, s.course_id)}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span class="dot" style="background:${color}"></span>
+            <span style="font-weight:500">${names}</span>
+            <span style="font-size:10px;padding:1px 6px;background:var(--surface2);border-radius:10px;color:var(--text3)">${lang==='th'?'กลุ่ม':'Group'}</span>
+          </div>
+        </td>
         <td>${tutor.name||s.tutor_id}</td>
         <td>${subject}</td>
         <td>${fmtDate(s.date)}</td>
         <td style="white-space:nowrap">${timeStr}</td>
         <td>${s.hours||'—'}</td>
-        ${showRevenue ? `<td>฿${fmt(s.total_revenue)}</td>` : ''}
-        <td>${statusDropdown}</td>
-        <td>
-          ${isCompleted?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`
-            :isPastLocked?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'เดือนที่ผ่านมา':'Past month'}</span>`
-            :canMakeup?`<button class="btn btn-sm" onclick="openMakeupFromSchedule('${s.session_id}')">${lang==='th'?'นัดชดเชย':'Schedule makeup'}</button>`:'—'}
-          ${s.makeup_ref?`<span class="linked-tag" style="margin-left:4px">↩ ${s.makeup_ref}</span>`:''}
+        ${showRevenue ? `<td>฿${fmt(group.reduce((sum,x)=>sum+Number(x.total_revenue||0),0))}</td>` : ''}
+        <td colspan="2">
+          ${studentRows}
+          ${markAllBtns}
         </td>
       </tr>`;
     }).join('');
@@ -2682,7 +2772,31 @@ function renderTutorDetail() {
 }
 
 // ─── EDIT SESSION DATE/TIME ───────────────────────────────
-function openEditSession(sessionId) {
+// ─── GROUP SESSION HELPERS ────────────────────────────────
+async function markGroupAll(sessionIds, newStatus) {
+  if (!sessionIds.length) return;
+  const label = newStatus === 'Completed'
+    ? (lang==='th' ? 'สอนครบทุกคน' : 'all Completed')
+    : (lang==='th' ? 'ยกเลิกทุกคน' : 'all Cancelled');
+
+  // Update each session sequentially
+  for (const id of sessionIds) {
+    await updateSessionStatus(id, newStatus, true); // true = silent (no toast per session)
+  }
+  renderAll();
+  showToast(lang==='th' ? `✓ อัปเดต ${label} แล้ว` : `✓ Marked ${label}`);
+}
+
+function openEditSessionGroup(sessionIds) {
+  // Opens the edit modal for the first session — date/time change will be applied to all
+  const s = DATA.sessions.find(x => x.session_id === sessionIds[0]);
+  if (!s) return;
+  // Store sibling IDs so the save handler can update all of them
+  s._groupSiblings = sessionIds;
+  openEditSession(sessionIds[0], sessionIds);
+}
+
+function openEditSession(sessionId, groupSiblings) {
   const s = DATA.sessions.find(x => x.session_id === sessionId);
   if (!s) return;
   if (isMonthLocked(s.date)) {
@@ -2729,13 +2843,13 @@ function openEditSession(sessionId) {
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button onclick="document.getElementById('edit-session-modal')?.remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ยกเลิก':'Cancel'}</button>
-        <button id="save-sess-edit-btn" onclick="saveSessionDateTime('${sessionId}', ${thisHrs}, ${remaining})" style="padding:8px 16px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">${lang==='th'?'💾 บันทึก':'💾 Save'}</button>
+        <button id="save-sess-edit-btn" onclick="saveSessionDateTime('${sessionId}', ${thisHrs}, ${remaining}, ${JSON.stringify(groupSiblings||[sessionId])})" style="padding:8px 16px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">${lang==='th'?'💾 บันทึก':'💾 Save'}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
 }
 
-async function saveSessionDateTime(sessionId, thisHrs, remaining) {
+async function saveSessionDateTime(sessionId, thisHrs, remaining, groupSiblings) {
   const btn      = document.getElementById('save-sess-edit-btn');
   const newDate  = document.getElementById('edit-sess-date')?.value;
   const newStart = document.getElementById('edit-sess-start')?.value;
@@ -2776,9 +2890,22 @@ async function saveSessionDateTime(sessionId, thisHrs, remaining) {
       userEmail: currentUser?.email
     });
 
-    // Update local DATA in memory
+    // Update local DATA in memory — primary session
     const s = DATA.sessions.find(x => x.session_id === sessionId);
     if (s) { s.date = newDate; s.start_time = newStart; s.end_time = newEnd; }
+
+    // Also update sibling sessions in the same group
+    if (groupSiblings && groupSiblings.length > 1) {
+      for (const sibId of groupSiblings) {
+        if (sibId === sessionId) continue;
+        await webAppWrite('updateSessionDateTime', {
+          sessionId: sibId, date: newDate, start_time: newStart, end_time: newEnd,
+          userEmail: currentUser?.email
+        });
+        const sib = DATA.sessions.find(x => x.session_id === sibId);
+        if (sib) { sib.date = newDate; sib.start_time = newStart; sib.end_time = newEnd; }
+      }
+    }
 
     // Complete the progress bar
     const bar = document.getElementById('save-progress-bar');
@@ -3175,7 +3302,19 @@ async function saveCourseEdits(courseId) {
 }
 
 // ─── UPDATE SESSION STATUS ───────────────────────────────
-async function updateSessionStatus(sessionId, newStatus) {
+async function updateSessionStatus(sessionId, newStatus, silent) {
+  // silent=true: skip modal, just write and update DATA (used by markGroupAll)
+  if (silent) {
+    try {
+      await webAppWrite('updateSessionStatus', {
+        sessionId, newStatus, userEmail: currentUser?.email
+      });
+      const s = DATA.sessions.find(x => x.session_id === sessionId);
+      if (s) s.status = newStatus;
+    } catch(e) { console.warn('silent status update failed:', e.message); }
+    return;
+  }
+
   // Show a small confirmation modal — progress + OK on success
   const modal = document.createElement('div');
   modal.id = 'status-update-modal';
@@ -4416,12 +4555,105 @@ function renderCalEventPill(s, compact=false) {
   const opacity=s.status==='Cancelled'?'0.45':s.status==='Missed'?'0.6':'1';
   const label=timeStr?`${name} ${timeStr}`:name;
   if(compact){
-    return `<div style="background:${color};opacity:${opacity};color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer" title="${name} · ${subject} · ${timeStr}">${label}</div>`;
+    return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="background:${color};opacity:${opacity};color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer" title="${name} · ${subject} · ${timeStr}">${label}</div>`;
   }
-  return `<div style="background:${color};opacity:${opacity};color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer">
+  return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="background:${color};opacity:${opacity};color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer">
     <div style="font-weight:500">${name}</div>
     <div style="opacity:0.85;font-size:10px">${timeStr}${subject&&subject!=='—'?' · '+subject:''}</div>
   </div>`;
+}
+
+// ─── CALENDAR SESSION CLICK POPUP ────────────────────────
+function openCalSessionPopup(sessionId, anchorEl) {
+  // Remove any existing popup
+  document.getElementById('cal-session-popup')?.remove();
+
+  const s = DATA.sessions.find(x => x.session_id === sessionId);
+  if (!s) return;
+
+  // Find group siblings (same tutor + date + start_time + subject)
+  const subject = getSubjectForSession(s);
+  const siblings = DATA.sessions.filter(x =>
+    x.tutor_id === s.tutor_id &&
+    x.date === s.date &&
+    (x.start_time||'') === (s.start_time||'') &&
+    getSubjectForSession(x) === subject
+  );
+
+  const tutor = getTutor(s.tutor_id);
+  const isLocked = isMonthLocked(s.date);
+  const timeStr = formatTimeRange(s.start_time, s.end_time);
+
+  const statusOptions = ['Scheduled','Completed','Missed','Cancelled'];
+  const statusLabels = { Scheduled: lang==='th'?'กำหนดการ':'Scheduled', Completed: lang==='th'?'สอนแล้ว':'Completed', Missed: lang==='th'?'ขาดเรียน':'Missed', Cancelled: lang==='th'?'ยกเลิก':'Cancelled' };
+
+  const studentRows = siblings.map(x => {
+    const nick = getStudentNickname(x.student_id, x.course_id);
+    const dropdown = isLocked
+      ? statusBadge(x.status)
+      : `<select onchange="updateSessionStatus('${x.session_id}',this.value,true).then(()=>{renderAll();document.getElementById('cal-session-popup')?.remove();showToast('✓ ${lang==='th'?'อัปเดตแล้ว':'Updated'}');})" style="font-size:12px;padding:3px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
+          ${statusOptions.map(v=>`<option value="${v}" ${x.status===v?'selected':''}>${statusLabels[v]}</option>`).join('')}
+        </select>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;font-weight:500">${nick}</span>
+      ${dropdown}
+    </div>`;
+  }).join('');
+
+  const allSessionIds = siblings.map(x => x.session_id);
+  const markAllBtns = (!isLocked && siblings.length > 1) ? `
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button onclick="markGroupAll(${JSON.stringify(allSessionIds)},'Completed').then(()=>document.getElementById('cal-session-popup')?.remove())"
+        style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--teal);border-radius:5px;background:var(--teal-bg);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">
+        ✓ ${lang==='th'?'ทุกคน':'All done'}
+      </button>
+      <button onclick="markGroupAll(${JSON.stringify(allSessionIds)},'Cancelled').then(()=>document.getElementById('cal-session-popup')?.remove())"
+        style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">
+        ✕ ${lang==='th'?'ยกเลิกทุกคน':'All cancel'}
+      </button>
+    </div>` : '';
+
+  const editBtn = !isLocked
+    ? `<button onclick="document.getElementById('cal-session-popup')?.remove();openEditSessionGroup(${JSON.stringify(allSessionIds)})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">✏️ ${lang==='th'?'แก้เวลา':'Edit time'}</button>`
+    : `<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`;
+
+  const popup = document.createElement('div');
+  popup.id = 'cal-session-popup';
+  popup.style.cssText = 'position:fixed;z-index:9999;background:#fff;border:1px solid var(--border-strong);border-radius:12px;padding:14px 16px;min-width:240px;max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,0.15);font-family:\'DM Sans\',sans-serif';
+  popup.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+      <div>
+        <div style="font-size:13px;font-weight:600">${tutor.name||s.tutor_id} · ${subject}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDate(s.date)} · ${timeStr} · ${s.hours}h</div>
+      </div>
+      <button onclick="document.getElementById('cal-session-popup')?.remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--text3);padding:0 0 0 8px;line-height:1">×</button>
+    </div>
+    <div style="margin-bottom:8px">${studentRows}</div>
+    ${markAllBtns}
+    <div style="margin-top:8px">${editBtn}</div>`;
+
+  document.body.appendChild(popup);
+
+  // Position popup near the clicked element
+  const rect = anchorEl.getBoundingClientRect();
+  const popW = 280, popH = 200;
+  let left = rect.left + rect.width / 2 - popW / 2;
+  let top  = rect.bottom + 8;
+  if (left + popW > window.innerWidth - 12) left = window.innerWidth - popW - 12;
+  if (left < 8) left = 8;
+  if (top + popH > window.innerHeight - 12) top = rect.top - popH - 8;
+  popup.style.left = left + 'px';
+  popup.style.top  = top + 'px';
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!popup.contains(e.target)) {
+        popup.remove();
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 10);
 }
 
 function renderCalendar() {
@@ -4458,7 +4690,7 @@ function renderCalendar() {
           const color = getEventColor(s);
           const timeStr = s.start_time && s.end_time ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}` : (s.start_time ? formatTime(s.start_time) : '—');
           const opacity = s.status==='Cancelled'?0.45:s.status==='Missed'?0.6:1;
-          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:6px;border-left:4px solid ${color};opacity:${opacity}">
+          return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:6px;border-left:4px solid ${color};opacity:${opacity};cursor:pointer">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;color:var(--text)">${name}</div>
               <div style="font-size:11px;color:var(--text3);margin-top:2px">${subject} · ${tutor?.name||'—'}</div>
@@ -4544,7 +4776,7 @@ function renderCalendar() {
         const timeLabel = endFmt ? `${startFmt}–${endFmt}` : startFmt;
         const opacity = s.status==='Cancelled'?0.4:s.status==='Missed'?0.6:1;
         const isShort = dur < 40;
-        html += `<div style="position:absolute;top:${top+1}px;left:2px;right:2px;height:${dur-2}px;background:${color};opacity:${opacity};border-radius:6px;padding:${isShort?'2px 6px':'4px 8px'};overflow:hidden;cursor:pointer;z-index:1" title="${name} · ${subject} · ${timeLabel}">
+        html += `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="position:absolute;top:${top+1}px;left:2px;right:2px;height:${dur-2}px;background:${color};opacity:${opacity};border-radius:6px;padding:${isShort?'2px 6px':'4px 8px'};overflow:hidden;cursor:pointer;z-index:1" title="${name} · ${subject} · ${timeLabel}">
           <div style="color:#fff;font-size:${isShort?'10':'11'}px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
           ${!isShort?`<div style="color:rgba(255,255,255,0.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${timeLabel}${subject&&subject!=='—'?' · '+subject:''}</div>`:''}
         </div>`;
