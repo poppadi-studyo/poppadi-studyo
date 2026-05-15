@@ -1473,7 +1473,10 @@ function parseSheet(rows) {
   const headers = rows[0];
   return rows.slice(1).map(row => {
     const obj = {};
-    headers.forEach((h, i) => { obj[h] = row[i] || ''; });
+    headers.forEach((h, i) => {
+      // Use null-coalescing — preserve 0 and false, only default empty for undefined/null
+      obj[h] = (row[i] !== undefined && row[i] !== null) ? row[i] : '';
+    });
     return obj;
   });
 }
@@ -4479,6 +4482,7 @@ let scheduleViewMode = 'list';
 
 function setScheduleView(mode) {
   scheduleViewMode = mode;
+  localStorage.setItem('poppadi_sched_view', mode);
   document.getElementById('schedule-list-view').style.display     = mode==='list'     ? 'block':'none';
   document.getElementById('schedule-calendar-view').style.display = mode==='calendar' ? 'block':'none';
   document.getElementById('sched-view-list').style.background = mode==='list'     ? 'var(--text)':'transparent';
@@ -4511,6 +4515,7 @@ function populateCalTutorFilter() {
 
 function setCalView(v) {
   calView = v;
+  localStorage.setItem('poppadi_cal_view', v);
   ['day','week','month','year'].forEach(x=>{
     const btn=document.getElementById('cal-btn-'+x);
     if(btn){btn.style.background=v===x?'var(--text)':'transparent';btn.style.color=v===x?'#fff':'var(--text2)';}
@@ -4523,10 +4528,11 @@ function calNav(dir) {
   else if (calView==='week')  calDate.setDate(calDate.getDate()+dir*7);
   else if (calView==='month') calDate.setMonth(calDate.getMonth()+dir);
   else if (calView==='year')  calDate.setFullYear(calDate.getFullYear()+dir);
+  localStorage.setItem('poppadi_cal_date', calDate.toISOString());
   renderCalendar();
 }
 
-function calToday() { calDate = new Date(); renderCalendar(); }
+function calToday() { calDate = new Date(); localStorage.setItem('poppadi_cal_date', calDate.toISOString()); renderCalendar(); }
 
 function getCalSessions() {
   const tutorFilter = document.getElementById('cal-filter-tutor')?.value || '';
@@ -4643,6 +4649,8 @@ function calPopupShowProgress(msg) {
 function calPopupShowDone(msg) {
   const bar = document.getElementById('cal-popup-bar');
   if (bar) bar.style.width = '100%';
+  // Re-render calendar immediately so chips update without waiting
+  renderCalendar();
   const prog = document.getElementById('cal-popup-progress');
   if (prog) {
     setTimeout(() => {
@@ -6492,7 +6500,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '1.1';
+  const cacheVersion = '1.2';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -6506,6 +6514,14 @@ function onAppReady() {
   // Restore selected month (overview, expenses, other income)
   const savedMonth = localStorage.getItem('poppadi_month');
   if (savedMonth) selectedMonth = savedMonth;
+
+  // Restore schedule view mode (list vs calendar) and calendar state
+  const savedSchedView = localStorage.getItem('poppadi_sched_view');
+  if (savedSchedView) scheduleViewMode = savedSchedView;
+  const savedCalView = localStorage.getItem('poppadi_cal_view');
+  if (savedCalView) calView = savedCalView;
+  const savedCalDate = localStorage.getItem('poppadi_cal_date');
+  if (savedCalDate) { try { calDate = new Date(savedCalDate); } catch(_) {} }
 
   loadAllData().then(() => {
     const savedPage = localStorage.getItem('poppadi_page');
@@ -6765,7 +6781,24 @@ function showPage(id, btn) {
     if (feeInput && !feeInput.value) feeInput.value = 1100;
     restoreEnrollDraft();
   }
-  if (id === 'schedule') applyTutorScheduleFilter();
+  if (id === 'schedule') {
+    applyTutorScheduleFilter();
+    // Restore list/calendar toggle and cal sub-view
+    const sv = localStorage.getItem('poppadi_sched_view');
+    if (sv && sv !== scheduleViewMode) {
+      setScheduleView(sv);
+    } else if (scheduleViewMode === 'calendar') {
+      // Re-apply calView button states and re-render
+      const cv = localStorage.getItem('poppadi_cal_view') || calView;
+      calView = cv;
+      ['day','week','month','year'].forEach(x=>{
+        const btn=document.getElementById('cal-btn-'+x);
+        if(btn){btn.style.background=cv===x?'var(--text)':'transparent';btn.style.color=cv===x?'#fff':'var(--text2)';}
+      });
+      populateCalTutorFilter();
+      renderCalendar();
+    }
+  }
   if (id === 'audit') renderAuditLog();
 }
 
