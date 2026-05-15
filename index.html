@@ -1830,13 +1830,44 @@ function renderInvoiceAlerts(monthSessions) {
     }
   });
 
+  // ⚠️ Data sanity check: group sessions where num_students > 1 → inflated revenue
+  DATA.courses.forEach(course => {
+    if (course.lifecycle_status === 'group' || course.enrollment_type === 'group') {
+      const courseSessions = DATA.sessions.filter(s => s.course_id === course.course_id);
+      const inflated = courseSessions.some(s => Number(s.num_students||1) > 1);
+      if (inflated) {
+        const student = DATA.students.find(s => s.student_id === course.student_id);
+        const tutor = getTutor(course.tutor_id);
+        alerts.unshift({ // put at top
+          name: student?.nickname || course.student_id,
+          subject: course.subject,
+          remaining: null,
+          tutor: tutor.name,
+          color: '#E24B4A',
+          isDataIssue: true,
+          courseId: course.course_id
+        });
+      }
+    }
+  });
+
   const el = document.getElementById('invoice-alerts');
   if (alerts.length === 0) {
     el.innerHTML = `<div class="empty">${lang==='th'?'ไม่มีการแจ้งเตือนในขณะนี้':'No alerts at the moment'}</div>`;
     return;
   }
-  el.innerHTML = alerts.map(a => `
-    <div class="alert-item">
+  el.innerHTML = alerts.map(a => {
+    if (a.isDataIssue) {
+      return `<div class="alert-item" style="background:#FCEBEB;border-radius:8px;padding:8px 10px;margin-bottom:6px">
+        <div>
+          <span class="dot" style="background:#E24B4A"></span>
+          <span class="alert-name" style="color:#E24B4A">⚠️ ${a.name} — ${a.subject}</span>
+          <div class="alert-meta" style="padding-left:14px;color:#E24B4A">${lang==='th'?'ข้อมูลรายได้กลุ่มผิด — num_students > 1 ต้องแก้ใน Sheet':'Group revenue data issue — num_students > 1, fix in Sheet'}</div>
+        </div>
+        <span class="badge" style="background:#E24B4A;color:#fff;font-size:10px">${lang==='th'?'ต้องแก้ไข':'Fix needed'}</span>
+      </div>`;
+    }
+    return `<div class="alert-item">
       <div>
         <span class="dot" style="background:${a.color}"></span>
         <span class="alert-name">${a.name} — ${a.subject}</span>
@@ -1845,8 +1876,8 @@ function renderInvoiceAlerts(monthSessions) {
       <span class="badge ${a.remaining <= 2 ? 'badge-alert-high' : 'badge-alert-med'}">
         ${a.remaining <= 2 ? (lang==='th'?'ส่งใบแจ้งหนี้':'Send invoice') : (lang==='th'?'เตรียมใบแจ้งหนี้':'Prepare invoice')}
       </span>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderTutorChart(monthSessions) {
@@ -3747,6 +3778,13 @@ function renderStudents() {
       const needsAttention = isComplete && lifecycle==='Active';
       const rowBg = needsAttention?'background:rgba(226,75,74,0.06)':payStatus==='Pending'?'background:rgba(245,158,11,0.06)':'';
       const progressColor = needsAttention?'danger':remaining<=2?'danger':remaining<=3?'warn':'';
+      // ⚠️ Data issue check: group course sessions with num_students > 1 means inflated revenue
+      const groupSessions = DATA.sessions.filter(s => s.course_id === course.course_id);
+      const hasInflatedRevenue = groupSessions.some(s => Number(s.num_students||1) > 1);
+      const dataIssueBadge = hasInflatedRevenue
+        ? `<span style="font-size:10px;padding:2px 6px;background:#FCEBEB;color:#E24B4A;border-radius:10px;font-weight:500;margin-left:4px">⚠️ ${lang==='th'?'ข้อมูลรายได้ผิด':'Revenue data issue'}</span>`
+        : '';
+
       const alertBadge = needsAttention
         ? `<span class="badge badge-alert-high">${lang==='th'?'🔴 ต้องดำเนินการ':'🔴 Needs attention'}</span>`
         : remaining<=2?`<span class="badge badge-alert-high">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`
@@ -3761,7 +3799,7 @@ function renderStudents() {
         <td>${paid}</td><td>${taught}</td><td>${remaining}</td>
         <td><div style="font-size:11px;color:${needsAttention?'var(--red)':'var(--text3)'}">${pct}%</div><div class="progress-wrap"><div class="progress-fill ${progressColor}" style="width:${pct}%"></div></div></td>
         <td onclick="event.stopPropagation()">${lifecycleBadge(lifecycle,course.course_id)}</td>
-        <td>${alertBadge}</td>
+        <td>${alertBadge}${dataIssueBadge}</td>
       </tr>`;
     });
   });
@@ -4553,13 +4591,15 @@ function renderCalEventPill(s, compact=false) {
   const endFmt=s.end_time?formatTime(s.end_time):'';
   const timeStr=startFmt&&endFmt?`${startFmt}–${endFmt}`:startFmt;
   const opacity=s.status==='Cancelled'?'0.45':s.status==='Missed'?'0.6':'1';
+  const statusLabel = s.status==='Completed' ? ' ✓' : s.status==='Cancelled' ? ' ✕' : s.status==='Missed' ? ' ⚠' : '';
+  const statusLabelFull = s.status==='Completed' ? (lang==='th'?'สอนแล้ว ✓':'Completed ✓') : s.status==='Cancelled' ? (lang==='th'?'ยกเลิก ✕':'Cancelled ✕') : s.status==='Missed' ? (lang==='th'?'ขาดเรียน ⚠':'Missed ⚠') : '';
   const label=timeStr?`${name} ${timeStr}`:name;
   if(compact){
-    return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="background:${color};opacity:${opacity};color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer" title="${name} · ${subject} · ${timeStr}">${label}</div>`;
+    return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="background:${color};opacity:${opacity};color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer" title="${name} · ${subject} · ${timeStr}">${label}${statusLabel}</div>`;
   }
   return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="background:${color};opacity:${opacity};color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer">
     <div style="font-weight:500">${name}</div>
-    <div style="opacity:0.85;font-size:10px">${timeStr}${subject&&subject!=='—'?' · '+subject:''}</div>
+    <div style="opacity:0.85;font-size:10px">${timeStr}${subject&&subject!=='—'?' · '+subject:''}${statusLabelFull?' · '+statusLabelFull:''}</div>
   </div>`;
 }
 
@@ -4696,7 +4736,12 @@ function renderCalendar() {
               <div style="font-size:11px;color:var(--text3);margin-top:2px">${subject} · ${tutor?.name||'—'}</div>
               <div style="font-size:11px;color:var(--text2);margin-top:2px">${timeStr}${s.hours?' · '+s.hours+'h':''}</div>
             </div>
-            <div style="flex-shrink:0">${statusBadge(s.status)}</div>
+            <div style="flex-shrink:0;text-align:right">
+              ${statusBadge(s.status)}
+              <div style="font-size:10px;color:${s.status==='Completed'?'var(--teal)':s.status==='Cancelled'?'var(--red)':s.status==='Missed'?'var(--amber)':'var(--text3)'};margin-top:2px">
+                ${s.status==='Completed'?'✓':s.status==='Cancelled'?'✕':s.status==='Missed'?'⚠':''}
+              </div>
+            </div>
           </div>`;
         }).join('')}
       </div>`;
@@ -4776,9 +4821,10 @@ function renderCalendar() {
         const timeLabel = endFmt ? `${startFmt}–${endFmt}` : startFmt;
         const opacity = s.status==='Cancelled'?0.4:s.status==='Missed'?0.6:1;
         const isShort = dur < 40;
-        html += `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="position:absolute;top:${top+1}px;left:2px;right:2px;height:${dur-2}px;background:${color};opacity:${opacity};border-radius:6px;padding:${isShort?'2px 6px':'4px 8px'};overflow:hidden;cursor:pointer;z-index:1" title="${name} · ${subject} · ${timeLabel}">
-          <div style="color:#fff;font-size:${isShort?'10':'11'}px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
-          ${!isShort?`<div style="color:rgba(255,255,255,0.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${timeLabel}${subject&&subject!=='—'?' · '+subject:''}</div>`:''}
+        const gridStatusLabel = s.status==='Completed'?' ✓':s.status==='Cancelled'?' ✕':s.status==='Missed'?' ⚠':'';
+        html += `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="position:absolute;top:${top+1}px;left:2px;right:2px;height:${dur-2}px;background:${color};opacity:${opacity};border-radius:6px;padding:${isShort?'2px 6px':'4px 8px'};overflow:hidden;cursor:pointer;z-index:1" title="${name} · ${subject} · ${timeLabel} · ${s.status}">
+          <div style="color:#fff;font-size:${isShort?'10':'11'}px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}${isShort?gridStatusLabel:''}</div>
+          ${!isShort?`<div style="color:rgba(255,255,255,0.85);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${timeLabel}${subject&&subject!=='—'?' · '+subject:''}${gridStatusLabel?' · '+s.status+gridStatusLabel:''}</div>`:''}
         </div>`;
       });
       html += `</div></div>`;
@@ -5924,6 +5970,7 @@ async function submitEnrollment() {
     if (isGroupMode) {
       // ── GROUP: enroll each student individually ──────────
       const numStudents = groupStudents.length;
+      const splitTutorRate = Math.round((tutorRate / numStudents) * 100) / 100; // split evenly across records
       for (let i = 0; i < groupStudents.length; i++) {
         const { name, feePerHr } = groupStudents[i];
         const pct = 20 + Math.round((i / numStudents) * 70);
@@ -5954,14 +6001,14 @@ async function submitEnrollment() {
             subject,
             total_paid_hrs:    paidHrs,
             fee_per_hr:        feePerHr,
-            tutor_rate_per_hr: tutorRate,
+            tutor_rate_per_hr: splitTutorRate,  // split evenly — not full rate per record
             commission_to:     commTo,
             invoice_ref:       '',
             payment_date:      '',
             payment_status:    'Pending',
             enrollment_type:   'group',
             block_number:      1,
-            num_students:      numStudents
+            num_students:      1               // each course is 1 student's own record
           },
           sessions
         });
@@ -5970,17 +6017,33 @@ async function submitEnrollment() {
       setSaveProgress(100, lang==='th'?'บันทึกแล้ว!':'Saved!');
       clearEnrollDraft();
 
-      // Simple success modal for group
+      // Group success modal with per-student verification breakdown
+      const sessionHrs = sessions.reduce((sum,s)=>sum+s.hours,0);
       const modal = document.createElement('div');
       modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
-      modal.innerHTML = `<div style="background:#fff;border-radius:14px;padding:28px 32px;max-width:420px;width:90%;font-family:'DM Sans',sans-serif">
+      const studentBreakdown = groupStudents.map(s => {
+        const rev = s.feePerHr * sessionHrs;
+        const tutorCost = splitTutorRate * sessionHrs;
+        const school = rev - tutorCost;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #eee;font-size:12px">
+          <span style="font-weight:500">${s.name}</span>
+          <span style="color:#666">฿${fmt(s.feePerHr)}/hr · rev ฿${fmt(rev)} · school ฿${fmt(school)}</span>
+        </div>`;
+      }).join('');
+      modal.innerHTML = `<div style="background:#fff;border-radius:14px;padding:28px 32px;max-width:480px;width:90%;font-family:'DM Sans',sans-serif">
         <div style="font-size:28px;margin-bottom:8px">✅</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:8px">${lang==='th'?'ลงทะเบียนกลุ่มสำเร็จ!':'Group enrolled!'}</div>
-        <div style="font-size:13px;color:#666;margin-bottom:16px">
-          ${groupStudents.map(s=>`<div>• ${s.name} — ฿${fmt(s.feePerHr)}/hr</div>`).join('')}
-          <div style="margin-top:8px;color:#999">${subject} · ${paidHrs} hrs · ${tutor.name||tutorId} · ${sessions.length} ${lang==='th'?'คาบ':'sessions'}</div>
-          <div style="margin-top:6px;font-size:12px;color:var(--amber)">⏳ ${lang==='th'?'ยืนยันการชำระเงินด้านล่าง':'Confirm payment in Pending payments below'}</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px">${lang==='th'?'ลงทะเบียนกลุ่มสำเร็จ!':'Group enrolled!'}</div>
+        <div style="font-size:12px;color:#888;margin-bottom:16px">${subject} · ${tutor.name||tutorId} · ${sessions.length} ${lang==='th'?'คาบ':'sessions'} · ${paidHrs} hrs</div>
+        <div style="background:#f7f6f3;border-radius:8px;padding:12px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#999;margin-bottom:8px">${lang==='th'?'รายละเอียดต่อนักเรียน (${sessionHrs} ชม.รวม)':'Per-student · '+sessionHrs+' hrs total'}</div>
+          ${studentBreakdown}
         </div>
+        <div style="background:#E1F5EE;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:12px">
+          <span style="color:#666">${lang==='th'?'ค่าสอนครูรวม:':'Combined tutor pay:'}</span>
+          <strong style="color:#1D9E75;margin-left:4px">฿${fmt(tutorRate)}/hr × ${sessions[0]?.hours||0}hrs = ฿${fmt(tutorRate*(sessions[0]?.hours||0))} per session ✓</strong>
+          <div style="font-size:11px;color:#888;margin-top:2px">${lang==='th'?`(แบ่ง ฿${fmt(splitTutorRate)}/hr × ${numStudents} คน)`:`(฿${fmt(splitTutorRate)}/hr per record × ${numStudents} students)`}</div>
+        </div>
+        <div style="margin-bottom:16px;font-size:12px;color:#BA7517">⏳ ${lang==='th'?'ยืนยันการชำระเงินด้านล่าง':'Confirm payment in Pending payments below'}</div>
         <button onclick="this.closest('div').parentElement.remove();document.getElementById('group-students-body').innerHTML='';document.getElementById('enroll-subject').value='';document.getElementById('enroll-hours').value='';initScheduleBody();resetSaveBtn();loadAllData().then(()=>renderPendingPayments())"
           style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">
           ${lang==='th'?'เสร็จแล้ว':'Done'}
