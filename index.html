@@ -4948,50 +4948,107 @@ function renderCalendar() {
   const wdays=lang==='th'?WEEKDAYS_TH:WEEKDAYS_EN;
   const months=lang==='th'?MONTHS_TH:MONTHS_EN;
 
-  // ─── MOBILE AGENDA VIEW ──────────────────────────────────
-  // On narrow screens (phone), replace grid/time views with a scrollable
-  // day-by-day agenda for the current month. ← and → navigate months.
-  if (window.innerWidth < 600 && (calView === 'day' || calView === 'week' || calView === 'month')) {
+  // ─── MOBILE VIEWS ────────────────────────────────────────
+  // On narrow screens (phone), render simplified but view-accurate layouts
+  if (window.innerWidth < 600) {
     const y = calDate.getFullYear(), m = calDate.getMonth();
-    title.textContent = `${months[m]} ${y}`;
-    const daysInMonth = new Date(y, m+1, 0).getDate();
-    const today = new Date();
-    let html = '';
-    for (let day = 1; day <= daysInMonth; day++) {
-      const d = new Date(y, m, day);
+
+    if (calView === 'month') {
+      // ── Mobile month: compact month grid with pills ──────
+      title.textContent = `${months[m]} ${y}`;
+      const daysInMonth = new Date(y, m+1, 0).getDate();
+      const firstDay = new Date(y, m, 1).getDay();
+      const today = new Date();
+      let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:8px">`;
+      ['S','M','T','W','T','F','S'].forEach(d => {
+        html += `<div style="text-align:center;font-size:10px;font-weight:600;color:var(--text3);padding:4px 0">${d}</div>`;
+      });
+      for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(y, m, day);
+        const daySessions = sessions.filter(s => isSameDay(parseSessionDate(s.date)||new Date(0), d));
+        const isToday = isSameDay(d, today);
+        html += `<div style="min-height:52px;padding:2px;border-radius:6px;background:${isToday?'var(--teal-bg)':'transparent'}">
+          <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--teal)':'var(--text)'};text-align:center;margin-bottom:2px">${day}</div>
+          ${daySessions.slice(0,2).map(s => renderCalEventPill(s, true)).join('')}
+          ${daySessions.length > 2 ? `<div style="font-size:9px;color:var(--text3);text-align:center">+${daySessions.length-2}</div>` : ''}
+        </div>`;
+      }
+      html += `</div>`;
+      body.innerHTML = html;
+
+    } else if (calView === 'day') {
+      // ── Mobile day: single day agenda ────────────────────
+      const dayLabel = `${wdays[calDate.getDay()]}, ${calDate.getDate()} ${months[calDate.getMonth()]} ${calDate.getFullYear()}`;
+      title.textContent = dayLabel;
       const daySessions = sessions
-        .filter(s => isSameDay(parseSessionDate(s.date) || new Date(0), d))
+        .filter(s => isSameDay(parseSessionDate(s.date)||new Date(0), calDate))
         .sort((a,b) => (a.start_time||'').localeCompare(b.start_time||''));
-      const isToday = isSameDay(d, today);
-      const dayLabel = `${wdays[d.getDay()]} ${day} ${months[m]}`;
-      html += `<div style="margin-bottom:${daySessions.length?'16':'4'}px">
-        <div style="font-size:12px;font-weight:${isToday?'700':'500'};color:${isToday?'var(--teal)':'var(--text3)'};padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:${daySessions.length?'8':'0'}px">
-          ${isToday ? '📍 ' : ''}${dayLabel}
-        </div>
-        ${daySessions.map(s => {
-          const name = getStudentNickname(s.student_id, s.course_id);
-          const subject = getSubjectForSession(s);
-          const tutor = DATA.tutors.find(t => t.tutor_id === s.tutor_id);
-          const color = getEventColor(s);
-          const timeStr = s.start_time && s.end_time ? `${formatTime(s.start_time)}–${formatTime(s.end_time)}` : (s.start_time ? formatTime(s.start_time) : '—');
-          const opacity = s.status==='Cancelled'?0.45:s.status==='Missed'?0.6:1;
-          return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:6px;border-left:4px solid ${color};opacity:${opacity};cursor:pointer">
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:600;color:var(--text)">${name}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:2px">${subject} · ${tutor?.name||'—'}</div>
-              <div style="font-size:11px;color:var(--text2);margin-top:2px">${timeStr}${s.hours?' · '+s.hours+'h':''}</div>
-            </div>
-            <div style="flex-shrink:0;text-align:right">
-              ${statusBadge(s.status)}
-              <div style="font-size:10px;color:${s.status==='Completed'?'var(--teal)':s.status==='Cancelled'?'var(--red)':s.status==='Missed'?'var(--amber)':'var(--text3)'};margin-top:2px">
-                ${s.status==='Completed'?'✓':s.status==='Cancelled'?'✕':s.status==='Missed'?'⚠':''}
+      body.innerHTML = daySessions.length
+        ? daySessions.map(s => {
+            const subject = getSubjectForSession(s);
+            const tutor = DATA.tutors.find(t => t.tutor_id === s.tutor_id);
+            const color = getEventColor(s);
+            const sDate2 = normDate(s), sTime2 = normTime(s.start_time);
+            const sibs = sessions.filter(x => x.tutor_id===s.tutor_id && normDate(x)===sDate2 && normTime(x.start_time)===sTime2 && getSubjectForSession(x)===subject);
+            const names = sibs.length > 1 ? sibs.map(x=>getStudentNickname(x.student_id,x.course_id)).join(', ') : getStudentNickname(s.student_id,s.course_id);
+            return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:6px;border-left:4px solid ${color};cursor:pointer">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:600">${names}</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px">${subject} · ${tutor?.name||'—'}</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:2px">${formatTimeRange(s.start_time,s.end_time)} · ${s.hours}h</div>
               </div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`;
+              <div style="flex-shrink:0">${statusBadge(s.status)}</div>
+            </div>`;
+          }).join('')
+        : `<div class="empty">No classes today</div>`;
+
+    } else if (calView === 'week') {
+      // ── Mobile week: 7-day agenda ─────────────────────────
+      const weekStart = new Date(calDate);
+      weekStart.setDate(calDate.getDate() - calDate.getDay());
+      const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+      title.textContent = `${weekStart.getDate()} ${months[weekStart.getMonth()]} – ${weekEnd.getDate()} ${months[weekEnd.getMonth()]} ${weekEnd.getFullYear()}`;
+      const today = new Date();
+      let html = '';
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
+        const daySessions = sessions
+          .filter(s => isSameDay(parseSessionDate(s.date)||new Date(0), d))
+          .sort((a,b) => (a.start_time||'').localeCompare(b.start_time||''));
+        const isToday = isSameDay(d, today);
+        const dayLabel = `${wdays[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+        if (!daySessions.length && !isToday) continue; // skip empty days on mobile week
+        html += `<div style="margin-bottom:12px">
+          <div style="font-size:12px;font-weight:${isToday?'700':'500'};color:${isToday?'var(--teal)':'var(--text3)'};padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
+            ${isToday ? '📍 ' : ''}${dayLabel}
+          </div>
+          ${daySessions.length
+            ? daySessions.map(s => {
+                const subject = getSubjectForSession(s);
+                const tutor = DATA.tutors.find(t => t.tutor_id === s.tutor_id);
+                const color = getEventColor(s);
+                const sDate2 = normDate(s), sTime2 = normTime(s.start_time);
+                const sibs = sessions.filter(x => x.tutor_id===s.tutor_id && normDate(x)===sDate2 && normTime(x.start_time)===sTime2 && getSubjectForSession(x)===subject);
+                const names = sibs.length > 1 ? sibs.map(x=>getStudentNickname(x.student_id,x.course_id)).join(', ') : getStudentNickname(s.student_id,s.course_id);
+                return `<div onclick="openCalSessionPopup('${s.session_id}',this)" style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:4px;border-left:3px solid ${color};cursor:pointer">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:12px;font-weight:600">${names}</div>
+                    <div style="font-size:11px;color:var(--text3)">${subject} · ${formatTimeRange(s.start_time,s.end_time)}</div>
+                  </div>
+                  ${statusBadge(s.status)}
+                </div>`;
+              }).join('')
+            : `<div style="font-size:11px;color:var(--text3);padding:4px 0">No classes</div>`
+          }
+        </div>`;
+      }
+      body.innerHTML = html || `<div class="empty">No classes this week</div>`;
+
+    } else {
+      // year view — keep existing desktop render, just set title
+      title.textContent = calDate.getFullYear();
     }
-    body.innerHTML = html || `<div class="empty">${lang==='th'?'ไม่มีคาบเรียนเดือนนี้':'No sessions this month'}</div>`;
     return;
   }
 
