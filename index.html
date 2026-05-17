@@ -3476,11 +3476,7 @@ function openPendingDetail(courseId) {
               <option value="eye"  ${course.commission_to==='eye' ?'selected':''}>Eye (5%)</option>
             </select>
           </div>
-          <div>
-            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Invoice ref</label>
-            <input type="text" id="edit-invoice" value="${course.invoice_ref||''}"
-              style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
-          </div>
+          <!-- Invoice ref removed from pending payment view -->
           <!-- Payment date removed - not needed in pending payment view -->
           <div>
             <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Total paid hrs</label>
@@ -3573,7 +3569,7 @@ async function saveCourseEdits(courseId) {
     fee_per_hr:        parseFloat(document.getElementById('edit-fee')?.value)     || undefined,
     tutor_rate_per_hr: parseFloat(document.getElementById('edit-rate')?.value)    || undefined,
     commission_to:     document.getElementById('edit-comm')?.value                || undefined,
-    invoice_ref:       document.getElementById('edit-invoice')?.value?.trim()     || undefined,
+    // invoice_ref: removed from UI
     payment_date:      document.getElementById('edit-paydate')?.value             || undefined,
     total_paid_hrs:    parseFloat(document.getElementById('edit-hrs')?.value)     || undefined,
   };
@@ -6554,7 +6550,7 @@ async function submitEnrollment() {
           <div style="font-size:11px;color:#888;margin-top:2px">${lang==='th'?`(แบ่ง ฿${fmt(splitTutorRate)}/hr × ${numStudents} คน)`:`(฿${fmt(splitTutorRate)}/hr per record × ${numStudents} students)`}</div>
         </div>
         <div style="margin-bottom:16px;font-size:12px;color:#BA7517">⏳ ${lang==='th'?'ยืนยันการชำระเงินด้านล่าง':'Confirm payment in Pending payments below'}</div>
-        <button onclick="this.closest('div').parentElement.remove();document.getElementById('group-students-body').innerHTML='';document.getElementById('enroll-subject').value='';document.getElementById('enroll-hours').value='';initScheduleBody();resetSaveBtn();loadAllData().then(()=>renderPendingPayments())"
+        <button onclick="this.closest('div').parentElement.remove();document.getElementById('group-students-body').innerHTML='';document.getElementById('enroll-subject').value='';document.getElementById('enroll-hours').value='';initScheduleBody();resetSaveBtn();localStorage.removeItem('poppadi_cache');setTimeout(()=>loadAllData().then(()=>renderPendingPayments()),2000)"
           style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">
           ${lang==='th'?'เสร็จแล้ว':'Done'}
         </button>
@@ -6913,7 +6909,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.1';
+  const cacheVersion = '3.2';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
