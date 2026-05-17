@@ -129,7 +129,7 @@
     margin-top: 2px;
   }
 
-  .nav { padding: 12px 10px; flex: 1; }
+  .nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
   .nav-item {
     display: flex;
     align-items: center;
@@ -1674,27 +1674,26 @@ async function loadAllData() {
 }
 
 function renderTutors() {
-  // Always re-apply saved tutor select before rendering
+  // Populate dropdown with latest tutor data
   const savedSel = localStorage.getItem('poppadi_tutor_select');
   const sel = document.getElementById('tutor-select');
   if (sel && DATA.tutors && DATA.tutors.length) {
-    if (!sel.options.length) {
-      sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
-        `<option value="${t.tutor_id}">${t.name}</option>`
-      ).join('');
-    }
-    if (savedSel && sel.value !== savedSel) sel.value = savedSel;
+    sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
+      `<option value="${t.tutor_id}">${t.name}</option>`
+    ).join('');
+    if (savedSel) sel.value = savedSel;
   }
-  // Respects current tutorViewMode — called by renderAll so refreshes don't reset to 'all'
+  // Always apply correct view mode regardless of which page is active
   if (tutorViewMode === 'single') {
-    // Sync button states
     const allBtn = document.getElementById('tutor-view-all');
     const singleBtn = document.getElementById('tutor-view-single');
     if (allBtn) { allBtn.style.background='transparent'; allBtn.style.color='var(--text2)'; }
     if (singleBtn) { singleBtn.style.background='var(--text)'; singleBtn.style.color='#fff'; }
     if (sel) sel.style.display='inline-block';
-    document.getElementById('tutor-all-view').style.display='none';
-    document.getElementById('tutor-single-view').style.display='block';
+    const allView = document.getElementById('tutor-all-view');
+    const singleView = document.getElementById('tutor-single-view');
+    if (allView) allView.style.display='none';
+    if (singleView) singleView.style.display='block';
     renderTutorDetail();
   } else {
     renderTutorAll();
@@ -6844,7 +6843,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '1.8';
+  const cacheVersion = '2.0';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
