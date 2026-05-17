@@ -188,6 +188,30 @@
   .page { display: none; }
   .page.active { display: block; }
 
+  /* Toast notification */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
   .page-header {
     display: flex;
     align-items: center;
@@ -1404,6 +1428,7 @@
 
   </main>
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────
@@ -6796,7 +6821,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '1.6';
+  const cacheVersion = '1.7';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -7218,6 +7243,19 @@ function toggleSidebar() {
     if (btn)     btn.textContent = '›';
   }
 })();
+
+// ─── TOAST NOTIFICATION ──────────────────────────────────────
+let _toastTimer = null;
+function showToast(msg, duration) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => {
+    el.classList.remove('show');
+  }, duration || 2500);
+}
 
 initAuth();
 </script>
