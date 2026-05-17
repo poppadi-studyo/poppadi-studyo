@@ -3312,20 +3312,25 @@ function updateEnrollPreview() {
   if (enrollType === 'group') {
     const rows = document.getElementById('group-students-body').children;
     if (!rows.length) { preview.style.display='none'; return; }
-    let totalRev = 0;
-    Array.from(rows).forEach(row => {
-      const feeInput = row.querySelectorAll('input')[1];
-      totalRev += (parseFloat(feeInput?.value)||0) * hrs;
-    });
-    const tutorPay = rate * hrs;
-    const comm     = totalRev * commRate;
-    const school   = totalRev - tutorPay - comm;
+    const numStudents  = rows.length;
+    // Fee comes from global enroll-fee field (per student)
+    const feePerHr     = parseFloat(document.getElementById('enroll-fee')?.value) || 0;
+    if (!feePerHr) { preview.style.display='none'; return; }
+    // rate here is the total tutor rate (written by updateGroupRateHint as totalRate)
+    // splitRate = totalRate / numStudents (per record)
+    const splitRate    = rate / numStudents;
+    const revPerStu    = feePerHr * hrs;           // per student per session
+    const totalRev     = revPerStu * numStudents;  // combined revenue
+    const tutorPay     = rate * hrs;               // total tutor pay per session
+    const comm         = totalRev * commRate;
+    const school       = totalRev - tutorPay - comm;
+    const perStuSchool = school / numStudents;
     preview.style.display = 'block';
     body.innerHTML = `
-      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'รายได้รวม':'Total revenue'}</div><div style="font-weight:600;color:var(--teal)">฿${fmt(totalRev)}</div></div>
-      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'ค่าสอน':'Tutor pay'}</div><div style="font-weight:600">฿${fmt(tutorPay)}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'รายได้รวม (ทุกคน)':'Total revenue (all students)'}</div><div style="font-weight:600;color:var(--teal)">฿${fmt(totalRev)}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'ค่าสอนครูรวม':'Total tutor pay'}</div><div style="font-weight:600">฿${fmt(tutorPay)}</div></div>
       <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'คอมมิชชั่น':'Commission'}</div><div style="font-weight:600">฿${fmt(comm)}</div></div>
-      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div><div style="font-weight:600">฿${fmt(school)}</div></div>`;
+      <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div><div style="font-weight:600;color:${school<0?'var(--red)':'inherit'}">฿${fmt(school)}</div></div>`;
   } else {
     const fee = parseFloat(document.getElementById('enroll-fee')?.value) || 0;
     if (!fee || !hrs) { preview.style.display='none'; return; }
@@ -6473,7 +6478,8 @@ async function submitEnrollment() {
     if (isGroupMode) {
       // ── GROUP: enroll each student individually ──────────
       const numStudents = groupStudents.length;
-      const splitTutorRate = Math.round((tutorRate / numStudents) * 100) / 100; // split evenly across records
+      const splitTutorRate = Math.round((tutorRate / numStudents) * 100) / 100;
+      const enrolledCourseIds = [];
       for (let i = 0; i < groupStudents.length; i++) {
         const { name, feePerHr } = groupStudents[i];
         const pct = 20 + Math.round((i / numStudents) * 70);
@@ -6488,7 +6494,7 @@ async function submitEnrollment() {
         const isNewStudent = !existingStudent;
         const studentId    = existingStudent?.student_id || 'S' + String(DATA.students.length + 1 + i).padStart(3,'0');
 
-        await webAppWrite('addEnrollment', {
+        const enrollResult = await webAppWrite('addEnrollment', {
           student: {
             student_id: studentId,
             nickname:   name,
@@ -6515,6 +6521,7 @@ async function submitEnrollment() {
           },
           sessions
         });
+        if (enrollResult?.course_id) enrolledCourseIds.push(enrollResult.course_id);
       }
 
       setSaveProgress(100, lang==='th'?'บันทึกแล้ว!':'Saved!');
@@ -6906,7 +6913,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.0';
+  const cacheVersion = '3.1';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
