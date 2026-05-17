@@ -6796,7 +6796,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '1.5';
+  const cacheVersion = '1.6';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -6952,6 +6952,30 @@ async function renderAuditLog() {
   if (!body) return;
   body.innerHTML = `<tr><td colspan="6" class="empty">Loading...</td></tr>`;
   try {
+    // ── Helper: normalise any timestamp format to "YYYY-MM-DD HH:MM" string ──
+    function normLogTs(raw) {
+      if (!raw) return '';
+      const s = String(raw).trim();
+      // Already ISO-ish: "2026-05-09 12:47:04" or "2026-05-09T12:47:04"
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 16).replace('T',' ');
+      // Excel serial number (e.g. 46151.532)
+      const num = parseFloat(s);
+      if (!isNaN(num) && num > 40000 && num < 70000) {
+        const d = new Date(new Date(1899,11,30).getTime() + num * 86400000);
+        const pad = n => String(n).padStart(2,'0');
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+      // MM/DD/YYYY HH:MM:SS or similar — try JS Date
+      try {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+          const pad = n => String(n).padStart(2,'0');
+          return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+      } catch(_) {}
+      return s; // fallback: return as-is
+    }
+
     // ── 1. Status-change events from Log sheet ────────────────
     // .gs writes columns in this order regardless of header names:
     // [timestamp, user_email, session_id, course_id, old_status, new_status, student_nickname]
@@ -6983,7 +7007,7 @@ async function renderAuditLog() {
             studentName = course ? (course.student_nickname || course.student_id || '—') : (row[iCourse] ? '('+row[iCourse]+')' : '—');
           }
         }
-        logEntries.push({ ts: row[iTS]||'', user: row[iUser]||'', sessionId: row[iSess]||'', courseId: row[iCourse]||'', oldStatus: row[iOld]||'', newStatus: row[iNew]||'', studentName, type: 'status' });
+        logEntries.push({ ts: normLogTs(row[iTS]), user: row[iUser]||'', sessionId: row[iSess]||'', courseId: row[iCourse]||'', oldStatus: row[iOld]||'', newStatus: row[iNew]||'', studentName, type: 'status' });
       });
     }
 
