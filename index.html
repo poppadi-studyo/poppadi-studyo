@@ -792,7 +792,7 @@
         <div style="display:flex;gap:8px;align-items:center">
           <button onclick="unlockPastMonths()" id="unlock-btn" class="btn btn-sm" style="font-size:12px;border-color:var(--border-strong)">🔒 Unlock past months</button>
           <div style="display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden">
-            <button id="sched-view-list" onclick="setScheduleView('list')" class="btn btn-sm" style="border:none;border-radius:0;background:var(--text);color:#fff;font-size:12px" data-en="List" data-th="รายการ">List</button>
+            <button id="sched-view-list" onclick="setScheduleView('list')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="List" data-th="รายการ">List</button>
             <button id="sched-view-cal" onclick="setScheduleView('calendar')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="Calendar" data-th="ปฏิทิน">Calendar</button>
           </div>
         </div>
@@ -851,7 +851,7 @@
               <button onclick="calToday()" class="btn btn-sm" style="margin-left:4px">Today</button>
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-              <select id="cal-filter-tutor" onchange="renderCalendar()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <select id="cal-filter-tutor" onchange="localStorage.setItem('poppadi_cal_tutor',this.value);renderCalendar()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
                 <option value="">All tutors</option>
               </select>
               <div style="display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden">
@@ -4695,7 +4695,7 @@ function getSubjectForSession(session) {
 }
 
 // ─── SCHEDULE VIEW TOGGLE ────────────────────────────────
-let scheduleViewMode = 'list';
+let scheduleViewMode = localStorage.getItem('poppadi_sched_view') || 'list';
 
 function setScheduleView(mode) {
   scheduleViewMode = mode;
@@ -4713,7 +4713,7 @@ function setScheduleView(mode) {
 }
 
 // ─── CALENDAR ─────────────────────────────────────────────
-let calView = 'month'; // day | week | month | year
+let calView = localStorage.getItem('poppadi_cal_view') || 'month'; // day | week | month | year
 let calDate = new Date();
 
 const WEEKDAYS_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -4728,6 +4728,9 @@ function populateCalTutorFilter() {
       const o=document.createElement('option');o.value=t.tutor_id;o.textContent=t.name;sel.appendChild(o);
     });
   }
+  // Restore saved tutor filter
+  const saved = localStorage.getItem('poppadi_cal_tutor');
+  if (saved && sel) sel.value = saved;
 }
 
 function setCalView(v) {
@@ -6837,7 +6840,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '2.5';
+  const cacheVersion = '2.7';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -7169,21 +7172,11 @@ function showPage(id, btn) {
   }
   if (id === 'schedule') {
     applyTutorScheduleFilter();
-    // Restore list/calendar toggle and cal sub-view
-    const sv = localStorage.getItem('poppadi_sched_view');
-    if (sv && sv !== scheduleViewMode) {
-      setScheduleView(sv);
-    } else if (scheduleViewMode === 'calendar') {
-      // Re-apply calView button states and re-render
-      const cv = localStorage.getItem('poppadi_cal_view') || calView;
-      calView = cv;
-      ['day','week','month','year'].forEach(x=>{
-        const btn=document.getElementById('cal-btn-'+x);
-        if(btn){btn.style.background=cv===x?'var(--text)':'transparent';btn.style.color=cv===x?'#fff':'var(--text2)';}
-      });
-      populateCalTutorFilter();
-      renderCalendar();
-    }
+    // Always re-apply saved view (list or calendar) when navigating to schedule
+    const sv = localStorage.getItem('poppadi_sched_view') || 'list';
+    const cv = localStorage.getItem('poppadi_cal_view') || 'month';
+    calView = cv;
+    setScheduleView(sv);
   }
   if (id === 'audit') renderAuditLog();
   if (id === 'tutors') {
