@@ -3222,9 +3222,6 @@ function addGroupStudentRow() {
     <div style="flex:2;min-width:140px">
       <input type="text" list="student-list" placeholder="${lang==='th'?'ชื่อนักเรียน':'Student name'} ${idx}" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif">
     </div>
-    <div style="flex:1;min-width:100px">
-      <input type="number" placeholder="฿/hr" title="Fee per hour" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif" oninput="updateEnrollPreview()">
-    </div>
     <button onclick="this.closest('div').remove();updateGroupRateHint()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:4px">✕</button>`;
   body.appendChild(div);
   updateGroupRateHint();
@@ -3479,11 +3476,7 @@ function openPendingDetail(courseId) {
             <input type="text" id="edit-invoice" value="${course.invoice_ref||''}"
               style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
           </div>
-          <div>
-            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Payment date</label>
-            <input type="date" id="edit-paydate" value="${course.payment_date||''}"
-              style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
-          </div>
+          <!-- Payment date removed - not needed in pending payment view -->
           <div>
             <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Total paid hrs</label>
             <input type="number" id="edit-hrs" value="${course.total_paid_hrs||''}"
@@ -3514,19 +3507,19 @@ function openPendingDetail(courseId) {
           <button onclick="copyPendingForLine('${courseId}')" class="btn btn-sm">⎘ Copy for LINE</button>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button onclick="cancelEntireEnrollment('${courseId}')"
+          <button id="modal-cancel-btn" onclick="modalActionWithLoading('cancel','${courseId}',this)"
             style="font-size:12px;padding:7px 14px;border:1px solid var(--red);color:var(--red);background:none;border-radius:8px;cursor:pointer">
             ✕ ${lang==='th'?'ยกเลิกทั้งหมด':'Cancel enrollment'}
           </button>
-          <button onclick="deleteEnrollment('${courseId}')"
+          <button id="modal-delete-btn" onclick="modalActionWithLoading('delete','${courseId}',this)"
             style="font-size:12px;padding:7px 14px;border:1px solid var(--red);color:#fff;background:var(--red);border-radius:8px;cursor:pointer">
             🗑 ${lang==='th'?'ลบทั้งหมด (clean slate)':'Delete enrollment'}
           </button>
-          <button onclick="confirmPaymentFromDetail('${courseId}')"
+          <button id="modal-confirm-btn" onclick="modalActionWithLoading('confirm','${courseId}',this)"
             style="font-size:12px;padding:7px 14px;border:none;background:var(--teal);color:#fff;border-radius:8px;cursor:pointer;font-weight:500">
             ✅ ${lang==='th'?'ยืนยันการชำระ':'Confirm paid'}
           </button>
-          <button id="save-course-edits-btn" onclick="saveCourseEdits('${courseId}')"
+          <button id="save-course-edits-btn" onclick="modalActionWithLoading('save','${courseId}',this)"
             style="font-size:12px;padding:7px 14px;border:none;background:var(--text);color:#fff;border-radius:8px;cursor:pointer;font-weight:500">
             💾 ${lang==='th'?'บันทึกการแก้ไข':'Save changes'}
           </button>
@@ -3535,6 +3528,36 @@ function openPendingDetail(courseId) {
     </div>`;
 
   document.body.appendChild(modal);
+}
+
+// ─── MODAL LOADING STATE WRAPPER ─────────────────────────────
+async function modalActionWithLoading(action, courseId, btnEl) {
+  // Disable all action buttons in the modal to prevent double-click
+  const allBtns = ['modal-cancel-btn','modal-delete-btn','modal-confirm-btn','save-course-edits-btn'];
+  allBtns.forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'not-allowed'; }
+  });
+  // Show loading state on the clicked button
+  const origText = btnEl ? btnEl.innerHTML : '';
+  if (btnEl) btnEl.innerHTML = '⏳ Loading...';
+
+  try {
+    if (action === 'cancel') await cancelEntireEnrollment(courseId);
+    else if (action === 'delete') await deleteEnrollment(courseId);
+    else if (action === 'confirm') await confirmPaymentFromDetail(courseId);
+    else if (action === 'save') await saveCourseEdits(courseId);
+  } catch(e) {
+    console.error('Modal action failed:', e);
+    showToast('❌ ' + (e.message || 'Action failed'));
+  } finally {
+    // Re-enable buttons only if modal is still open
+    allBtns.forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; }
+    });
+    if (btnEl && document.body.contains(btnEl)) btnEl.innerHTML = origText;
+  }
 }
 
 async function saveCourseEdits(courseId) {
@@ -4836,7 +4859,7 @@ function parseSessionDate(dateStr) {
 // Validates session belongs to correct course+student+tutor before display
 function getValidSessions(courseId) {
   const course = DATA.courses.find(c => c.course_id === courseId);
-  if (!course) return getValidSessions(courseId);
+  if (!course) return [];
   return DATA.sessions.filter(s =>
     s.course_id  === courseId &&
     s.student_id === course.student_id &&
@@ -5161,8 +5184,48 @@ function renderCalendar() {
       body.innerHTML = html || `<div class="empty">No classes this week</div>`;
 
     } else {
-      // year view — keep existing desktop render, just set title
-      title.textContent = calDate.getFullYear();
+      // ── Year view: 12-month financial overview grid ──────────
+      const yr = calDate.getFullYear();
+      title.textContent = yr;
+      const tutorFilter = document.getElementById('cal-filter-tutor')?.value || '';
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const fullMonths = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:4px">`;
+      const today = new Date();
+      months.forEach((mon, mi) => {
+        const isCurrentMonth = (yr === today.getFullYear() && mi === today.getMonth());
+        const isPast = (yr < today.getFullYear()) || (yr === today.getFullYear() && mi < today.getMonth());
+        // Filter sessions for this month
+        const monthSess = DATA.sessions.filter(s => {
+          const d = parseSessionDate(s.date);
+          if (!d || d.getFullYear() !== yr || d.getMonth() !== mi) return false;
+          if (tutorFilter && s.tutor_id !== tutorFilter) return false;
+          return true;
+        });
+        const completedSess = monthSess.filter(s => s.status === 'Completed' || s.status === 'Makeup');
+        const scheduledSess = monthSess.filter(s => s.status === 'Scheduled');
+        const revenue    = completedSess.reduce((sum,s) => sum + Number(s.total_revenue||0), 0);
+        const predicted  = scheduledSess.reduce((sum,s) => sum + Number(s.total_revenue||0), 0);
+        const tutorPay   = completedSess.reduce((sum,s) => sum + Number(s.tutor_pay||0), 0);
+        const commission = completedSess.reduce((sum,s) => sum + Number(s.commission_amt||0), 0);
+        const remainder  = completedSess.reduce((sum,s) => sum + Number(s.school_remainder||0), 0);
+        const sessionCount = monthSess.length;
+        const bgColor = isCurrentMonth ? 'var(--surface2)' : 'var(--surface)';
+        const borderColor = isCurrentMonth ? 'var(--teal)' : 'var(--border)';
+        html += `<div style="background:${bgColor};border:1.5px solid ${borderColor};border-radius:10px;padding:12px;cursor:pointer" onclick="calDate=new Date(${yr},${mi},1);calView='month';renderCalendar();document.getElementById('cal-btn-month')&&(document.getElementById('cal-btn-month').style.background='var(--text)',document.getElementById('cal-btn-month').style.color='#fff',document.getElementById('cal-btn-year').style.background='transparent',document.getElementById('cal-btn-year').style.color='var(--text2)')">
+          <div style="font-size:12px;font-weight:600;color:${isCurrentMonth?'var(--teal)':'var(--text)'};margin-bottom:6px">${fullMonths[mi]}</div>
+          ${sessionCount === 0
+            ? `<div style="font-size:11px;color:var(--text3);padding:4px 0">No sessions</div>`
+            : `<div style="font-size:11px;color:var(--text2);margin-bottom:4px">${sessionCount} session${sessionCount>1?'s':''}</div>
+               ${revenue > 0 ? `<div style="font-size:12px;font-weight:600;color:#1D9E75">฿${fmt(revenue)} <span style="font-size:10px;font-weight:400;color:var(--text3)">earned</span></div>` : ''}
+               ${predicted > 0 && !isPast ? `<div style="font-size:11px;color:var(--text3)">฿${fmt(predicted)} predicted</div>` : ''}
+               ${remainder > 0 ? `<div style="font-size:11px;color:var(--text2)">฿${fmt(remainder)} <span style="color:var(--text3)">school</span></div>` : ''}
+               ${tutorPay > 0 ? `<div style="font-size:11px;color:var(--red)">฿${fmt(tutorPay)} <span style="color:var(--text3)">tutor</span></div>` : ''}`
+          }
+        </div>`;
+      });
+      html += '</div>';
+      body.innerHTML = html;
     }
     return;
   }
@@ -6344,13 +6407,13 @@ async function submitEnrollment() {
   // ── Collect group students ───────────────────────────────
   let groupStudents = []; // [{ name, feePerHr }]
   if (isGroupMode) {
+    // Fee per hour now comes from the global enroll-fee field (shared for all students)
+    const sharedFeePerHr = parseFloat(document.getElementById('enroll-fee').value) || 0;
     const groupRows = document.querySelectorAll('#group-students-body > div');
     groupRows.forEach(row => {
       const nameInput = row.querySelectorAll('input')[0];
-      const feeInput  = row.querySelectorAll('input')[1];
       const name = nameInput?.value.trim() || '';
-      const fee  = parseFloat(feeInput?.value) || 0;
-      if (name) groupStudents.push({ name, feePerHr: fee });
+      if (name) groupStudents.push({ name, feePerHr: sharedFeePerHr });
     });
     if (groupStudents.length === 0) {
       alert(lang==='th'
@@ -6358,11 +6421,10 @@ async function submitEnrollment() {
         : 'Please add at least one student name');
       return;
     }
-    const missingFee = groupStudents.find(s => !s.feePerHr);
-    if (!subject || !paidHrs || missingFee) {
+    if (!subject || !paidHrs || !sharedFeePerHr) {
       alert(lang==='th'
-        ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม. (ทุกคน)'
-        : 'Please fill in required fields:\n• Student names\n• Subject\n• Total paid hours\n• Fee per hour (for each student)');
+        ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
+        : 'Please fill in required fields:\n• Student names\n• Subject\n• Total paid hours\n• Fee per hour');
       return;
     }
   } else {
@@ -6840,7 +6902,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '2.7';
+  const cacheVersion = '2.9';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
