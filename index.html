@@ -61,11 +61,51 @@
     position: fixed;
     top: 0; left: 0; bottom: 0;
     z-index: 100;
+    transition: width 0.2s ease;
+    overflow: hidden;
   }
+  .sidebar.collapsed {
+    width: 44px;
+  }
+  .sidebar.collapsed .logo-name,
+  .sidebar.collapsed .logo-sub,
+  .sidebar.collapsed .logo-img,
+  .sidebar.collapsed .nav-item span:not(.nav-icon),
+  .sidebar.collapsed .lang-switch,
+  .sidebar.collapsed .user-info { display: none; }
+  .sidebar.collapsed .logo { padding: 12px 0; display: flex; justify-content: center; border-bottom: 1px solid var(--border); }
+  .sidebar.collapsed .nav { padding: 8px 4px; }
+  .sidebar.collapsed .nav-item { justify-content: center; padding: 9px 0; }
+  .sidebar.collapsed .nav-icon { width: auto; }
+  .sidebar-toggle {
+    position: absolute;
+    top: 50%;
+    right: -12px;
+    transform: translateY(-50%);
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text2);
+    z-index: 101;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    transition: opacity 0.15s;
+  }
+  .sidebar-toggle:hover { color: var(--text); background: var(--surface2); }
 
   .logo {
     padding: 24px 20px 16px;
     border-bottom: 1px solid var(--border);
+  }
+  .logo-img {
+    display: block;
+    width: 100%;
+    max-width: 120px;
+    margin: 0 auto 8px;
+    opacity: 0.9;
   }
   .logo-name {
     font-size: 14px;
@@ -128,6 +168,11 @@
     padding: 28px 36px;
     width: calc(100vw - 220px);
     min-width: 0;
+    transition: margin-left 0.2s ease, width 0.2s ease;
+  }
+  .app.sidebar-collapsed .main {
+    margin-left: 44px;
+    width: calc(100vw - 44px);
   }
 
   .page { display: none; }
@@ -596,10 +641,12 @@
 
 <!-- APP WRAPPER -->
 <div id="app-wrapper" style="display:none">
-<div class="app">
+<div class="app" id="app-div">
   <!-- Sidebar -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">‹</button>
     <div class="logo">
+      <img src="data:image/png;base64,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" alt="Poppadi's Studyo" class="logo-img">
       <div class="logo-name">Poppadi's Studyo</div>
       <div class="logo-sub" data-en="Payment & scheduling" data-th="ระบบการเงินและตาราง" id="logo-sub">Payment & scheduling</div>
     </div>
@@ -2180,14 +2227,20 @@ let currentRole = 'admin'; // 'admin' or 'tutor'
 let currentTutorId = null; // set when role is 'tutor'
 
 function initAuth() {
-  // Check if already logged in from session storage
-  const stored = sessionStorage.getItem('poppadi_user');
+  // Use localStorage (persists across mobile tab kills) with 7-day expiry
+  const stored = localStorage.getItem('poppadi_user');
   if (stored) {
     try {
-      currentUser = JSON.parse(stored);
-      showApp();
-      return;
-    } catch(e) { sessionStorage.removeItem('poppadi_user'); }
+      const parsed = JSON.parse(stored);
+      // Check 7-day expiry
+      if (parsed._savedAt && (Date.now() - parsed._savedAt) < 7 * 24 * 60 * 60 * 1000) {
+        currentUser = parsed;
+        showApp();
+        return;
+      } else {
+        localStorage.removeItem('poppadi_user'); // expired
+      }
+    } catch(e) { localStorage.removeItem('poppadi_user'); }
   }
   // Show login screen
   showLogin();
@@ -2219,14 +2272,14 @@ function handleGoogleLogin(response) {
 
   currentRole    = tutorId ? 'tutor' : 'admin';
   currentTutorId = tutorId || null;
-  currentUser    = { email, name, picture, role: currentRole, tutorId: currentTutorId };
-  sessionStorage.setItem('poppadi_user', JSON.stringify(currentUser));
+  currentUser    = { email, name, picture, role: currentRole, tutorId: currentTutorId, _savedAt: Date.now() };
+  localStorage.setItem('poppadi_user', JSON.stringify(currentUser));
   showApp();
 }
 
 function logout() {
   currentUser = null;
-  sessionStorage.removeItem('poppadi_user');
+  localStorage.removeItem('poppadi_user');
   showLogin();
 }
 
@@ -6725,7 +6778,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '1.3';
+  const cacheVersion = '1.4';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -6880,42 +6933,74 @@ async function renderAuditLog() {
   if (!body) return;
   body.innerHTML = `<tr><td colspan="6" class="empty">Loading...</td></tr>`;
   try {
+    // ── 1. Status-change events from Log sheet ────────────────
     const rows = await fetchSheet('Log!A:G');
-    if (!rows || rows.length < 2) {
+    const logEntries = [];
+    if (rows && rows.length >= 2) {
+      const headers = rows[0];
+      rows.slice(1).forEach(row => {
+        const obj = {};
+        headers.forEach((h,i) => obj[h] = row[i] || '');
+        let studentName = obj.student_nickname || obj.nickname || '';
+        if (!studentName) {
+          const sess = DATA.sessions.find(s => s.session_id === obj.session_id);
+          if (sess) {
+            const st = DATA.students.find(s => s.student_id === sess.student_id);
+            studentName = st?.nickname || st?.full_name || sess.student_id || '—';
+          } else {
+            const course = DATA.courses.find(c => c.course_id === obj.course_id);
+            studentName = course ? (course.student_nickname || course.student_id || '—') : (obj.course_id ? '('+obj.course_id+')' : '—');
+          }
+        }
+        logEntries.push({ ts: obj.timestamp||'', user: obj.user_email||'', sessionId: obj.session_id||'', courseId: obj.course_id||'', oldStatus: obj.old_status||'', newStatus: obj.new_status||'', studentName, type: 'status' });
+      });
+    }
+
+    // ── 2. Enrollment events derived from Courses sheet ───────
+    // Each course row = one enrollment event; use payment_date or course_id order as proxy timestamp
+    const enrollEntries = DATA.courses.map(c => {
+      const studentName = c.student_nickname || c.student_id || '—';
+      const subject     = c.subject || '—';
+      const tutor       = DATA.tutors.find(t => t.tutor_id === c.tutor_id);
+      const tutorName   = tutor ? tutor.name : (c.tutor_id || '—');
+      const ts          = c.payment_date ? String(c.payment_date).substring(0,10) : '';
+      const detail      = `${subject} · ${tutorName} · ${c.total_paid_hrs||'?'}hrs`;
+      const eType       = c.enrollment_type === 'group' ? 'enrolled (group)' : 'enrolled';
+      return { ts, user: '', sessionId: c.course_id||'', courseId: c.course_id||'', oldStatus: eType, newStatus: detail, studentName, type: 'enroll' };
+    }).filter(e => e.courseId);
+
+    // ── 3. Merge and sort by timestamp descending ─────────────
+    const all = [...logEntries, ...enrollEntries].sort((a,b) => {
+      // Entries without timestamp sort to bottom
+      if (!a.ts && !b.ts) return 0;
+      if (!a.ts) return 1;
+      if (!b.ts) return -1;
+      return b.ts.localeCompare(a.ts);
+    });
+
+    if (all.length === 0) {
       body.innerHTML = `<tr><td colspan="6" class="empty">${lang==='th'?'ยังไม่มีประวัติ':'No audit entries yet'}</td></tr>`;
       return;
     }
-    const headers = rows[0];
-    const entries = rows.slice(1).reverse(); // newest first
-    body.innerHTML = entries.map(row => {
-      const obj = {};
-      headers.forEach((h,i) => obj[h] = row[i] || '');
-      // Try G column first, then look up from DATA using session_id
-      let studentName = obj.student_nickname || obj.nickname || '';
-      if (!studentName) {
-        // Search ALL sessions (not filtered by month)
-        const sess = DATA.sessions.find(s => s.session_id === obj.session_id);
-        if (sess) {
-          const st = DATA.students.find(s => s.student_id === sess.student_id);
-          // Use nickname, or full_name, or student_id as last resort
-          studentName = st?.nickname || st?.full_name || sess.student_id || '—';
-        } else {
-          // Try matching by course_id as fallback
-          const course = DATA.courses.find(c => c.course_id === obj.course_id);
-          if (course) {
-            studentName = course.student_nickname || course.student_name || course.student_id || '—';
-          } else {
-            studentName = obj.course_id ? '('+ obj.course_id +')' : '—';
-          }
-        }
+
+    body.innerHTML = all.map(e => {
+      let oldBadge, newBadge;
+      if (e.type === 'enroll') {
+        oldBadge = `<span class="badge" style="background:#E1F5EE;color:#1D9E75;border:1px solid #a7dfc9">${e.oldStatus}</span>`;
+        newBadge = `<span style="font-size:11px;color:var(--text2)">${e.newStatus}</span>`;
+      } else {
+        oldBadge = e.oldStatus ? `<span class="badge ${badgeClass(e.oldStatus)}">${e.oldStatus}</span>` : '—';
+        newBadge = e.newStatus ? `<span class="badge ${badgeClass(e.newStatus)}">${e.newStatus}</span>` : '—';
       }
-      const oldBadge = obj.old_status ? `<span class="badge ${badgeClass(obj.old_status)}">${obj.old_status}</span>` : '—';
-      const newBadge = obj.new_status ? `<span class="badge ${badgeClass(obj.new_status)}">${obj.new_status}</span>` : '—';
+      const userDisplay = e.user ? e.user.replace('@gmail.com','') : (e.type==='enroll' ? '<span style="color:var(--text3);font-size:11px">dashboard</span>' : '—');
+      const refDisplay  = e.type === 'enroll'
+        ? `<span style="font-size:11px;color:var(--teal);font-family:'DM Mono',monospace">${e.courseId}</span>`
+        : `<span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${e.sessionId||'—'}</span>`;
       return `<tr>
-        <td style="font-size:12px;color:var(--text2)">${obj.timestamp||'—'}</td>
-        <td style="font-size:12px">${(obj.user_email||'—').replace('@gmail.com','')}</td>
-        <td style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${obj.session_id||'—'}</td>
-        <td>${studentName}</td>
+        <td style="font-size:12px;color:var(--text2)">${e.ts||'—'}</td>
+        <td style="font-size:12px">${userDisplay}</td>
+        <td>${refDisplay}</td>
+        <td>${e.studentName}</td>
         <td>${oldBadge}</td>
         <td>${newBadge}</td>
       </tr>`;
@@ -7037,7 +7122,47 @@ function showPage(id, btn) {
     }
   }
   if (id === 'audit') renderAuditLog();
+  if (id === 'tutors') {
+    // Restore tutor view mode every time the page is opened (not just on initial load)
+    const savedTView  = localStorage.getItem('poppadi_tutor_view');
+    const savedTSel   = localStorage.getItem('poppadi_tutor_select');
+    if (savedTView === 'single') {
+      const sel = document.getElementById('tutor-select');
+      if (sel && DATA.tutors && DATA.tutors.length) {
+        if (!sel.options.length) {
+          sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
+            `<option value="${t.tutor_id}">${t.name}</option>`
+          ).join('');
+        }
+        if (savedTSel) sel.value = savedTSel;
+        setTutorView('single');
+      }
+    }
+  }
 }
+
+// ─── SIDEBAR TOGGLE ──────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar  = document.getElementById('sidebar');
+  const appDiv   = document.getElementById('app-div');
+  const btn      = document.getElementById('sidebar-toggle');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  appDiv.classList.toggle('sidebar-collapsed', collapsed);
+  if (btn) btn.textContent = collapsed ? '›' : '‹';
+  localStorage.setItem('poppadi_sidebar_collapsed', collapsed ? '1' : '0');
+}
+
+// Restore sidebar state on load
+(function() {
+  if (localStorage.getItem('poppadi_sidebar_collapsed') === '1') {
+    const sidebar = document.getElementById('sidebar');
+    const appDiv  = document.getElementById('app-div');
+    const btn     = document.getElementById('sidebar-toggle');
+    if (sidebar) sidebar.classList.add('collapsed');
+    if (appDiv)  appDiv.classList.add('sidebar-collapsed');
+    if (btn)     btn.textContent = '›';
+  }
+})();
 
 initAuth();
 </script>
