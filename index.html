@@ -64,11 +64,12 @@
     transition: width 0.2s ease;
     overflow: visible;  /* must be visible so toggle tab outside sidebar isn't clipped */
   }
-  /* Clip text overflow inside nav and logo so it doesn't bleed during collapse */
-  .sidebar .nav, .sidebar .logo, .sidebar .lang-switch, .sidebar .sidebar-footer {
+  /* Clip text overflow inside logo/footer so it doesn't bleed during collapse */
+  .sidebar .logo, .sidebar .lang-switch, .sidebar .sidebar-footer {
     overflow: hidden;
     white-space: nowrap;
   }
+  .sidebar .nav-item span { overflow: hidden; white-space: nowrap; }
   .sidebar.collapsed {
     width: 44px;
   }
@@ -129,7 +130,7 @@
     margin-top: 2px;
   }
 
-  .nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+  .nav { padding: 12px 10px; flex: 1; overflow-y: auto; overflow-x: hidden; }
   .nav-item {
     display: flex;
     align-items: center;
@@ -187,30 +188,18 @@
 
   .page { display: none; }
   .page.active { display: block; }
-
-  /* Toast notification */
   .toast {
-    position: fixed;
-    bottom: 28px;
-    left: 50%;
+    position: fixed; bottom: 28px; left: 50%;
     transform: translateX(-50%) translateY(20px);
-    background: var(--text);
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-family: 'DM Sans', sans-serif;
-    z-index: 9999;
-    opacity: 0;
+    background: var(--text); color: #fff;
+    padding: 10px 20px; border-radius: 20px;
+    font-size: 13px; font-family: 'DM Sans', sans-serif;
+    z-index: 9999; opacity: 0;
     transition: opacity 0.2s, transform 0.2s;
-    pointer-events: none;
-    white-space: nowrap;
+    pointer-events: none; white-space: nowrap;
     box-shadow: 0 4px 16px rgba(0,0,0,0.18);
   }
-  .toast.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   .page-header {
     display: flex;
@@ -936,7 +925,7 @@
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <div style="display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden">
-            <button id="tutor-view-all" onclick="setTutorView('all')" class="btn btn-sm" style="border:none;border-radius:0;background:var(--text);color:#fff;font-size:12px" data-en="All tutors" data-th="ทุกคน">All tutors</button>
+            <button id="tutor-view-all" onclick="setTutorView('all')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="All tutors" data-th="ทุกคน">All tutors</button>
             <button id="tutor-view-single" onclick="setTutorView('single')" class="btn btn-sm" style="border:none;border-radius:0;font-size:12px" data-en="Individual" data-th="รายคน">Individual</button>
           </div>
           <select id="tutor-select" onchange="localStorage.setItem('poppadi_tutor_select',this.value);renderTutorDetail()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif;display:none"></select>
@@ -1674,7 +1663,6 @@ async function loadAllData() {
 }
 
 function renderTutors() {
-  // Populate dropdown with latest tutor data
   const savedSel = localStorage.getItem('poppadi_tutor_select');
   const sel = document.getElementById('tutor-select');
   if (sel && DATA.tutors && DATA.tutors.length) {
@@ -1683,7 +1671,6 @@ function renderTutors() {
     ).join('');
     if (savedSel) sel.value = savedSel;
   }
-  // Always apply correct view mode regardless of which page is active
   if (tutorViewMode === 'single') {
     const allBtn = document.getElementById('tutor-view-all');
     const singleBtn = document.getElementById('tutor-view-single');
@@ -1696,6 +1683,15 @@ function renderTutors() {
     if (singleView) singleView.style.display='block';
     renderTutorDetail();
   } else {
+    const allBtn = document.getElementById('tutor-view-all');
+    const singleBtn = document.getElementById('tutor-view-single');
+    if (allBtn) { allBtn.style.background='var(--text)'; allBtn.style.color='#fff'; }
+    if (singleBtn) { singleBtn.style.background='transparent'; singleBtn.style.color='var(--text2)'; }
+    if (sel) sel.style.display='none';
+    const allView = document.getElementById('tutor-all-view');
+    const singleView = document.getElementById('tutor-single-view');
+    if (allView) allView.style.display='block';
+    if (singleView) singleView.style.display='none';
     renderTutorAll();
   }
 }
@@ -2914,10 +2910,8 @@ function renderTutorSelect() {
   sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
     `<option value="${t.tutor_id}">${t.name}</option>`
   ).join('');
-  // Restore saved view mode, default to 'all'
-  const savedSel = localStorage.getItem('poppadi_tutor_select');
-  if (savedSel) sel.value = savedSel;
-  setTutorView(tutorViewMode || 'all');
+  // Default to all tutors view
+  setTutorView('all');
 }
 
 // ─── ALL TUTORS VIEW ──────────────────────────────────────
@@ -6843,7 +6837,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '2.0';
+  const cacheVersion = '2.2';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -6962,8 +6956,11 @@ function applyRoleUI() {
   const adminOnly = ['overview','tutors','students','expenses','otherincome','enroll','audit'];
   adminOnly.forEach(id => {
     const navBtn = document.querySelector(`.nav-item[onclick*="'${id}'"]`);
-    if (navBtn) navBtn.style.display = isTutor ? 'none' : 'flex';
+    if (navBtn) navBtn.style.display = isTutor ? 'none' : '';
   });
+  // Audit log nav — only admins
+  const auditBtn = document.querySelector(`.nav-item[onclick*="'audit'"]`);
+  if (auditBtn) auditBtn.style.display = isTutor ? 'none' : '';
   // Web App settings — hide for tutors
   const webAppBtn = document.querySelector('[onclick="openWebAppSettings()"]');
   if (webAppBtn) webAppBtn.style.display = isTutor ? 'none' : '';
@@ -6996,62 +6993,41 @@ async function renderAuditLog() {
   if (!body) return;
   body.innerHTML = `<tr><td colspan="6" class="empty">Loading...</td></tr>`;
   try {
-    // ── Helper: normalise any timestamp format to "YYYY-MM-DD HH:MM" string ──
+    // ── Helper: normalise any timestamp format to readable string ──
     function normLogTs(raw) {
       if (!raw) return '';
       const s = String(raw).trim();
-      // Already ISO-ish: "2026-05-09 12:47:04" or "2026-05-09T12:47:04"
-      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 16).replace('T',' ');
-      // Excel serial number (e.g. 46151.532)
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0,16).replace('T',' ');
       const num = parseFloat(s);
       if (!isNaN(num) && num > 40000 && num < 70000) {
-        const d = new Date(new Date(1899,11,30).getTime() + num * 86400000);
-        const pad = n => String(n).padStart(2,'0');
-        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const d = new Date(new Date(1899,11,30).getTime() + num*86400000);
+        const p = n => String(n).padStart(2,'0');
+        return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
       }
-      // MM/DD/YYYY HH:MM:SS or similar — try JS Date
-      try {
-        const d = new Date(s);
-        if (!isNaN(d.getTime())) {
-          const pad = n => String(n).padStart(2,'0');
-          return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        }
-      } catch(_) {}
-      return s; // fallback: return as-is
+      try { const d=new Date(s); if(!isNaN(d.getTime())){const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());} } catch(_){}
+      return s;
     }
 
     // ── 1. Status-change events from Log sheet ────────────────
-    // .gs writes columns in this order regardless of header names:
-    // [timestamp, user_email, session_id, course_id, old_status, new_status, student_nickname]
     const rows = await fetchSheet('Log!A:G');
     const logEntries = [];
     if (rows && rows.length >= 2) {
       const headers = rows[0];
-      // Build index map — fall back to positional (0-6) if header names differ
-      const col = (name, fallback) => {
-        const i = headers.indexOf(name);
-        return i >= 0 ? i : fallback;
-      };
-      const iTS   = col('timestamp',        0);
-      const iUser = col('user_email',        1);
-      const iSess = col('session_id',        2);
-      const iCourse = col('course_id',       3);
-      const iOld  = col('old_status',        4);
-      const iNew  = col('new_status',        5);
-      const iNick = col('student_nickname',  6);
       rows.slice(1).forEach(row => {
-        let studentName = row[iNick] || '';
+        const obj = {};
+        headers.forEach((h,i) => obj[h] = row[i] || '');
+        let studentName = obj.student_nickname || obj.nickname || '';
         if (!studentName) {
-          const sess = DATA.sessions.find(s => s.session_id === (row[iSess]||''));
+          const sess = DATA.sessions.find(s => s.session_id === obj.session_id);
           if (sess) {
             const st = DATA.students.find(s => s.student_id === sess.student_id);
             studentName = st?.nickname || st?.full_name || sess.student_id || '—';
           } else {
-            const course = DATA.courses.find(c => c.course_id === (row[iCourse]||''));
-            studentName = course ? (course.student_nickname || course.student_id || '—') : (row[iCourse] ? '('+row[iCourse]+')' : '—');
+            const course = DATA.courses.find(c => c.course_id === obj.course_id);
+            studentName = course ? (course.student_nickname || course.student_id || '—') : (obj.course_id ? '('+obj.course_id+')' : '—');
           }
         }
-        logEntries.push({ ts: normLogTs(row[iTS]), user: row[iUser]||'', sessionId: row[iSess]||'', courseId: row[iCourse]||'', oldStatus: row[iOld]||'', newStatus: row[iNew]||'', studentName, type: 'status' });
+        logEntries.push({ ts: normLogTs(obj.timestamp), user: obj.user_email||'', sessionId: obj.session_id||'', courseId: obj.course_id||'', oldStatus: obj.old_status||'', newStatus: obj.new_status||'', studentName, type: 'status' });
       });
     }
 
@@ -7263,7 +7239,6 @@ function toggleSidebar() {
   }
 })();
 
-// ─── TOAST NOTIFICATION ──────────────────────────────────────
 let _toastTimer = null;
 function showToast(msg, duration) {
   const el = document.getElementById('toast');
@@ -7271,9 +7246,7 @@ function showToast(msg, duration) {
   el.textContent = msg;
   el.classList.add('show');
   if (_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => {
-    el.classList.remove('show');
-  }, duration || 2500);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), duration || 2500);
 }
 
 initAuth();
