@@ -1648,11 +1648,16 @@ async function loadAllData() {
   }
 }
 
+function renderTutors() {
+  // Respects current tutorViewMode — called by renderAll so refreshes don't reset to 'all'
+  if (tutorViewMode === 'single') renderTutorDetail(); else renderTutorAll();
+}
+
 function renderAll() {
   // Each renderer is isolated — one failure won't block the others or freeze the spinner
   const renderers = [
     renderOverview, renderSchedule, renderMakeupQueue,
-    renderTutorAll, renderStudents, renderExpenses, renderOtherIncome
+    renderTutors, renderStudents, renderExpenses, renderOtherIncome
   ];
   renderers.forEach(fn => {
     try { fn(); } catch(e) { console.warn('renderAll: ' + fn.name + ' failed —', e.message); }
@@ -6853,7 +6858,8 @@ function onAppReady() {
     const savedTutorView   = localStorage.getItem('poppadi_tutor_view');
     const savedTutorSelect = localStorage.getItem('poppadi_tutor_select');
     if (savedTutorView === 'single') {
-      // populate dropdown first, then set value, then switch view
+      // Set mode variable BEFORE renderAll runs so renderTutors() picks it up
+      tutorViewMode = 'single';
       const sel = document.getElementById('tutor-select');
       if (sel) {
         sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
