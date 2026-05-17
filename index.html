@@ -3283,8 +3283,8 @@ function updateGroupRateHint() {
       lockedHint.innerHTML = `<span style="color:var(--text2)">${tutorName} · ${count} ${lang==='th'?'คน':'students'} · ฿${base}${extraLabel} = ฿${totalRate} ${lang==='th'?'รวม':'total'} ÷ ${count} = <strong style="color:var(--teal)">฿${splitRate}/hr</strong> ${lang==='th'?'ต่อ record':'per record'}</span>`;
       if (warningVal) warningVal.textContent = `฿${splitRate}/hr`;
 
-      // Always write the split value to the hidden input so submitEnrollment reads it
-      rateInput.value = splitRate;
+      // Write TOTAL rate to input — submitEnrollment will split it by numStudents
+      rateInput.value = totalRate;
     }
   } else {
     // Back to single mode — show editable input
@@ -4860,6 +4860,10 @@ function parseSessionDate(dateStr) {
 function getValidSessions(courseId) {
   const course = DATA.courses.find(c => c.course_id === courseId);
   if (!course) return [];
+  // Group courses: match by course_id only (student_id may differ between dashboard and sheet)
+  if (course.enrollment_type === 'group') {
+    return DATA.sessions.filter(s => s.course_id === courseId);
+  }
   return DATA.sessions.filter(s =>
     s.course_id  === courseId &&
     s.student_id === course.student_id &&
@@ -6902,7 +6906,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '2.9';
+  const cacheVersion = '3.0';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
