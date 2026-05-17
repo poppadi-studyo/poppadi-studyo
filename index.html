@@ -1708,7 +1708,7 @@ function renderAll() {
 }
 
 // ─── HELPERS ──────────────────────────────────────────────
-function fmt(n) { return Number(n||0).toLocaleString('th-TH'); }
+function fmt(n) { const v = Number(n); return (isNaN(v) ? 0 : v).toLocaleString('th-TH'); }
 
 // Converts "2026-05-11" or Excel serial 46150 → "Mon, May 11, 2026"
 function fmtDate(dateStr) {
@@ -2970,7 +2970,7 @@ function renderTutorDetail() {
   body.innerHTML = all.map(s=>{
     const student=DATA.students.find(st=>st.student_id===s.student_id);
     const timeStr=s.start_time&&s.end_time?`${s.start_time}–${s.end_time}`:(s.start_time||'—');
-    return `<tr><td>${getStudentNickname(s.student_id, s.course_id)}</td><td>${s.session_id||'—'}</td><td>${getSubjectForSession(s)}</td><td>${fmtDate(s.date)}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
+    return `<tr><td>${getStudentNickname(s.student_id, s.course_id)}</td><td>${s.session_id||'—'}</td><td>${getSubjectForSession(s)}</td><td>${fmtDate(s.date)}</td><td>${timeStr}</td><td>${s.hours||'—'}</td><td>${s.num_students||'—'}</td><td>฿${fmt(s.total_revenue&&s.hours&&Number(s.hours)>0?Math.round(Number(s.total_revenue)/Number(s.hours)):0)}</td><td>฿${fmt(s.total_revenue)}</td><td>฿${fmt(s.tutor_pay)}</td><td>${s.commission_who||'none'}</td><td>฿${fmt(s.commission_amt)}</td><td>฿${fmt(s.school_remainder)}</td><td>${statusBadge(s.status)}</td></tr>`;
   }).join('');
 }
 
@@ -3259,8 +3259,8 @@ function updateGroupRateHint() {
   const isGroupMode = document.getElementById('group-students-body')?.closest('[style*="display: block"]') !== null
     || document.getElementById('group-course-section')?.style.display !== 'none';
 
-  if (count >= 1) {
-    // Show locked display, hide editable input
+  if (count >= 1 && enrollType === 'group') {
+    // Show locked display, hide editable input (group mode only)
     const lockedEl     = document.getElementById('group-rate-locked');
     const lockedNum    = document.getElementById('group-rate-locked-num');
     const lockedHint   = document.getElementById('group-rate-locked-hint');
@@ -5990,7 +5990,7 @@ function suggestTutorRate() {
   }
 
   updateEnrollPreview();
-  if (typeof updateGroupRateHint === 'function') updateGroupRateHint();
+  if (typeof updateGroupRateHint === 'function' && enrollType === 'group') updateGroupRateHint();
 }
 
 // Helper: get current student count from form (single or group)
@@ -6837,7 +6837,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '2.2';
+  const cacheVersion = '2.5';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -6898,21 +6898,10 @@ function onAppReady() {
       }
     }
 
-    // Restore tutor view mode + selected tutor
-    const savedTutorView   = localStorage.getItem('poppadi_tutor_view');
-    const savedTutorSelect = localStorage.getItem('poppadi_tutor_select');
-    if (savedTutorView === 'single') {
-      // Set mode variable BEFORE renderAll runs so renderTutors() picks it up
-      tutorViewMode = 'single';
-      const sel = document.getElementById('tutor-select');
-      if (sel) {
-        sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
-          `<option value="${t.tutor_id}">${t.name}</option>`
-        ).join('');
-        if (savedTutorSelect) sel.value = savedTutorSelect;
-      }
-      setTutorView('single');
-    }
+    // tutorViewMode is already set from localStorage at declaration time.
+    // renderTutors() (called by renderAll above) handles all view restore.
+    // If saved page is tutors, re-render to make sure it's applied correctly.
+    if (savedPage === 'tutors' && DATA.tutors && DATA.tutors.length) renderTutors();
 
     // Restore overview breakdown toggle
     const breakdownOpen = localStorage.getItem('poppadi_overview_breakdown');
@@ -7198,21 +7187,9 @@ function showPage(id, btn) {
   }
   if (id === 'audit') renderAuditLog();
   if (id === 'tutors') {
-    // Restore tutor view mode every time the page is opened (not just on initial load)
-    const savedTView  = localStorage.getItem('poppadi_tutor_view');
-    const savedTSel   = localStorage.getItem('poppadi_tutor_select');
-    if (savedTView === 'single') {
-      const sel = document.getElementById('tutor-select');
-      if (sel && DATA.tutors && DATA.tutors.length) {
-        if (!sel.options.length) {
-          sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
-            `<option value="${t.tutor_id}">${t.name}</option>`
-          ).join('');
-        }
-        if (savedTSel) sel.value = savedTSel;
-        setTutorView('single');
-      }
-    }
+    // Always re-render tutors when navigating to the page
+    // renderTutors() handles all view mode restore, dropdown populate, and button states
+    if (DATA.tutors && DATA.tutors.length) renderTutors();
   }
 }
 
