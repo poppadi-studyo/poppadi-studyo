@@ -2834,7 +2834,7 @@ function resetMakeup() {
 }
 
 // ─── TUTORS VIEW TOGGLE ───────────────────────────────────
-let tutorViewMode = 'all';
+let tutorViewMode = localStorage.getItem('poppadi_tutor_view') || 'all';
 let currentDetailCourse = null;
 
 function setTutorView(mode) {
@@ -2867,8 +2867,10 @@ function renderTutorSelect() {
   sel.innerHTML = DATA.tutors.filter(t=>t.active==='TRUE').map(t=>
     `<option value="${t.tutor_id}">${t.name}</option>`
   ).join('');
-  // Default to all tutors view
-  setTutorView('all');
+  // Restore saved view mode, default to 'all'
+  const savedSel = localStorage.getItem('poppadi_tutor_select');
+  if (savedSel) sel.value = savedSel;
+  setTutorView(tutorViewMode || 'all');
 }
 
 // ─── ALL TUTORS VIEW ──────────────────────────────────────
@@ -6794,7 +6796,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '1.4';
+  const cacheVersion = '1.5';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -6951,25 +6953,37 @@ async function renderAuditLog() {
   body.innerHTML = `<tr><td colspan="6" class="empty">Loading...</td></tr>`;
   try {
     // ── 1. Status-change events from Log sheet ────────────────
+    // .gs writes columns in this order regardless of header names:
+    // [timestamp, user_email, session_id, course_id, old_status, new_status, student_nickname]
     const rows = await fetchSheet('Log!A:G');
     const logEntries = [];
     if (rows && rows.length >= 2) {
       const headers = rows[0];
+      // Build index map — fall back to positional (0-6) if header names differ
+      const col = (name, fallback) => {
+        const i = headers.indexOf(name);
+        return i >= 0 ? i : fallback;
+      };
+      const iTS   = col('timestamp',        0);
+      const iUser = col('user_email',        1);
+      const iSess = col('session_id',        2);
+      const iCourse = col('course_id',       3);
+      const iOld  = col('old_status',        4);
+      const iNew  = col('new_status',        5);
+      const iNick = col('student_nickname',  6);
       rows.slice(1).forEach(row => {
-        const obj = {};
-        headers.forEach((h,i) => obj[h] = row[i] || '');
-        let studentName = obj.student_nickname || obj.nickname || '';
+        let studentName = row[iNick] || '';
         if (!studentName) {
-          const sess = DATA.sessions.find(s => s.session_id === obj.session_id);
+          const sess = DATA.sessions.find(s => s.session_id === (row[iSess]||''));
           if (sess) {
             const st = DATA.students.find(s => s.student_id === sess.student_id);
             studentName = st?.nickname || st?.full_name || sess.student_id || '—';
           } else {
-            const course = DATA.courses.find(c => c.course_id === obj.course_id);
-            studentName = course ? (course.student_nickname || course.student_id || '—') : (obj.course_id ? '('+obj.course_id+')' : '—');
+            const course = DATA.courses.find(c => c.course_id === (row[iCourse]||''));
+            studentName = course ? (course.student_nickname || course.student_id || '—') : (row[iCourse] ? '('+row[iCourse]+')' : '—');
           }
         }
-        logEntries.push({ ts: obj.timestamp||'', user: obj.user_email||'', sessionId: obj.session_id||'', courseId: obj.course_id||'', oldStatus: obj.old_status||'', newStatus: obj.new_status||'', studentName, type: 'status' });
+        logEntries.push({ ts: row[iTS]||'', user: row[iUser]||'', sessionId: row[iSess]||'', courseId: row[iCourse]||'', oldStatus: row[iOld]||'', newStatus: row[iNew]||'', studentName, type: 'status' });
       });
     }
 
