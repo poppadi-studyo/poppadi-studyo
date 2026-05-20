@@ -38,6 +38,35 @@
     --radius-lg: 14px;
   }
 
+  [data-theme="dark"] {
+    --bg: #1a1a18;
+    --surface: #242422;
+    --surface2: #2c2c29;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.15);
+    --text: #f0efe9;
+    --text2: #a8a79f;
+    --text3: #6b6a63;
+    --teal: #2ecc93;
+    --teal-bg: #0f2e22;
+    --blue: #5aa3f0;
+    --blue-bg: #0d1e33;
+    --purple: #9b93f0;
+    --purple-bg: #1a1830;
+    --coral: #e8754a;
+    --coral-bg: #2e1810;
+    --pink: #e06a90;
+    --pink-bg: #2e1020;
+    --amber: #d4910a;
+    --amber-bg: #2e1f00;
+    --gray: #6b6a63;
+    --gray-bg: #2c2c29;
+    --red: #f05555;
+    --red-bg: #2e1010;
+    --green: #2ecc93;
+    --green-bg: #0f2e22;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -714,6 +743,7 @@
     <div class="lang-switch">
       <button class="lang-btn active" onclick="setLang('en', this)">EN</button>
       <button class="lang-btn" onclick="setLang('th', this)">ไทย</button>
+      <button id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark/light mode" style="background:none;border:1px solid var(--border-strong);border-radius:8px;cursor:pointer;font-size:14px;padding:4px 8px;color:var(--text2);font-family:'DM Sans',sans-serif;line-height:1">🌙</button>
     </div>
     <div class="sidebar-footer" style="padding:10px 20px;border-top:1px solid var(--border)">
       <div style="font-size:11px;color:var(--text3);margin-bottom:4px" id="user-email"></div>
@@ -1008,7 +1038,8 @@
         <div class="card" style="padding:0">
           <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <select id="student-filter-status" onchange="localStorage.setItem('poppadi_student_status',this.value);renderStudents()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
-              <option value="" data-en="All statuses" data-th="ทุกสถานะ">All statuses</option>
+              <option value="not-graduated" data-en="All (excl. Graduated)" data-th="ทุกสถานะ (ยกเว้นจบ)">All (excl. Graduated)</option>
+              <option value="" data-en="All statuses (incl. Graduated)" data-th="ทุกสถานะ">All statuses (incl. Graduated)</option>
               <option value="Active" data-en="Active" data-th="กำลังเรียน">Active</option>
               <option value="Pending" data-en="Payment Pending ⏳" data-th="รอชำระ ⏳">Payment Pending ⏳</option>
               <option value="Renewed-Invoiced" data-en="Renewed — Invoiced" data-th="ต่อแล้ว — ส่งใบแล้ว">Renewed — Invoiced</option>
@@ -1376,7 +1407,6 @@
               <th data-en="Student" data-th="นักเรียน">Student</th>
               <th data-en="Subject" data-th="วิชา">Subject</th>
               <th data-en="Tutor" data-th="ครู">Tutor</th>
-              <th data-en="Invoice" data-th="ใบแจ้งหนี้">Invoice</th>
               <th data-en="Hrs" data-th="ชม.">Hrs</th>
               <th data-en="Fee/hr" data-th="ค่าเรียน/ชม.">Fee/hr</th>
               <th data-en="Action" data-th="การดำเนินการ">Action</th>
@@ -3888,7 +3918,6 @@ function renderPendingPayments() {
       <td>${name}</td>
       <td>${course.subject||'—'}</td>
       <td>${tutor.name||course.tutor_id}</td>
-      <td>${course.invoice_ref||'—'}</td>
       <td>${course.total_paid_hrs||'—'}</td>
       <td>฿${fmt(course.fee_per_hr)}</td>
       <td onclick="event.stopPropagation()">
@@ -4084,7 +4113,8 @@ function renderStudents() {
       : remaining<=3?`<span class="badge badge-alert-med">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`:'—';
 
     // Apply filters
-    if (statusFilter && lifecycle !== statusFilter && !(statusFilter==='Pending'&&payStatus==='Pending')) return;
+    if (statusFilter === 'not-graduated' && lifecycle === 'Graduated') return;
+    if (statusFilter && statusFilter !== 'not-graduated' && lifecycle !== statusFilter && !(statusFilter==='Pending'&&payStatus==='Pending')) return;
     if (paymentFilter && payStatus !== paymentFilter) return;
     if (tutorFilter && course.tutor_id !== tutorFilter) return;
 
@@ -6012,6 +6042,23 @@ function setLang(l, btn) {
   if (scheduleViewMode==='calendar') renderCalendar();
 }
 
+// ─── DARK / LIGHT MODE ──────────────────────────────────────
+function toggleTheme() {
+  const isDark = document.body.getAttribute('data-theme') === 'dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  document.body.setAttribute('data-theme', newTheme);
+  localStorage.setItem('poppadi_theme', newTheme);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+}
+
+function applyTheme() {
+  const saved = localStorage.getItem('poppadi_theme') || 'light';
+  document.body.setAttribute('data-theme', saved);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = saved === 'dark' ? '☀️' : '🌙';
+}
+
 // ─── TUTOR RATE SUGGESTION ────────────────────────────────
 const TUTOR_TIERS = {
   T001: { base: 700, extra: 100 }, // AJ. Pop
@@ -6400,6 +6447,18 @@ function populateEnrollTutors() {
   suggestTutorRate();
 }
 
+function calcNextBlock(studentId, subject, tutorId) {
+  // Find the highest existing block for same student + subject + tutor, then +1
+  const existing = DATA.courses.filter(c =>
+    c.student_id === studentId &&
+    (c.subject||'').toLowerCase() === (subject||'').toLowerCase() &&
+    c.tutor_id === tutorId
+  );
+  if (!existing.length) return 1;
+  const maxBlock = Math.max(...existing.map(c => Number(c.block_number) || 1));
+  return maxBlock + 1;
+}
+
 async function submitEnrollment() {
   const isGroupMode  = enrollType === 'group';
   const subject      = document.getElementById('enroll-subject').value.trim();
@@ -6512,7 +6571,7 @@ async function submitEnrollment() {
             payment_date:      '',
             payment_status:    'Pending',
             enrollment_type:   'group',
-            block_number:      1,
+            block_number:      calcNextBlock(studentId, subject, tutorId),
             num_students:      1               // each course is 1 student's own record
           },
           sessions
@@ -6597,7 +6656,7 @@ async function submitEnrollment() {
           payment_date:      '',
           payment_status:    'Pending',
           enrollment_type:   enrollmentType,
-          block_number:      1,
+          block_number:      calcNextBlock(studentId, subject, tutorId),
           num_students:      1
         },
         sessions
@@ -6914,6 +6973,9 @@ function onAppReady() {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
   }
+  // Apply saved theme (dark/light)
+  applyTheme();
+
   // Restore language preference
   const savedLang = localStorage.getItem('poppadi_lang');
   if (savedLang && savedLang !== 'en') {
@@ -6949,7 +7011,8 @@ function onAppReady() {
     if (schedTutor)  { const el = document.getElementById('filter-tutor');  if (el) { el.value = schedTutor;  renderSchedule(); } }
     if (schedStatus) { const el = document.getElementById('filter-status'); if (el) { el.value = schedStatus; renderSchedule(); } }
 
-    // Restore student filters
+    // Restore student filters (default to not-graduated if never set)
+    if (!localStorage.getItem('poppadi_student_status')) localStorage.setItem('poppadi_student_status','not-graduated');
     const stuStatus  = localStorage.getItem('poppadi_student_status');
     const stuPayment = localStorage.getItem('poppadi_student_payment');
     const stuTutor   = localStorage.getItem('poppadi_student_tutor');
