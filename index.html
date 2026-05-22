@@ -5087,7 +5087,7 @@ function openCalSessionPopup(sessionId, anchorEl) {
     </div>` : '';
 
   const editBtn = !isLocked
-    ? `<button onclick="event.stopPropagation();document.getElementById('cal-session-popup')?.remove();openEditSessionGroup(${JSON.stringify(allSessionIds)})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">✏️ ${lang==='th'?'แก้เวลา':'Edit time'}</button>`
+    ? `<button onclick="event.stopPropagation();setTimeout(()=>{document.getElementById('cal-session-popup')?.remove();openEditSessionGroup(${JSON.stringify(allSessionIds)});},0)" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">✏️ ${lang==='th'?'แก้เวลา':'Edit time'}</button>`
     : `<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`;
 
   const popup = document.createElement('div');
