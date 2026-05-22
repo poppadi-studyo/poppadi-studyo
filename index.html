@@ -963,7 +963,7 @@
           </div>
           <select id="tutor-select" onchange="localStorage.setItem('poppadi_tutor_select',this.value);renderTutorDetail()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif;display:none"></select>
           <button onclick="downloadTutorExcel()" class="btn btn-sm" data-en="⬇ Download Excel (internal)" data-th="⬇ ดาวน์โหลด (ภายใน)">⬇ Download Excel (internal)</button>
-          <button onclick="downloadTutorFacing()" class="btn btn-sm" data-en="⬇ Download for tutor" data-th="⬇ ดาวน์โหลดสำหรับครู">⬇ Download for tutor</button>
+          <button onclick="downloadTutorFacing()" class="btn btn-sm" data-en="⬇ PDF for tutor" data-th="⬇ PDF สำหรับครู">⬇ PDF for tutor</button>
           <button onclick="copyTutorTable()" class="btn btn-sm" data-en="⎘ Copy table" data-th="⎘ คัดลอกตาราง">⎘ Copy table</button>
         </div>
       </div>
@@ -5140,7 +5140,11 @@ async function calPopupMarkAll(sessionIds, newStatus) {
   calPopupShowProgress(lang==='th'?`กำลังบันทึก ${label}...`:`Saving ${label}...`);
   try {
     await markGroupAll(sessionIds, newStatus);
-    calPopupShowDone(lang==='th'?`อัปเดตแล้ว — ${label}`:`Updated — ${label}`);
+    // Close popup and re-render calendar after success
+    setTimeout(() => {
+      document.getElementById('cal-session-popup')?.remove();
+      if (scheduleViewMode === 'calendar') renderCalendar();
+    }, 400);
   } catch(e) {
     const prog = document.getElementById('cal-popup-progress');
     if (prog) prog.innerHTML = `<div style="font-size:12px;color:var(--red)">❌ ${e.message}</div>`;
@@ -5197,11 +5201,11 @@ function openCalSessionPopup(sessionId, anchorEl) {
     <div style="display:flex;gap:6px;margin-top:8px">
       <button onclick="calPopupMarkAll(${JSON.stringify(allSessionIds)},'Completed')"
         style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--teal);border-radius:5px;background:var(--teal-bg);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">
-        ✓ ${lang==='th'?'ทุกคน':'All done'}
+        ✓ ${lang==='th'?'ทุกคน':'All completed'}
       </button>
       <button onclick="calPopupMarkAll(${JSON.stringify(allSessionIds)},'Cancelled')"
         style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">
-        ✕ ${lang==='th'?'ยกเลิกทุกคน':'All cancel'}
+        ✕ ${lang==='th'?'ยกเลิกทุกคน':'All cancelled'}
       </button>
     </div>` : '';
 
@@ -6134,37 +6138,82 @@ function downloadTutorExcel() {
 }
 
 function downloadTutorFacing() {
-  // Tutor-facing version — no fees, no school remainder, no commission details
+  // Tutor-facing PDF — no fees, no school remainder, no commission details
   if (tutorViewMode!=='single') {
     showToast(lang==='th'?'กรุณาเลือก Individual ก่อน':'Please switch to Individual view first'); return;
   }
   const tutorId = document.getElementById('tutor-select').value;
   const tutor = getTutor(tutorId);
-  const monthSessions = filterByMonth(DATA.sessions,'date').filter(s=>s.tutor_id===tutorId);
+  const monthSessions = filterByMonth(DATA.sessions,'date')
+    .filter(s => s.tutor_id === tutorId)
+    .sort((a,b) => (parseSessionDate(a.date)||new Date(0))-(parseSessionDate(b.date)||new Date(0)));
   if (!monthSessions.length) { showToast('No sessions found'); return; }
 
-  const headers = ['Student','Session','Subject','Date','Time','Hrs','Students','Tutor Pay','Status'];
-  const rows = monthSessions.map(s=>{
-    const student=DATA.students.find(st=>st.student_id===s.student_id);
-    const timeStr=formatTimeRange(s.start_time,s.end_time);
-    return [
-      getStudentNickname(s.student_id, s.course_id),
-      s.session_id||'—',
-      getSubjectForSession(s),
-      s.date||'—',
-      timeStr,
-      s.hours||'—',
-      s.num_students||'—',
-      '฿'+fmt(s.tutor_pay),
-      s.status||'—'
-    ];
-  });
+  const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
 
-  const csv=[headers,...rows].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`Poppadi_${tutor.name||tutorId}_${selectedMonth}_TutorSummary.csv`;a.click();
-  showToast(lang==='th'?'✓ ดาวน์โหลดสำหรับครูแล้ว':'✓ Tutor summary downloaded');
+  const rows = monthSessions.map((s,i) => {
+    const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
+    const tutorPay = (s.status==='Completed'||s.status==='Makeup') ? `฿${fmt(s.tutor_pay)}` : '—';
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:7px 10px">${i+1}</td>
+      <td style="padding:7px 10px">${getStudentNickname(s.student_id, s.course_id)}</td>
+      <td style="padding:7px 10px">${getSubjectForSession(s)}</td>
+      <td style="padding:7px 10px">${fmtDate(s.date)}</td>
+      <td style="padding:7px 10px">${timeStr}</td>
+      <td style="padding:7px 10px;text-align:center">${s.hours||'—'}</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:500">${tutorPay}</td>
+      <td style="padding:7px 10px">${statusLabel}</td>
+    </tr>`;
+  }).join('');
+
+  const totalPay = monthSessions.filter(s=>s.status==='Completed'||s.status==='Makeup')
+    .reduce((sum,s)=>sum+Number(s.tutor_pay||0),0);
+  const wht = totalPay * 0.03;
+  const net = totalPay - wht;
+  const monthLabel = new Date(selectedMonth+'-01').toLocaleString('default',{month:'long',year:'numeric'});
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${lang==='th'?'สรุปการสอน':'Teaching Summary'} — ${tutor.name||tutorId}</title>
+  <style>body{font-family:sans-serif;font-size:13px;padding:32px;max-width:760px;margin:0 auto}
+  h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 24px}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px;border-bottom:2px solid #eee}
+  .summary{margin-top:20px;padding:14px;background:#f7f6f3;border-radius:8px;display:flex;gap:32px}
+  .summary div label{font-size:11px;color:#888;display:block}
+  .summary div strong{font-size:17px;display:block;margin-top:2px}
+  .green{color:#1D9E75}
+  footer{margin-top:20px;font-size:11px;color:#aaa}
+  @media print{body{padding:16px}}</style></head><body>
+  <h1>Poppadi's Studyo — ${lang==='th'?'สรุปการสอน':'Teaching Summary'}</h1>
+  <h2>${tutor.name||tutorId} · ${monthLabel}</h2>
+  <table>
+    <thead><tr>
+      <th>#</th>
+      <th>${lang==='th'?'นักเรียน':'Student'}</th>
+      <th>${lang==='th'?'วิชา':'Subject'}</th>
+      <th>${lang==='th'?'วันที่':'Date'}</th>
+      <th>${lang==='th'?'เวลา':'Time'}</th>
+      <th style="text-align:center">${lang==='th'?'ชม.':'Hrs'}</th>
+      <th style="text-align:right">${lang==='th'?'ค่าสอน':'Tutor pay'}</th>
+      <th>${lang==='th'?'สถานะ':'Status'}</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="summary">
+    <div><label>${lang==='th'?'ค่าสอนรวม':'Total tutor pay'}</label><strong>฿${fmt(totalPay)}</strong></div>
+    <div><label>WHT 3%</label><strong>฿${fmt(wht)}</strong></div>
+    <div><label>${lang==='th'?'ยอดโอน':'Net transfer'}</label><strong class="green">฿${fmt(net)}</strong></div>
+  </div>
+  <footer>Generated ${new Date().toLocaleString()} · Poppadi's Studyo · ${lang==='th'?'เอกสารนี้ไม่รวมข้อมูลค่าเรียนของนักเรียน':'This document does not include student fee or school revenue information'}</footer>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url,'_blank');
+  if (!win) { const a=document.createElement('a');a.href=url;a.download=`Poppadi_${tutor.name||tutorId}_${selectedMonth}_TutorSummary.html`;a.click(); }
+  showToast(lang==='th'?'✓ PDF สำหรับครู — กด Print เพื่อบันทึก':'✓ Tutor PDF — press Print to save');
 }
 
 // ─── NAV — showPage defined below with mobile tab sync ───
