@@ -5087,7 +5087,7 @@ function openCalSessionPopup(sessionId, anchorEl) {
     </div>` : '';
 
   const editBtn = !isLocked
-    ? `<button onclick="event.stopPropagation();setTimeout(()=>{document.getElementById('cal-session-popup')?.remove();openEditSessionGroup(${JSON.stringify(allSessionIds)});},0)" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">✏️ ${lang==='th'?'แก้เวลา':'Edit time'}</button>`
+    ? `<button id="cal-edit-time-btn" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">✏️ ${lang==='th'?'แก้เวลา':'Edit time'}</button>`
     : `<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`;
 
   const popup = document.createElement('div');
@@ -5106,6 +5106,17 @@ function openCalSessionPopup(sessionId, anchorEl) {
     <div style="margin-top:8px">${editBtn}</div>`;
 
   document.body.appendChild(popup);
+
+  // Wire up edit time button after popup is in DOM
+  const editTimeBtn = document.getElementById('cal-edit-time-btn');
+  if (editTimeBtn) {
+    const capturedIds = allSessionIds.slice();
+    editTimeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      popup.remove();
+      openEditSessionGroup(capturedIds);
+    });
+  }
 
   // Position popup near the clicked element
   const rect = anchorEl.getBoundingClientRect();
