@@ -6151,23 +6151,68 @@ function downloadTutorFacing() {
 
   const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
 
-  const rows = monthSessions.map((s,i) => {
+  // Group sessions by date + start_time + subject (same logic as schedule page)
+  function normD(s) {
+    const d = parseSessionDate(String(s.date||'').trim());
+    if (!d||isNaN(d.getTime())) return s.date||'';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function normT(t) { const str=String(t||'').trim(); return str.length>=5?str.substring(0,5):str; }
+
+  const seen = new Set();
+  const grouped = [];
+  for (const s of monthSessions) {
+    if (seen.has(s.session_id)) continue;
+    const key = normD(s)+'|'+normT(s.start_time)+'|'+getSubjectForSession(s);
+    const siblings = monthSessions.filter(x =>
+      !seen.has(x.session_id) &&
+      normD(x) === normD(s) &&
+      normT(x.start_time) === normT(s.start_time) &&
+      getSubjectForSession(x) === getSubjectForSession(s)
+    );
+    siblings.forEach(x => seen.add(x.session_id));
+    grouped.push(siblings);
+  }
+
+  const rows = grouped.map((group, i) => {
+    const s = group[0];
     const timeStr = formatTimeRange(s.start_time, s.end_time);
+    const isGroup = group.length > 1;
     const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
-    const tutorPay = (s.status==='Completed'||s.status==='Makeup') ? `฿${fmt(s.tutor_pay)}` : '—';
+    const isPaid = s.status==='Completed'||s.status==='Makeup';
+
+    const studentNames = group.map(x => getStudentNickname(x.student_id, x.course_id)).join(', ');
+    const studentCell = isGroup
+      ? `${studentNames} <span style="font-size:10px;background:#e8f4f0;color:#1D9E75;border-radius:4px;padding:1px 5px;font-weight:600">👥 ${lang==='th'?'กลุ่ม':'Group'}</span>`
+      : studentNames;
+
+    // Tutor pay: per-student rate × n = total
+    let payCell = '—';
+    if (isPaid) {
+      if (isGroup) {
+        const perStudent = Number(s.tutor_pay); // tutor_pay per record is already the split rate
+        const total = perStudent * group.length;
+        payCell = `฿${fmt(perStudent)} × ${group.length} = ฿${fmt(total)}`;
+      } else {
+        payCell = `฿${fmt(s.tutor_pay)}`;
+      }
+    }
+
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:7px 10px">${i+1}</td>
-      <td style="padding:7px 10px">${getStudentNickname(s.student_id, s.course_id)}</td>
+      <td style="padding:7px 10px">${studentCell}</td>
       <td style="padding:7px 10px">${getSubjectForSession(s)}</td>
       <td style="padding:7px 10px">${fmtDate(s.date)}</td>
       <td style="padding:7px 10px">${timeStr}</td>
       <td style="padding:7px 10px;text-align:center">${s.hours||'—'}</td>
-      <td style="padding:7px 10px;text-align:right;font-weight:500">${tutorPay}</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:500;white-space:nowrap">${payCell}</td>
       <td style="padding:7px 10px">${statusLabel}</td>
     </tr>`;
   }).join('');
 
-  const totalPay = monthSessions.filter(s=>s.status==='Completed'||s.status==='Makeup')
+  // Total pay — for groups, sum each sibling's tutor_pay
+  const totalPay = monthSessions
+    .filter(s=>s.status==='Completed'||s.status==='Makeup')
     .reduce((sum,s)=>sum+Number(s.tutor_pay||0),0);
   const wht = totalPay * 0.03;
   const net = totalPay - wht;
