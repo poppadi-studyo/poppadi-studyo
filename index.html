@@ -1670,14 +1670,12 @@ async function loadAllData() {
     }
     // Restore schedule view (list vs calendar) AFTER showPage, so DOM is ready
     if (_savedPage === 'schedule') {
-      const _sv = localStorage.getItem('poppadi_sched_view');
-      if (_sv === 'calendar') {
-        const _cv = localStorage.getItem('poppadi_cal_view') || 'month';
-        calView = _cv;
-        const _cd = localStorage.getItem('poppadi_cal_date');
-        if (_cd) { try { calDate = new Date(_cd); } catch(_) {} }
-        setScheduleView('calendar');
-      }
+      const _sv = localStorage.getItem('poppadi_sched_view') || 'calendar';
+      const _cv = localStorage.getItem('poppadi_cal_view') || 'month';
+      calView = _cv;
+      const _cd = localStorage.getItem('poppadi_cal_date');
+      if (_cd) { try { calDate = new Date(_cd); } catch(_) {} }
+      setScheduleView(_sv);
     }
     showToast(lang==='th' ? '✓ ข้อมูลล่าสุดแล้ว' : '✓ Data up to date');
 
@@ -7014,10 +7012,10 @@ function onAppReady() {
   if (savedMonth) selectedMonth = savedMonth;
 
   // Restore schedule view mode (list vs calendar) and calendar state
-  const savedSchedView = localStorage.getItem('poppadi_sched_view');
-  if (savedSchedView) scheduleViewMode = savedSchedView;
-  const savedCalView = localStorage.getItem('poppadi_cal_view');
-  if (savedCalView) calView = savedCalView;
+  const savedSchedView = localStorage.getItem('poppadi_sched_view') || 'calendar';
+  scheduleViewMode = savedSchedView;
+  const savedCalView = localStorage.getItem('poppadi_cal_view') || 'month';
+  calView = savedCalView;
   const savedCalDate = localStorage.getItem('poppadi_cal_date');
   if (savedCalDate) { try { calDate = new Date(savedCalDate); } catch(_) {} }
 
@@ -7050,14 +7048,12 @@ function onAppReady() {
 
     // Restore schedule view (list vs calendar) AFTER page is shown
     if (savedPage === 'schedule') {
-      const _sv = localStorage.getItem('poppadi_sched_view');
-      if (_sv === 'calendar') {
-        const _cv = localStorage.getItem('poppadi_cal_view') || 'month';
-        calView = _cv;
-        const _cd = localStorage.getItem('poppadi_cal_date');
-        if (_cd) { try { calDate = new Date(_cd); } catch(_) {} }
-        setScheduleView('calendar');
-      }
+      const _sv = localStorage.getItem('poppadi_sched_view') || 'calendar';
+      const _cv = localStorage.getItem('poppadi_cal_view') || 'month';
+      calView = _cv;
+      const _cd = localStorage.getItem('poppadi_cal_date');
+      if (_cd) { try { calDate = new Date(_cd); } catch(_) {} }
+      setScheduleView(_sv);
     }
 
     // tutorViewMode is already set from localStorage at declaration time.
