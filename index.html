@@ -1676,6 +1676,10 @@ async function loadAllData() {
       const _cd = localStorage.getItem('poppadi_cal_date');
       if (_cd) { try { calDate = new Date(_cd); } catch(_) {} }
       setScheduleView(_sv);
+      // Explicitly restore cal tutor filter after dropdown is populated
+      const _calTutor = localStorage.getItem('poppadi_cal_tutor') || '';
+      const _calSel = document.getElementById('cal-filter-tutor');
+      if (_calSel && _calTutor) { _calSel.value = _calTutor; renderCalendar(); }
     }
     showToast(lang==='th' ? '✓ ข้อมูลล่าสุดแล้ว' : '✓ Data up to date');
 
@@ -3175,6 +3179,11 @@ function openEditSession(sessionId, groupSiblings) {
             modal.remove();
             renderAll();
             if (currentDetailCourse) openStudentDetail(currentDetailCourse.course_id);
+            // Re-render calendar with saved tutor filter preserved
+            if (scheduleViewMode === 'calendar') {
+              populateCalTutorFilter();
+              renderCalendar();
+            }
           });
         }
       }, 400);
@@ -7175,6 +7184,10 @@ function onAppReady() {
       const _cd = localStorage.getItem('poppadi_cal_date');
       if (_cd) { try { calDate = new Date(_cd); } catch(_) {} }
       setScheduleView(_sv);
+      // Explicitly restore cal tutor filter after dropdown is populated
+      const _calTutor = localStorage.getItem('poppadi_cal_tutor') || '';
+      const _calSel = document.getElementById('cal-filter-tutor');
+      if (_calSel && _calTutor) { _calSel.value = _calTutor; renderCalendar(); }
     }
 
     // tutorViewMode is already set from localStorage at declaration time.
