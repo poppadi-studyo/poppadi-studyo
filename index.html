@@ -3039,14 +3039,33 @@ function openEditSession(sessionId, groupSiblings) {
     return;
   }
 
-  // Hours validation — show remaining hours for this course block
   const course   = DATA.courses.find(c => c.course_id === s.course_id);
   const paidHrs  = Number(course?.total_paid_hrs || 0);
   const usedHrs  = DATA.sessions
     .filter(x => x.course_id === s.course_id && x.session_id !== s.session_id && x.status !== 'Cancelled')
     .reduce((sum, x) => sum + Number(x.hours || 0), 0);
   const thisHrs  = Number(s.hours || 0);
-  const remaining = paidHrs - usedHrs; // max hours this session can use
+  const remaining = paidHrs - usedHrs;
+
+  // Helper: calculate end time from start + hours
+  function calcEndTime(startVal, hrs) {
+    if (!startVal) return '';
+    const [h, m] = startVal.split(':').map(Number);
+    const totalMins = h * 60 + m + hrs * 60;
+    const endH = Math.floor(totalMins / 60) % 24;
+    const endM = totalMins % 60;
+    return `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
+  }
+
+  function formatEndDisplay(endVal) {
+    if (!endVal) return '—';
+    const [h, m] = endVal.split(':').map(Number);
+    const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
+  }
+
+  const initialEnd = calcEndTime(s.start_time || '', thisHrs);
 
   const modal = document.createElement('div');
   modal.id = 'edit-session-modal';
@@ -3071,17 +3090,108 @@ function openEditSession(sessionId, groupSiblings) {
         </select>
       </div>
       <div class="form-group" style="margin-bottom:20px">
-        <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">${lang==='th'?'เวลาสิ้นสุด':'End time'}</label>
-        <select id="edit-sess-end" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
-          ${generateTimeOptions(s.end_time||'')}
-        </select>
+        <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">${lang==='th'?'เวลาสิ้นสุด (อัตโนมัติ)':'End time (auto)'}</label>
+        <div id="edit-sess-end-display" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;background:#f7f6f3;color:#888">${formatEndDisplay(initialEnd)}</div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button onclick="document.getElementById('edit-session-modal')?.remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ยกเลิก':'Cancel'}</button>
-        <button id="save-sess-edit-btn" onclick="saveSessionDateTime('${sessionId}', ${thisHrs}, ${remaining}, ${JSON.stringify(groupSiblings||[sessionId])})" style="padding:8px 16px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">${lang==='th'?'💾 บันทึก':'💾 Save'}</button>
+        <button id="cancel-sess-edit-btn" style="padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ยกเลิก':'Cancel'}</button>
+        <button id="save-sess-edit-btn" style="padding:8px 16px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">${lang==='th'?'💾 บันทึก':'💾 Save'}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
+
+  // Auto-update end time display when start changes
+  const startSel = document.getElementById('edit-sess-start');
+  const endDisplay = document.getElementById('edit-sess-end-display');
+  if (startSel && endDisplay) {
+    startSel.addEventListener('change', function() {
+      const newEnd = calcEndTime(this.value, thisHrs);
+      endDisplay.textContent = formatEndDisplay(newEnd);
+    });
+  }
+
+  // Cancel button
+  document.getElementById('cancel-sess-edit-btn')?.addEventListener('click', function() {
+    modal.remove();
+  });
+
+  // Save button
+  document.getElementById('save-sess-edit-btn')?.addEventListener('click', async function() {
+    const newDate  = document.getElementById('edit-sess-date')?.value;
+    const newStart = document.getElementById('edit-sess-start')?.value;
+    const newEnd   = calcEndTime(newStart, thisHrs);
+    const inner    = document.getElementById('edit-session-inner');
+
+    if (!newDate) { alert(lang==='th'?'กรุณาใส่วันที่':'Please enter a date'); return; }
+    if (thisHrs > remaining) {
+      alert(lang==='th'
+        ? `❌ ชั่วโมงเกินบล็อก — เซสชันนี้ใช้ ${thisHrs} ชม. แต่บล็อกนี้เหลือเพียง ${remaining} ชม.`
+        : `❌ Exceeds block — this session needs ${thisHrs} hrs but only ${remaining} hrs remain`
+      );
+      return;
+    }
+
+    // Show progress
+    if (inner) {
+      inner.innerHTML = `
+        <div style="text-align:center;padding:16px 0">
+          <div style="font-size:15px;font-weight:600;margin-bottom:20px">💾 ${lang==='th'?'กำลังบันทึก...':'Saving...'}</div>
+          <div style="background:#f0f0f0;border-radius:100px;height:8px;overflow:hidden;margin-bottom:12px">
+            <div id="save-progress-bar" style="height:100%;background:var(--teal);border-radius:100px;width:0%;transition:width 0.4s ease"></div>
+          </div>
+          <div style="font-size:12px;color:var(--text3)">${lang==='th'?'กำลังอัปเดตตาราง...':'Updating schedule...'}</div>
+        </div>`;
+      setTimeout(() => { const bar = document.getElementById('save-progress-bar'); if (bar) bar.style.width = '80%'; }, 50);
+    }
+
+    const siblings = groupSiblings || [sessionId];
+    try {
+      await webAppWrite('updateSessionDateTime', { sessionId, date: newDate, start_time: newStart, end_time: newEnd, userEmail: currentUser?.email });
+      const s2 = DATA.sessions.find(x => x.session_id === sessionId);
+      if (s2) { s2.date = newDate; s2.start_time = newStart; s2.end_time = newEnd; }
+
+      if (siblings.length > 1) {
+        for (const sibId of siblings) {
+          if (sibId === sessionId) continue;
+          await webAppWrite('updateSessionDateTime', { sessionId: sibId, date: newDate, start_time: newStart, end_time: newEnd, userEmail: currentUser?.email });
+          const sib = DATA.sessions.find(x => x.session_id === sibId);
+          if (sib) { sib.date = newDate; sib.start_time = newStart; sib.end_time = newEnd; }
+        }
+      }
+
+      const bar = document.getElementById('save-progress-bar');
+      if (bar) bar.style.width = '100%';
+
+      setTimeout(() => {
+        if (inner) {
+          inner.innerHTML = `
+            <div style="text-align:center;padding:8px 0">
+              <div style="font-size:36px;margin-bottom:12px">✅</div>
+              <div style="font-size:16px;font-weight:600;margin-bottom:8px">${lang==='th'?'อัปเดตแล้ว!':'Updated!'}</div>
+              <div style="font-size:13px;color:var(--text3);margin-bottom:20px">${newDate}${newStart?' · '+newStart:''}${newEnd?' – '+newEnd:''}</div>
+              <button id="edit-sess-ok-btn" style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">OK</button>
+            </div>`;
+          document.getElementById('edit-sess-ok-btn')?.addEventListener('click', function() {
+            modal.remove();
+            renderAll();
+            if (currentDetailCourse) openStudentDetail(currentDetailCourse.course_id);
+          });
+        }
+      }, 400);
+
+    } catch(e) {
+      if (inner) {
+        inner.innerHTML = `
+          <div style="text-align:center;padding:8px 0">
+            <div style="font-size:36px;margin-bottom:12px">❌</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:8px">${lang==='th'?'เกิดข้อผิดพลาด':'Save failed'}</div>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:20px">${e.message}</div>
+            <button id="edit-sess-close-btn" style="padding:8px 20px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ปิด':'Close'}</button>
+          </div>`;
+        document.getElementById('edit-sess-close-btn')?.addEventListener('click', function() { modal.remove(); });
+      }
+    }
+  });
 }
 
 async function saveSessionDateTime(sessionId, thisHrs, remaining, groupSiblings) {
