@@ -2525,6 +2525,7 @@ function renderSchedule() {
               :isPastLocked?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'เดือนที่ผ่านมา':'Past month'}</span>`
               :canMakeup?`<button class="btn btn-sm" onclick="openMakeupFromSchedule('${s.session_id}')">${lang==='th'?'นัดชดเชย':'Schedule makeup'}</button>`:'—'}
             ${s.makeup_ref?`<span class="linked-tag" style="margin-left:4px">↩ ${s.makeup_ref}</span>`:''}
+            ${!isLocked && !isPastLocked?`<button onclick="openEditSession('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2);margin-left:4px">✏️</button>`:''}
           </td>
         </tr>`;
       }
@@ -4752,7 +4753,7 @@ function getSubjectForSession(session) {
 }
 
 // ─── SCHEDULE VIEW TOGGLE ────────────────────────────────
-let scheduleViewMode = localStorage.getItem('poppadi_sched_view') || 'list';
+let scheduleViewMode = localStorage.getItem('poppadi_sched_view') || 'calendar';
 
 function setScheduleView(mode) {
   scheduleViewMode = mode;
@@ -4765,7 +4766,20 @@ function setScheduleView(mode) {
   document.getElementById('sched-view-cal').style.color       = mode==='calendar' ? '#fff':'var(--text2)';
   if (mode==='calendar') {
     populateCalTutorFilter();
+    // Sync tutor filter from list → calendar
+    const listTutor = localStorage.getItem('poppadi_sched_tutor') || '';
+    localStorage.setItem('poppadi_cal_tutor', listTutor);
+    const calSel = document.getElementById('cal-filter-tutor');
+    if (calSel) calSel.value = listTutor;
     renderCalendar();
+  }
+  if (mode==='list') {
+    // Sync tutor filter from calendar → list
+    const calTutor = localStorage.getItem('poppadi_cal_tutor') || '';
+    localStorage.setItem('poppadi_sched_tutor', calTutor);
+    const listSel = document.getElementById('filter-tutor');
+    if (listSel) listSel.value = calTutor;
+    renderSchedule();
   }
 }
 
@@ -5075,7 +5089,7 @@ function openCalSessionPopup(sessionId, anchorEl) {
     </div>` : '';
 
   const editBtn = !isLocked
-    ? `<button onclick="document.getElementById('cal-session-popup')?.remove();openEditSessionGroup(${JSON.stringify(allSessionIds)})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">✏️ ${lang==='th'?'แก้เวลา':'Edit time'}</button>`
+    ? `<button onclick="event.stopPropagation();document.getElementById('cal-session-popup')?.remove();openEditSessionGroup(${JSON.stringify(allSessionIds)})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">✏️ ${lang==='th'?'แก้เวลา':'Edit time'}</button>`
     : `<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`;
 
   const popup = document.createElement('div');
@@ -7318,7 +7332,7 @@ function showPage(id, btn) {
   if (id === 'schedule') {
     applyTutorScheduleFilter();
     // Always re-apply saved view (list or calendar) when navigating to schedule
-    const sv = localStorage.getItem('poppadi_sched_view') || 'list';
+    const sv = localStorage.getItem('poppadi_sched_view') || 'calendar';
     const cv = localStorage.getItem('poppadi_cal_view') || 'month';
     calView = cv;
     setScheduleView(sv);
