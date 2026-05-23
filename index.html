@@ -3057,15 +3057,57 @@ function renderTutorDetail() {
 async function markGroupAll(sessionIds, newStatus) {
   if (!sessionIds.length) return;
   const label = newStatus === 'Completed'
-    ? (lang==='th' ? 'สอนครบทุกคน' : 'all Completed')
-    : (lang==='th' ? 'ยกเลิกทุกคน' : 'all Cancelled');
+    ? (lang==='th' ? 'สอนครบทุกคน' : 'All Completed')
+    : (lang==='th' ? 'ยกเลิกทุกคน' : 'All Cancelled');
 
-  // Update each session sequentially
-  for (const id of sessionIds) {
-    await updateSessionStatus(id, newStatus, true); // true = silent (no toast per session)
+  // Show loading modal — blocks double-click
+  const modal = document.createElement('div');
+  modal.id = 'group-status-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div id="group-status-inner" style="background:#fff;border-radius:14px;padding:24px;max-width:360px;width:100%;font-family:'DM Sans',sans-serif;text-align:center">
+      <div style="font-size:15px;font-weight:600;margin-bottom:20px">${lang==='th'?'กำลังบันทึก':'Saving'} — <strong>${label}</strong></div>
+      <div style="background:#f0f0f0;border-radius:100px;height:8px;overflow:hidden;margin-bottom:12px">
+        <div id="group-status-bar" style="height:100%;background:var(--teal);border-radius:100px;width:0%;transition:width 0.4s ease"></div>
+      </div>
+      <div id="group-status-msg" style="font-size:12px;color:var(--text3)">${lang==='th'?'กำลังอัปเดต 0 / '+sessionIds.length+' คาบ...':'Updating 0 / '+sessionIds.length+' sessions...'}</div>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => { const b = document.getElementById('group-status-bar'); if(b) b.style.width='20%'; }, 30);
+
+  const inner = document.getElementById('group-status-inner');
+
+  try {
+    for (let i = 0; i < sessionIds.length; i++) {
+      await updateSessionStatus(sessionIds[i], newStatus, true);
+      const pct = Math.round(((i+1)/sessionIds.length)*80)+20;
+      const bar = document.getElementById('group-status-bar');
+      const msg = document.getElementById('group-status-msg');
+      if (bar) bar.style.width = pct+'%';
+      if (msg) msg.textContent = lang==='th'
+        ? `กำลังอัปเดต ${i+1} / ${sessionIds.length} คาบ...`
+        : `Updating ${i+1} / ${sessionIds.length} sessions...`;
+    }
+
+    if (inner) inner.innerHTML = `
+      <div style="font-size:36px;margin-bottom:12px">✅</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:8px">${lang==='th'?'อัปเดตแล้ว!':'Updated!'}</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:20px">${label} · ${sessionIds.length} ${lang==='th'?'คาบ':'sessions'}</div>
+      <button id="group-status-ok" style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">OK</button>`;
+
+    document.getElementById('group-status-ok')?.addEventListener('click', () => {
+      modal.remove();
+      renderAll();
+    });
+
+  } catch(e) {
+    if (inner) inner.innerHTML = `
+      <div style="font-size:36px;margin-bottom:12px">❌</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px">${lang==='th'?'เกิดข้อผิดพลาด':'Save failed'}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:20px">${e.message}</div>
+      <button id="group-status-close" style="padding:8px 20px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ปิด':'Close'}</button>`;
+    document.getElementById('group-status-close')?.addEventListener('click', () => modal.remove());
   }
-  renderAll();
-  showToast(lang==='th' ? `✓ อัปเดต ${label} แล้ว` : `✓ Marked ${label}`);
 }
 
 function openEditSessionGroup(sessionIds) {
@@ -5232,23 +5274,10 @@ async function calPopupUpdateStatus(sessionId, newStatus, selectEl) {
 }
 
 async function calPopupMarkAll(sessionIds, newStatus) {
-  document.querySelectorAll('#cal-session-popup select').forEach(s => s.disabled = true);
-  document.querySelectorAll('#cal-session-popup button').forEach(b => b.disabled = true);
-  const label = newStatus==='Completed'?(lang==='th'?'สอนครบทุกคน':'All Completed'):(lang==='th'?'ยกเลิกทุกคน':'All Cancelled');
-  calPopupShowProgress(lang==='th'?`กำลังบันทึก ${label}...`:`Saving ${label}...`);
-  try {
-    await markGroupAll(sessionIds, newStatus);
-    // Close popup and re-render calendar after success
-    setTimeout(() => {
-      document.getElementById('cal-session-popup')?.remove();
-      if (scheduleViewMode === 'calendar') renderCalendar();
-    }, 400);
-  } catch(e) {
-    const prog = document.getElementById('cal-popup-progress');
-    if (prog) prog.innerHTML = `<div style="font-size:12px;color:var(--red)">❌ ${e.message}</div>`;
-    document.querySelectorAll('#cal-session-popup select').forEach(s => s.disabled = false);
-    document.querySelectorAll('#cal-session-popup button').forEach(b => b.disabled = false);
-  }
+  // Close the popup immediately — markGroupAll shows its own modal
+  document.getElementById('cal-session-popup')?.remove();
+  await markGroupAll(sessionIds, newStatus);
+  if (scheduleViewMode === 'calendar') renderCalendar();
 }
 
 function openCalSessionPopup(sessionId, anchorEl) {
@@ -5297,11 +5326,11 @@ function openCalSessionPopup(sessionId, anchorEl) {
   const allSessionIds = siblings.map(x => x.session_id);
   const markAllBtns = (!isLocked && siblings.length > 1) ? `
     <div style="display:flex;gap:6px;margin-top:8px">
-      <button onclick="calPopupMarkAll(${JSON.stringify(allSessionIds)},'Completed')"
+      <button onclick="event.stopPropagation();calPopupMarkAll(${JSON.stringify(allSessionIds)},'Completed')"
         style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--teal);border-radius:5px;background:var(--teal-bg);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">
         ✓ ${lang==='th'?'ทุกคน':'All completed'}
       </button>
-      <button onclick="calPopupMarkAll(${JSON.stringify(allSessionIds)},'Cancelled')"
+      <button onclick="event.stopPropagation();calPopupMarkAll(${JSON.stringify(allSessionIds)},'Cancelled')"
         style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">
         ✕ ${lang==='th'?'ยกเลิกทุกคน':'All cancelled'}
       </button>
