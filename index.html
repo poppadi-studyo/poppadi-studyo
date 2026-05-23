@@ -4654,6 +4654,35 @@ function downloadStudentPDFForStudent() {
     .reduce((sum,s)=>sum+Number(s.hours||0),0);
   const remaining = Math.max(0, paid - taught);
 
+  // Detect group siblings (same tutor + subject + at least one shared session time)
+  const normD = (dateVal) => { const dt = parseSessionDate(String(dateVal||'').trim()); if (!dt||isNaN(dt.getTime())) return ''; return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); };
+  const normT = (t) => String(t||'').trim().substring(0,5);
+  const firstSess = sessions[0];
+  let groupNames = '';
+  let isGroup = false;
+  if (firstSess) {
+    const siblingCourseIds = [...new Set(
+      DATA.sessions.filter(x =>
+        x.course_id !== course.course_id &&
+        x.tutor_id === course.tutor_id &&
+        x.status !== 'Cancelled' &&
+        normD(x.date) === normD(firstSess.date) &&
+        normT(x.start_time) === normT(firstSess.start_time) &&
+        getSubjectForSession(x) === (course.subject||'')
+      ).map(x => x.course_id)
+    )];
+    if (siblingCourseIds.length) {
+      isGroup = true;
+      const allNames = [student?.nickname||course.student_nickname||course.student_id];
+      siblingCourseIds.forEach(cid => {
+        const sc = DATA.courses.find(c => c.course_id === cid);
+        const ss = DATA.students.find(s => s.student_id === sc?.student_id);
+        allNames.push(ss?.nickname || sc?.student_nickname || cid);
+      });
+      groupNames = allNames.join(', ');
+    }
+  }
+
   let sessionNum = 0;
   const rows = sessions.map((s) => {
     const timeStr = formatTimeRange(s.start_time, s.end_time);
@@ -4666,9 +4695,7 @@ function downloadStudentPDFForStudent() {
     else if (s.status==='Makeup') hrsStudied = s.hours;
     else if (s.status==='Missed'||s.status==='Cancelled') hrsStudied = '0';
     const dateDisplay = fmtDate(s.date);
-
     const rowColor = s.status==='Cancelled' ? 'color:#C0392B' : s.status==='Missed' ? 'color:#B7560A' : '';
-
     return `<tr style="border-bottom:1px solid #eee;${rowColor}">
       <td style="padding:7px 10px">${num}</td>
       <td style="padding:7px 10px">${dateDisplay}</td>
@@ -4679,10 +4706,17 @@ function downloadStudentPDFForStudent() {
     </tr>`;
   }).join('');
 
+  const groupBanner = isGroup ? `
+  <div style="margin-bottom:16px;padding:10px 14px;background:#e8f4f0;border-radius:8px;font-size:12px;color:#1D9E75;font-weight:500">
+    👥 ${lang==='th'?'คอร์สกลุ่ม — นักเรียนในกลุ่ม':'Group class — Students in this group'}: <strong>${groupNames}</strong>
+  </div>` : '';
+
+  const titleName = isGroup ? groupNames : (student?.nickname||course.student_id);
+
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>${lang==='th'?'สรุปการเรียน':'Course Summary'} — ${student?.nickname||course.student_id}</title>
+  <title>${lang==='th'?'สรุปการเรียน':'Course Summary'} — ${titleName}</title>
   <style>body{font-family:sans-serif;font-size:13px;padding:32px;max-width:700px;margin:0 auto}
-  h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 24px}
+  h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;color:#666;font-weight:normal;margin:0 0 16px}
   table{width:100%;border-collapse:collapse}
   th{text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px;border-bottom:2px solid #eee}
   .summary{margin-top:20px;padding:14px;background:#f7f6f3;border-radius:8px;display:flex;gap:32px;flex-wrap:wrap}
@@ -4691,7 +4725,8 @@ function downloadStudentPDFForStudent() {
   .green{color:#1D9E75}footer{margin-top:20px;font-size:11px;color:#aaa}
   @media print{body{padding:16px}}</style></head><body>
   <h1>Poppadi's Studyo — ${lang==='th'?'สรุปการเรียน':'Course Summary'}</h1>
-  <h2>${student?.nickname||course.student_id} · ${course.subject||'—'} · ${lang==='th'?'สอนโดย':'Taught by'} ${tutor.name||course.tutor_id} · Block ${course.block_number||1}</h2>
+  <h2>${titleName} · ${course.subject||'—'} · ${lang==='th'?'สอนโดย':'Taught by'} ${tutor.name||course.tutor_id} · Block ${course.block_number||1}</h2>
+  ${groupBanner}
   <table>
     <thead><tr>
       <th>#</th>
@@ -4715,7 +4750,7 @@ function downloadStudentPDFForStudent() {
   const blob = new Blob([html],{type:'text/html;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
   const win  = window.open(url,'_blank');
-  if (!win) { const a=document.createElement('a');a.href=url;a.download=`Student_${student?.nickname||course.student_id}.html`;a.click(); }
+  if (!win) { const a=document.createElement('a');a.href=url;a.download=`Student_${titleName}.html`;a.click(); }
   showToast(lang==='th'?'✓ PDF สำหรับนักเรียน — กด Print เพื่อบันทึก':'✓ Student PDF — press Print to save');
 }
 
