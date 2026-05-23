@@ -1262,7 +1262,7 @@
           <div class="form-row">
             <div class="form-group">
               <label data-en="Nickname" data-th="ชื่อเล่น">Nickname <span style="color:var(--red);font-size:11px">*</span></label>
-              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. Boss" oninput="onStudentNicknameInput();saveEnrollDraft()">
+              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. Boss" autocomplete="off" oninput="onStudentNicknameInput();saveEnrollDraft()">
               <datalist id="student-list"></datalist>
               <div id="student-match-hint" style="font-size:11px;color:var(--teal);margin-top:3px"></div>
             </div>
@@ -3371,7 +3371,7 @@ function addGroupStudentRow() {
   div.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap';
   div.innerHTML = `
     <div style="flex:2;min-width:140px">
-      <input type="text" list="student-list" placeholder="${lang==='th'?'ชื่อนักเรียน':'Student name'} ${idx}" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif">
+      <input type="text" list="student-list" autocomplete="off" placeholder="${lang==='th'?'ชื่อนักเรียน':'Student name'} ${idx}" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif">
     </div>
     <button onclick="this.closest('div').remove();updateGroupRateHint()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:4px">✕</button>`;
   body.appendChild(div);
@@ -7159,20 +7159,61 @@ function downloadSchedulePDF() {
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
   const statusTh = { Completed:'สอนแล้ว', Missed:'ขาดเรียน', Cancelled:'ยกเลิก', Makeup:'ชดเชย', Scheduled:'กำหนดการ' };
-  const rows = monthSessions.map((s,i) => {
-    const student = DATA.students.find(st => st.student_id === s.student_id);
+
+  // Group sessions by date + start_time + subject (same logic as schedule page and downloadTutorFacing)
+  function normD(s) {
+    const d = parseSessionDate(String(s.date||'').trim());
+    if (!d||isNaN(d.getTime())) return s.date||'';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function normT(t) { const str=String(t||'').trim(); return str.length>=5?str.substring(0,5):str; }
+
+  const seen = new Set();
+  const grouped = [];
+  for (const s of monthSessions) {
+    if (seen.has(s.session_id)) continue;
+    const siblings = monthSessions.filter(x =>
+      !seen.has(x.session_id) &&
+      normD(x) === normD(s) &&
+      normT(x.start_time) === normT(s.start_time) &&
+      getSubjectForSession(x) === getSubjectForSession(s)
+    );
+    siblings.forEach(x => seen.add(x.session_id));
+    grouped.push(siblings);
+  }
+
+  const rows = grouped.map((group, i) => {
+    const s = group[0];
+    const isGroup = group.length > 1;
     const subject = getSubjectForSession(s);
     const timeStr = formatTimeRange(s.start_time, s.end_time);
     const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
+    const isPaid = s.status==='Completed'||s.status==='Makeup';
+
+    const studentNames = group.map(x => getStudentNickname(x.student_id, x.course_id)).join(', ');
+    const studentCell = isGroup
+      ? `${studentNames} <span style="font-size:10px;background:#e8f4f0;color:#1D9E75;border-radius:4px;padding:1px 5px;font-weight:600">👥 ${lang==='th'?'กลุ่ม':'Group'}</span>`
+      : studentNames;
+
+    let payCell = '—';
+    if (isPaid) {
+      if (isGroup) {
+        const perStudent = Number(s.tutor_pay);
+        const total = perStudent * group.length;
+        payCell = `฿${fmt(perStudent)} × ${group.length} = ฿${fmt(total)}`;
+      } else {
+        payCell = `฿${fmt(s.tutor_pay)}`;
+      }
+    }
+
     return `<tr style="border-bottom:1px solid #eee">
       <td style="padding:8px 10px">${i+1}</td>
-      <td style="padding:8px 10px">${getStudentNickname(s.student_id, s.course_id)}</td>
+      <td style="padding:8px 10px">${studentCell}</td>
       <td style="padding:8px 10px">${subject}</td>
       <td style="padding:8px 10px">${fmtDate(s.date)}</td>
       <td style="padding:8px 10px">${timeStr}</td>
       <td style="padding:8px 10px;text-align:center">${s.hours||'—'}</td>
-      <td style="padding:8px 10px;text-align:center">${s.num_students||'—'}</td>
-      <td style="padding:8px 10px;font-weight:500">฿${fmt(s.tutor_pay)}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:500;white-space:nowrap">${payCell}</td>
       <td style="padding:8px 10px">${statusLabel}</td>
     </tr>`;
   }).join('');
@@ -7193,12 +7234,13 @@ function downloadSchedulePDF() {
     <table><thead><tr>
       <th>#</th><th>${lang==='th'?'นักเรียน':'Student'}</th><th>${lang==='th'?'วิชา':'Subject'}</th>
       <th>${lang==='th'?'วันที่':'Date'}</th><th>${lang==='th'?'เวลา':'Time'}</th>
-      <th>${lang==='th'?'ชม.':'Hrs'}</th><th>${lang==='th'?'จำนวน':'Stu.'}</th>
-      <th>${lang==='th'?'ค่าสอน':'Tutor pay'}</th><th>${lang==='th'?'สถานะ':'Status'}</th>
+      <th style="text-align:center">${lang==='th'?'ชม.':'Hrs'}</th>
+      <th style="text-align:right">${lang==='th'?'ค่าสอน':'Tutor pay'}</th>
+      <th>${lang==='th'?'สถานะ':'Status'}</th>
     </tr></thead><tbody>${rows}</tbody></table>
     <div class="summary">
       <div><label>${lang==='th'?'ค่าสอนรวม':'Total tutor pay'}</label><strong>฿${fmt(totalPay)}</strong></div>
-      ${vat>0?`<div><label>${lang==='th'?'ภาษีหัก 3%':'VAT 3%'}</label><strong>฿${fmt(vat)}</strong></div>`:''}
+      <div><label>WHT 3%</label><strong>฿${fmt(vat)}</strong></div>
       <div><label>${lang==='th'?'ยอดโอน':'Net transfer'}</label><strong class="green">฿${fmt(net)}</strong></div>
     </div>
     <div class="footer">Generated ${new Date().toLocaleString()} · Poppadi's Studyo · ${lang==='th'?'เอกสารนี้ไม่รวมข้อมูลรายได้ของโรงเรียน':'This document does not include school revenue information'}</div>
