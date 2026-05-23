@@ -1287,18 +1287,19 @@
             <div class="form-row">
               <div class="form-group">
                 <label data-en="Select student" data-th="เลือกนักเรียน">Select student <span style="color:var(--red);font-size:11px">*</span></label>
-                <!-- Search box -->
-                <input type="text" id="enroll-returning-search" placeholder="Type to search..." autocomplete="off"
-                  oninput="filterReturningDropdown(this.value)"
-                  style="margin-bottom:6px">
-                <select id="enroll-returning-select" size="5"
-                  onchange="onReturningStudentSelect(this.value)"
-                  style="width:100%;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;padding:4px">
-                </select>
                 <!-- Locked display (shown after selection) -->
-                <div id="enroll-returning-locked" style="display:none;margin-top:6px;padding:8px 12px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:8px;display:none;align-items:center;justify-content:space-between">
+                <div id="enroll-returning-locked" style="display:none;padding:8px 12px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:8px;align-items:center;justify-content:space-between">
                   <span style="font-size:13px;font-weight:600;color:var(--teal)" id="enroll-returning-locked-name"></span>
                   <button onclick="clearReturningSelection()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 4px">× clear</button>
+                </div>
+                <!-- Search input (hidden after selection) -->
+                <div id="enroll-returning-search-wrap" style="position:relative">
+                  <input type="text" id="enroll-returning-search" placeholder="Type name to search..." autocomplete="off"
+                    oninput="filterReturningDropdown(this.value)"
+                    onfocus="showReturningList()"
+                    onblur="hideReturningListDelayed()">
+                  <!-- Floating suggestion list -->
+                  <div id="enroll-returning-list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;margin-top:3px"></div>
                 </div>
               </div>
             </div>
@@ -3475,7 +3476,6 @@ function setEnrollType(type) {
     }
     updateGroupRateHint();
   } else if (isReturning) {
-    populateReturningDropdown('');
     clearReturningSelection();
     const lockedEl   = document.getElementById('group-rate-locked');
     const rateInput  = document.getElementById('enroll-rate');
@@ -3522,23 +3522,49 @@ function setCourseType(type) {
 }
 
 // ─── RETURNING STUDENT DROPDOWN ───────────────────────────
-function populateReturningDropdown(filter) {
-  const sel = document.getElementById('enroll-returning-select');
-  if (!sel) return;
+function _returningListItems(filter) {
   const q = (filter||'').toLowerCase();
-  const filtered = DATA.students.filter(s =>
+  return DATA.students.filter(s =>
     !q ||
     (s.nickname||'').toLowerCase().includes(q) ||
     (s.full_name||'').toLowerCase().includes(q) ||
     (s.student_id||'').toLowerCase().includes(q)
   );
-  sel.innerHTML = filtered.map(s =>
-    `<option value="${s.student_id}">${s.nickname||s.full_name} (${s.student_id})</option>`
-  ).join('');
+}
+
+function _renderReturningList(filter) {
+  const list = document.getElementById('enroll-returning-list');
+  if (!list) return;
+  const items = _returningListItems(filter);
+  if (!items.length) {
+    list.innerHTML = `<div style="padding:10px 14px;font-size:12px;color:var(--text3)">No students found</div>`;
+  } else {
+    list.innerHTML = items.map(s =>
+      `<div data-sid="${s.student_id}" onmousedown="onReturningStudentSelect('${s.student_id}')"
+        style="padding:9px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s"
+        onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+        <span style="font-weight:500">${s.nickname||s.full_name}</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:6px">${s.student_id}</span>
+      </div>`
+    ).join('');
+  }
+  list.style.display = 'block';
+}
+
+function showReturningList() {
+  const search = document.getElementById('enroll-returning-search');
+  _renderReturningList(search?.value || '');
+}
+
+function hideReturningListDelayed() {
+  setTimeout(() => {
+    const list = document.getElementById('enroll-returning-list');
+    if (list) list.style.display = 'none';
+  }, 200);
 }
 
 function filterReturningDropdown(val) {
-  populateReturningDropdown(val);
+  _renderReturningList(val);
 }
 
 function onReturningStudentSelect(studentId) {
@@ -3548,32 +3574,32 @@ function onReturningStudentSelect(studentId) {
   _resolvedStudentId   = student.student_id;
   _resolvedStudentName = student.nickname || student.full_name;
 
-  // Show locked state, hide search+select
-  const search  = document.getElementById('enroll-returning-search');
-  const sel     = document.getElementById('enroll-returning-select');
-  const locked  = document.getElementById('enroll-returning-locked');
-  const nameEl  = document.getElementById('enroll-returning-locked-name');
-  const toggle  = document.getElementById('enroll-course-type-toggle');
+  const searchWrap = document.getElementById('enroll-returning-search-wrap');
+  const locked     = document.getElementById('enroll-returning-locked');
+  const nameEl     = document.getElementById('enroll-returning-locked-name');
+  const toggle     = document.getElementById('enroll-course-type-toggle');
+  const list       = document.getElementById('enroll-returning-list');
 
-  if (search)  search.style.display  = 'none';
-  if (sel)     sel.style.display     = 'none';
-  if (locked)  { locked.style.display = 'flex'; }
-  if (nameEl)  nameEl.textContent    = `🔒 ${_resolvedStudentName} (${_resolvedStudentId})`;
-  if (toggle)  { toggle.style.display = 'block'; setCourseType('newsubject'); }
+  if (list)       list.style.display      = 'none';
+  if (searchWrap) searchWrap.style.display = 'none';
+  if (locked)     locked.style.display    = 'flex';
+  if (nameEl)     nameEl.textContent      = `🔒 ${_resolvedStudentName} (${_resolvedStudentId})`;
+  if (toggle)     { toggle.style.display  = 'block'; setCourseType('newsubject'); }
 }
 
 function clearReturningSelection() {
   _resolvedStudentId   = null;
   _resolvedStudentName = null;
-  const search  = document.getElementById('enroll-returning-search');
-  const sel     = document.getElementById('enroll-returning-select');
-  const locked  = document.getElementById('enroll-returning-locked');
-  const toggle  = document.getElementById('enroll-course-type-toggle');
-  if (search)  { search.style.display = ''; search.value = ''; }
-  if (sel)     { sel.style.display = ''; }
-  if (locked)  locked.style.display  = 'none';
-  if (toggle)  toggle.style.display  = 'none';
-  populateReturningDropdown('');
+  const searchWrap = document.getElementById('enroll-returning-search-wrap');
+  const search     = document.getElementById('enroll-returning-search');
+  const locked     = document.getElementById('enroll-returning-locked');
+  const toggle     = document.getElementById('enroll-course-type-toggle');
+  const list       = document.getElementById('enroll-returning-list');
+  if (searchWrap) searchWrap.style.display = '';
+  if (search)     { search.value = ''; search.focus(); }
+  if (locked)     locked.style.display     = 'none';
+  if (toggle)     toggle.style.display     = 'none';
+  if (list)       list.style.display       = 'none';
 }
 
 // ─── NEW STUDENT INPUT — duplicate warning ────────────────
@@ -3608,10 +3634,6 @@ function addGroupStudentRow() {
   div.dataset.studentName = '';   // resolved canonical name (existing mode)
   div.dataset.rowMode     = 'existing'; // 'existing' | 'new'
 
-  const existingOptions = DATA.students.map(s =>
-    `<option value="${s.student_id}">${s.nickname||s.full_name} (${s.student_id})</option>`
-  ).join('');
-
   div.innerHTML = `
     <div style="flex:1;min-width:200px">
       <!-- Mode toggle tabs -->
@@ -3625,19 +3647,19 @@ function addGroupStudentRow() {
           ✨ New
         </button>
       </div>
-      <!-- Existing mode: search + select -->
+      <!-- Existing mode: search + floating list -->
       <div class="grow-existing-fields">
-        <input type="text" class="grow-search" placeholder="Type to search..." autocomplete="off"
-          oninput="filterGroupRowDropdown(this)"
-          style="width:100%;font-size:12px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:7px;font-family:'DM Sans',sans-serif;margin-bottom:4px;box-sizing:border-box">
-        <select class="grow-select" size="4"
-          onchange="onGroupRowStudentSelect(this.closest('[data-row-mode]'), this.value)"
-          style="width:100%;border:1px solid var(--border-strong);border-radius:7px;font-size:12px;font-family:'DM Sans',sans-serif;padding:3px;box-sizing:border-box">
-          ${existingOptions}
-        </select>
-        <div class="grow-locked" style="display:none;margin-top:4px;padding:6px 10px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:7px;display:none;align-items:center;justify-content:space-between">
+        <div class="grow-locked" style="display:none;margin-bottom:4px;padding:6px 10px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:7px;align-items:center;justify-content:space-between">
           <span class="grow-locked-name" style="font-size:12px;font-weight:600;color:var(--teal)"></span>
           <button onclick="clearGroupRowSelection(this.closest('[data-row-mode]'))" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 3px">× clear</button>
+        </div>
+        <div style="position:relative" class="grow-search-wrap">
+          <input type="text" class="grow-search" placeholder="Type to search..." autocomplete="off"
+            oninput="filterGroupRowDropdown(this)"
+            onfocus="showGroupRowList(this)"
+            onblur="hideGroupRowListDelayed(this)"
+            style="width:100%;font-size:12px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:7px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+          <div class="grow-list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:180px;overflow-y:auto;margin-top:3px"></div>
         </div>
       </div>
       <!-- New mode: free text -->
@@ -3684,20 +3706,53 @@ function setGroupRowMode(rowEl, mode) {
   }
 }
 
-function filterGroupRowDropdown(searchInput) {
+function showGroupRowList(searchInput) {
   const rowEl = searchInput.closest('[data-row-mode]');
-  const q     = searchInput.value.toLowerCase();
-  const sel   = rowEl.querySelector('.grow-select');
-  if (!sel) return;
-  const filtered = DATA.students.filter(s =>
+  _renderGroupRowList(rowEl, searchInput.value);
+}
+
+function hideGroupRowListDelayed(searchInput) {
+  setTimeout(() => {
+    const rowEl = searchInput.closest('[data-row-mode]');
+    const list  = rowEl?.querySelector('.grow-list');
+    if (list) list.style.display = 'none';
+  }, 200);
+}
+
+function _renderGroupRowList(rowEl, filter) {
+  const list = rowEl.querySelector('.grow-list');
+  if (!list) return;
+  const q = (filter||'').toLowerCase();
+  const items = DATA.students.filter(s =>
     !q ||
     (s.nickname||'').toLowerCase().includes(q) ||
     (s.full_name||'').toLowerCase().includes(q) ||
     (s.student_id||'').toLowerCase().includes(q)
   );
-  sel.innerHTML = filtered.map(s =>
-    `<option value="${s.student_id}">${s.nickname||s.full_name} (${s.student_id})</option>`
-  ).join('');
+  if (!items.length) {
+    list.innerHTML = `<div style="padding:8px 12px;font-size:12px;color:var(--text3)">No students found</div>`;
+  } else {
+    list.innerHTML = items.map(s =>
+      `<div data-sid="${s.student_id}"
+        style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s"
+        onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+        <span style="font-weight:500">${s.nickname||s.full_name}</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:6px">${s.student_id}</span>
+      </div>`
+    ).join('');
+    // attach mousedown so blur doesn't fire before click
+    list.querySelectorAll('[data-sid]').forEach(el => {
+      el.addEventListener('mousedown', () => {
+        onGroupRowStudentSelect(rowEl, el.dataset.sid);
+      });
+    });
+  }
+  list.style.display = 'block';
+}
+
+function filterGroupRowDropdown(searchInput) {
+  const rowEl = searchInput.closest('[data-row-mode]');
+  _renderGroupRowList(rowEl, searchInput.value);
 }
 
 function onGroupRowStudentSelect(rowEl, studentId) {
@@ -3706,31 +3761,27 @@ function onGroupRowStudentSelect(rowEl, studentId) {
   if (!student) return;
   rowEl.dataset.studentId   = student.student_id;
   rowEl.dataset.studentName = student.nickname || student.full_name;
-  const search = rowEl.querySelector('.grow-search');
-  const sel    = rowEl.querySelector('.grow-select');
-  const locked = rowEl.querySelector('.grow-locked');
-  const nameEl = rowEl.querySelector('.grow-locked-name');
-  if (search) search.style.display = 'none';
-  if (sel)    sel.style.display    = 'none';
-  if (locked) locked.style.display = 'flex';
-  if (nameEl) nameEl.textContent   = `🔒 ${rowEl.dataset.studentName} (${rowEl.dataset.studentId})`;
+  const searchWrap = rowEl.querySelector('.grow-search-wrap');
+  const locked     = rowEl.querySelector('.grow-locked');
+  const nameEl     = rowEl.querySelector('.grow-locked-name');
+  const list       = rowEl.querySelector('.grow-list');
+  if (list)       list.style.display       = 'none';
+  if (searchWrap) searchWrap.style.display = 'none';
+  if (locked)     locked.style.display     = 'flex';
+  if (nameEl)     nameEl.textContent       = `🔒 ${rowEl.dataset.studentName} (${rowEl.dataset.studentId})`;
 }
 
 function clearGroupRowSelection(rowEl) {
   rowEl.dataset.studentId   = '';
   rowEl.dataset.studentName = '';
-  const search = rowEl.querySelector('.grow-search');
-  const sel    = rowEl.querySelector('.grow-select');
-  const locked = rowEl.querySelector('.grow-locked');
-  if (search) { search.style.display = ''; search.value = ''; }
-  if (sel)    { sel.style.display = ''; }
-  if (locked) locked.style.display = 'none';
-  // re-populate full list
-  if (sel) {
-    sel.innerHTML = DATA.students.map(s =>
-      `<option value="${s.student_id}">${s.nickname||s.full_name} (${s.student_id})</option>`
-    ).join('');
-  }
+  const searchWrap = rowEl.querySelector('.grow-search-wrap');
+  const search     = rowEl.querySelector('.grow-search');
+  const locked     = rowEl.querySelector('.grow-locked');
+  const list       = rowEl.querySelector('.grow-list');
+  if (searchWrap) searchWrap.style.display = '';
+  if (search)     { search.value = ''; search.focus(); }
+  if (locked)     locked.style.display     = 'none';
+  if (list)       list.style.display       = 'none';
 }
 
 function onGroupRowNewInput(input) {
