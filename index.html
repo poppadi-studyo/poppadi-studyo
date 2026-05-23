@@ -3486,6 +3486,11 @@ function setEnrollType(type) {
     if (rateHintEl) rateHintEl.style.display= '';
     if (warningEl)  warningEl.style.display = 'none';
     suggestTutorRate();
+    // Auto-open the dropdown immediately
+    setTimeout(() => {
+      const search = document.getElementById('enroll-returning-search');
+      if (search) { search.focus(); showReturningList(); }
+    }, 50);
   } else {
     // new
     _resolvedStudentId   = null;
@@ -3694,6 +3699,11 @@ function setGroupRowMode(rowEl, mode) {
     exFields.style.display  = 'block';
     newFields.style.display = 'none';
     clearGroupRowSelection(rowEl);
+    // Auto-open dropdown immediately
+    setTimeout(() => {
+      const search = rowEl.querySelector('.grow-search');
+      if (search) { search.focus(); showGroupRowList(search); }
+    }, 50);
   } else {
     tabNew.style.border     = '2px solid var(--teal)';
     tabNew.style.background = 'var(--teal-bg)';
@@ -7200,7 +7210,10 @@ async function submitEnrollment() {
         const sid  = row.dataset.studentId;
         const name = row.dataset.studentName;
         if (!sid || !name) {
-          rowError = `Please select a student for row ${i+1} (or switch to ✨ New tab)`;
+          const typed = row.querySelector('.grow-search')?.value.trim();
+          rowError = typed
+            ? `Row ${i+1}: "${typed}" not found — select from the list, or switch to ✨ New tab`
+            : `Row ${i+1}: please select a student from the list (or switch to ✨ New tab)`;
           return;
         }
         groupStudents.push({ name, studentId: sid, isNew: false, feePerHr: sharedFeePerHr });
@@ -7362,7 +7375,14 @@ async function submitEnrollment() {
       if (enrollType === 'returning') {
         // Identity fully resolved — use locked values
         if (!_resolvedStudentId || !_resolvedStudentName) {
-          alert(lang==='th' ? 'กรุณาเลือกนักเรียน' : 'Please select a student');
+          const typed = document.getElementById('enroll-returning-search')?.value.trim();
+          if (typed) {
+            alert(lang==='th'
+              ? `"${typed}" ไม่พบในระบบ — กรุณาเลือกชื่อจากรายการ`
+              : `"${typed}" was not found in the system.\n\nPlease select a name from the dropdown list.\nIf this is a new student, use ✨ New student instead.`);
+          } else {
+            alert(lang==='th' ? 'กรุณาเลือกนักเรียน' : 'Please select a student from the list.');
+          }
           resetSaveBtn(); isSaving = false; return;
         }
         studentId     = _resolvedStudentId;
