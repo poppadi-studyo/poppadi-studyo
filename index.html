@@ -3833,11 +3833,15 @@ async function updateSessionStatus(sessionId, newStatus, silent) {
   if (silent) {
     try {
       await webAppWrite('updateSessionStatus', {
-        sessionId, newStatus, userEmail: currentUser?.email
+        sessionId, newStatus, userEmail: currentUser?.email,
+        ...(sessionUnlocked ? { override: true } : {})
       });
       const s = DATA.sessions.find(x => x.session_id === sessionId);
       if (s) s.status = newStatus;
-    } catch(e) { console.warn('silent status update failed:', e.message); }
+    } catch(e) {
+      // Re-throw so markGroupAll can catch and show the error
+      throw e;
+    }
     return;
   }
 
