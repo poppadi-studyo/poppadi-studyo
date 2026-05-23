@@ -921,8 +921,9 @@
             </div>
             <div id="makeup-fields" style="display:none">
               <div id="makeup-selected-info" style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px"></div>
-              <div class="form-group" style="margin-bottom:10px"><label data-en="New date" data-th="วันที่ใหม่">New date</label><input type="date" id="makeup-date" style="width:100%"></div>
-              <div class="form-group" style="margin-bottom:10px"><label data-en="Start time" data-th="เวลาเริ่ม">Start time</label><select id="makeup-start" onchange="updateMakeupEndTime()" style="width:100%;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px"></select></div>
+              <div class="form-group" style="margin-bottom:10px"><label data-en="New date" data-th="วันที่ใหม่">New date</label><input type="date" id="makeup-date" onchange="checkMakeupConflict()" style="width:100%"></div>
+              <div class="form-group" style="margin-bottom:10px"><label data-en="Start time" data-th="เวลาเริ่ม">Start time</label><select id="makeup-start" onchange="updateMakeupEndTime();checkMakeupConflict()" style="width:100%;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px"></select></div>
+              <div id="makeup-conflict-warning" style="display:none;margin-bottom:10px;padding:10px 12px;background:#FFF8E7;border:1px solid var(--amber);border-radius:8px;font-size:12px;color:#92400e"></div>
               <div class="form-group" style="margin-bottom:10px">
                 <label data-en="End time (auto)" data-th="เวลาสิ้นสุด (อัตโนมัติ)">End time (auto)</label>
                 <div id="makeup-end-display" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface2);color:var(--text2)">—</div>
@@ -2806,6 +2807,44 @@ function clearMakeup() {
   document.getElementById('makeup-fields').style.display = 'none';
 }
 
+function checkMakeupConflict() {
+  const warning = document.getElementById('makeup-conflict-warning');
+  if (!warning || !selectedMakeup) return;
+  const d = document.getElementById('makeup-date')?.value;
+  const s = document.getElementById('makeup-start')?.value;
+  if (!d || !s) { warning.style.display = 'none'; return; }
+
+  const tutorId = selectedMakeup.tutor_id;
+  const normD = (dateVal) => {
+    const dt = parseSessionDate(String(dateVal||'').trim());
+    if (!dt||isNaN(dt.getTime())) return '';
+    return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  };
+  const normT = (t) => String(t||'').trim().substring(0,5);
+
+  const conflicts = DATA.sessions.filter(x =>
+    x.session_id !== selectedMakeup.session_id &&
+    x.tutor_id === tutorId &&
+    normD(x.date) === d &&
+    normT(x.start_time) === normT(s) &&
+    x.status !== 'Cancelled'
+  );
+
+  if (conflicts.length) {
+    const tutor = getTutor(tutorId);
+    const details = conflicts.map(x => {
+      const nick = getStudentNickname(x.student_id, x.course_id);
+      const subj = getSubjectForSession(x);
+      const time = formatTimeRange(x.start_time, x.end_time);
+      return `${nick} · ${subj} · ${time}`;
+    }).join(', ');
+    warning.style.display = 'block';
+    warning.innerHTML = `⚠️ <strong>${tutor.name||tutorId}</strong> ${lang==='th'?'มีคาบเรียนอยู่แล้วเวลานี้':'already has a session at this time'}: ${details}. ${lang==='th'?'คุณแน่ใจหรือไม่?':'Are you sure you want to proceed?'}`;
+  } else {
+    warning.style.display = 'none';
+  }
+}
+
 let isMakeupSaving = false;
 async function confirmMakeup() {
   if (isMakeupSaving) return;
@@ -4242,8 +4281,29 @@ function renderStudents() {
     if (paymentFilter && payStatus !== paymentFilter) return;
     if (tutorFilter && course.tutor_id !== tutorFilter) return;
 
+    // Detect if this solo course is part of a de-facto group (shares tutor+subject+session time with another course)
+    const courseSessions = DATA.sessions.filter(s => s.course_id === course.course_id && s.status !== 'Cancelled');
+    let groupBadge = '';
+    if (courseSessions.length) {
+      const normD = (dateVal) => { const dt = parseSessionDate(String(dateVal||'').trim()); if (!dt||isNaN(dt.getTime())) return ''; return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); };
+      const normT = (t) => String(t||'').trim().substring(0,5);
+      const firstSess = courseSessions[0];
+      const siblings = DATA.sessions.filter(x =>
+        x.course_id !== course.course_id &&
+        x.tutor_id === course.tutor_id &&
+        x.status !== 'Cancelled' &&
+        normD(x.date) === normD(firstSess.date) &&
+        normT(x.start_time) === normT(firstSess.start_time) &&
+        getSubjectForSession(x) === (course.subject||'')
+      );
+      if (siblings.length) {
+        const siblingNames = [...new Set(siblings.map(x => getStudentNickname(x.student_id, x.course_id)))].join(', ');
+        groupBadge = ` <span title="${lang==='th'?'กลุ่มกับ':'Group with'}: ${siblingNames}" style="font-size:10px;background:#e8f4f0;color:#1D9E75;border-radius:4px;padding:1px 5px;font-weight:600;cursor:default">👥 ${lang==='th'?'กลุ่ม':'Group'}</span>`;
+      }
+    }
+
     html += `<tr style="cursor:pointer;${rowBg}" onclick="openStudentDetail('${course.course_id}')">
-      <td><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_nickname||course.student_id}</td>
+      <td><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_nickname||course.student_id}${groupBadge}</td>
       <td>${tutor.name||course.tutor_id}</td>
       <td>${course.subject||'—'}</td>
       <td>${course.block_number||1}</td>
