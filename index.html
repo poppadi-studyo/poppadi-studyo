@@ -2567,11 +2567,11 @@ function renderSchedule() {
       // Mark all buttons (only if not locked)
       const markAllBtns = isLocked ? '' : `
         <div style="display:flex;gap:6px;margin-top:6px">
-          <button onclick="markGroupAll(${sessionIdsJson}, 'Completed')"
+          <button data-sids='${sessionIdsJson}' data-status='Completed' onclick="markGroupAll(JSON.parse(this.dataset.sids),this.dataset.status)"
             style="font-size:11px;padding:3px 10px;border:1px solid var(--teal);border-radius:5px;background:var(--teal-bg);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">
             ✓ ${lang==='th'?'สอนครบทุกคน':'Mark all Completed'}
           </button>
-          <button onclick="markGroupAll(${sessionIdsJson}, 'Cancelled')"
+          <button data-sids='${sessionIdsJson}' data-status='Cancelled' onclick="markGroupAll(JSON.parse(this.dataset.sids),this.dataset.status)"
             style="font-size:11px;padding:3px 10px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">
             ✕ ${lang==='th'?'ยกเลิกทุกคน':'Mark all Cancelled'}
           </button>
@@ -5328,13 +5328,14 @@ function openCalSessionPopup(sessionId, anchorEl) {
   }).join('');
 
   const allSessionIds = siblings.map(x => x.session_id);
+  const allSidsJson = JSON.stringify(allSessionIds);
   const markAllBtns = (!isLocked && siblings.length > 1) ? `
     <div style="display:flex;gap:6px;margin-top:8px">
-      <button onclick="event.stopPropagation();calPopupMarkAll(${JSON.stringify(allSessionIds)},'Completed')"
+      <button data-sids='${allSidsJson}' data-status='Completed' onclick="event.stopPropagation();calPopupMarkAll(JSON.parse(this.dataset.sids),this.dataset.status)"
         style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--teal);border-radius:5px;background:var(--teal-bg);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">
         ✓ ${lang==='th'?'ทุกคน':'All completed'}
       </button>
-      <button onclick="event.stopPropagation();calPopupMarkAll(${JSON.stringify(allSessionIds)},'Cancelled')"
+      <button data-sids='${allSidsJson}' data-status='Cancelled' onclick="event.stopPropagation();calPopupMarkAll(JSON.parse(this.dataset.sids),this.dataset.status)"
         style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">
         ✕ ${lang==='th'?'ยกเลิกทุกคน':'All cancelled'}
       </button>
