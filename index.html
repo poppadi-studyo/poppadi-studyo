@@ -1231,20 +1231,15 @@
       <div class="card">
         <div class="card-title" data-en="Enrollment type" data-th="ประเภทการลงทะเบียน">Enrollment type</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--border-strong);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-new" onclick="setEnrollType('new')">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--teal);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-new" onclick="setEnrollType('new')">
             <input type="radio" name="enroll-type" value="new" checked style="display:none">
             <span style="font-size:18px">✨</span>
             <div><div style="font-weight:500" data-en="New student" data-th="นักเรียนใหม่">New student</div><div style="font-size:11px;color:var(--text3)" data-en="First course ever" data-th="คอร์สแรก">First course ever</div></div>
           </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--border-strong);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-renew" onclick="setEnrollType('renew')">
-            <input type="radio" name="enroll-type" value="renew" style="display:none">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--border-strong);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-returning" onclick="setEnrollType('returning')">
+            <input type="radio" name="enroll-type" value="returning" style="display:none">
             <span style="font-size:18px">🔄</span>
-            <div><div style="font-weight:500" data-en="Current — Renewed" data-th="นักเรียนเดิม — ต่อวิชาเดิม">Current — Renewed</div><div style="font-size:11px;color:var(--text3)" data-en="Same subject, new block" data-th="วิชาเดิม บล็อกใหม่">Same subject, new block</div></div>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--border-strong);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-newsubject" onclick="setEnrollType('newsubject')">
-            <input type="radio" name="enroll-type" value="newsubject" style="display:none">
-            <span style="font-size:18px">📚</span>
-            <div><div style="font-weight:500" data-en="Current — New subject" data-th="นักเรียนเดิม — วิชาใหม่">Current — New subject</div><div style="font-size:11px;color:var(--text3)" data-en="Different course" data-th="วิชาใหม่">Different course</div></div>
+            <div><div style="font-weight:500" data-en="Returning student" data-th="นักเรียนเดิม">Returning student</div><div style="font-size:11px;color:var(--text3)" data-en="Already in the system" data-th="มีในระบบแล้ว">Already in the system</div></div>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--border-strong);border-radius:10px;font-size:13px;transition:all 0.15s" id="etype-group" onclick="setEnrollType('group')">
             <input type="radio" name="enroll-type" value="group" style="display:none">
@@ -1260,33 +1255,70 @@
 
         <!-- SINGLE STUDENT (default) -->
         <div id="enroll-single-student">
-          <div class="form-row">
-            <div class="form-group">
-              <label data-en="Nickname" data-th="ชื่อเล่น">Nickname <span style="color:var(--red);font-size:11px">*</span></label>
-              <input type="text" id="enroll-student" list="student-list" placeholder="e.g. Boss" autocomplete="off" oninput="onStudentNicknameInput();saveEnrollDraft()">
-              <datalist id="student-list"></datalist>
-              <div id="student-match-hint" style="font-size:11px;color:var(--teal);margin-top:3px"></div>
+          <!-- NEW STUDENT MODE: free text -->
+          <div id="enroll-new-mode">
+            <div class="form-row">
+              <div class="form-group">
+                <label data-en="Nickname" data-th="ชื่อเล่น">Nickname <span style="color:var(--red);font-size:11px">*</span></label>
+                <input type="text" id="enroll-student" placeholder="e.g. Boss" autocomplete="off" oninput="onNewStudentInput();saveEnrollDraft()">
+                <div id="student-match-hint" style="font-size:11px;margin-top:3px"></div>
+              </div>
+            </div>
+            <div id="enroll-new-student-fields" style="margin-top:4px">
+              <div class="form-row three">
+                <div class="form-group">
+                  <label data-en="Full name" data-th="ชื่อเต็ม">Full name</label>
+                  <input type="text" id="enroll-fullname" placeholder="e.g. Somchai Rakruen">
+                </div>
+                <div class="form-group">
+                  <label data-en="Phone / LINE" data-th="เบอร์โทร / LINE">Phone / LINE</label>
+                  <input type="text" id="enroll-phone" placeholder="e.g. 08x-xxx-xxxx">
+                </div>
+                <div class="form-group">
+                  <label data-en="Notes" data-th="หมายเหตุ">Notes</label>
+                  <input type="text" id="enroll-notes" placeholder="e.g. parent contact, referral">
+                </div>
+              </div>
             </div>
           </div>
-          <div id="enroll-new-student-fields" style="display:none">
-            <div style="font-size:12px;color:var(--teal);margin-bottom:8px;padding:6px 10px;background:var(--teal-bg);border-radius:6px">
-              ✨ <span data-en="New student — fill in their details below" data-th="นักเรียนใหม่ — กรอกข้อมูลด้านล่าง">New student — fill in their details below</span>
+
+          <!-- RETURNING STUDENT MODE: locked dropdown -->
+          <div id="enroll-returning-mode" style="display:none">
+            <div class="form-row">
+              <div class="form-group">
+                <label data-en="Select student" data-th="เลือกนักเรียน">Select student <span style="color:var(--red);font-size:11px">*</span></label>
+                <!-- Search box -->
+                <input type="text" id="enroll-returning-search" placeholder="Type to search..." autocomplete="off"
+                  oninput="filterReturningDropdown(this.value)"
+                  style="margin-bottom:6px">
+                <select id="enroll-returning-select" size="5"
+                  onchange="onReturningStudentSelect(this.value)"
+                  style="width:100%;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;padding:4px">
+                </select>
+                <!-- Locked display (shown after selection) -->
+                <div id="enroll-returning-locked" style="display:none;margin-top:6px;padding:8px 12px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:8px;display:none;align-items:center;justify-content:space-between">
+                  <span style="font-size:13px;font-weight:600;color:var(--teal)" id="enroll-returning-locked-name"></span>
+                  <button onclick="clearReturningSelection()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 4px">× clear</button>
+                </div>
+              </div>
             </div>
-            <div class="form-row three">
-              <div class="form-group">
-                <label data-en="Full name" data-th="ชื่อเต็ม">Full name</label>
-                <input type="text" id="enroll-fullname" placeholder="e.g. Somchai Rakruen">
-              </div>
-              <div class="form-group">
-                <label data-en="Phone / LINE" data-th="เบอร์โทร / LINE">Phone / LINE</label>
-                <input type="text" id="enroll-phone" placeholder="e.g. 08x-xxx-xxxx">
-              </div>
-              <div class="form-group">
-                <label data-en="Notes" data-th="หมายเหตุ">Notes</label>
-                <input type="text" id="enroll-notes" placeholder="e.g. parent contact, referral">
+            <!-- Course type toggle: newsubject vs renew -->
+            <div id="enroll-course-type-toggle" style="margin-top:10px;display:none">
+              <label style="font-size:12px;color:var(--text2);font-weight:500;display:block;margin-bottom:6px" data-en="Course type" data-th="ประเภทคอร์ส">Course type</label>
+              <div style="display:flex;gap:8px">
+                <button id="ctype-newsubject" onclick="setCourseType('newsubject')"
+                  style="flex:1;padding:8px 12px;border:2px solid var(--teal);border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;background:var(--teal-bg);color:var(--teal);font-family:'DM Sans',sans-serif">
+                  📚 New subject
+                </button>
+                <button id="ctype-renew" onclick="setCourseType('renew')"
+                  style="flex:1;padding:8px 12px;border:2px solid var(--border-strong);border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif">
+                  🔄 Renewal — same subject
+                </button>
               </div>
             </div>
           </div>
+
+          <datalist id="student-list"></datalist>
         </div>
 
         <!-- GROUP STUDENTS -->
@@ -3414,37 +3446,156 @@ function downloadTutorExcel() {
 }
 
 // ─── ENROLLMENT TYPE ──────────────────────────────────────
-let enrollType = 'new';
+let enrollType = 'new';       // 'new' | 'returning' | 'group'
+let courseType = 'newsubject'; // 'newsubject' | 'renew'  (only used when enrollType==='returning')
+let _resolvedStudentId   = null; // set when returning student is selected
+let _resolvedStudentName = null; // canonical name from DATA.students
 
+// ─── ENROLLMENT TYPE SELECTOR ────────────────────────────
 function setEnrollType(type) {
   enrollType = type;
-  const types = ['new','renew','newsubject','group'];
+  const types = ['new','returning','group'];
   types.forEach(t => {
     const el = document.getElementById('etype-'+t);
     if (el) el.style.border = t===type ? '2px solid var(--teal)' : '2px solid var(--border-strong)';
   });
-  const isGroup = type === 'group';
-  document.getElementById('enroll-single-student').style.display = isGroup ? 'none' : 'block';
-  document.getElementById('enroll-group-students').style.display = isGroup ? 'block' : 'none';
+  const isGroup     = type === 'group';
+  const isReturning = type === 'returning';
+  const isNew       = type === 'new';
+
+  document.getElementById('enroll-single-student').style.display  = isGroup ? 'none' : 'block';
+  document.getElementById('enroll-group-students').style.display  = isGroup ? 'block' : 'none';
+  document.getElementById('enroll-new-mode').style.display        = isNew ? 'block' : 'none';
+  document.getElementById('enroll-returning-mode').style.display  = isReturning ? 'block' : 'none';
+
   if (isGroup) {
     if (document.getElementById('group-students-body').children.length === 0) {
       addGroupStudentRow();
       addGroupStudentRow();
     }
-    updateGroupRateHint(); // show locked display
-  } else {
-    // Reset rate field to editable for non-group modes
-    const lockedEl  = document.getElementById('group-rate-locked');
-    const rateInput = document.getElementById('enroll-rate');
+    updateGroupRateHint();
+  } else if (isReturning) {
+    populateReturningDropdown('');
+    clearReturningSelection();
+    const lockedEl   = document.getElementById('group-rate-locked');
+    const rateInput  = document.getElementById('enroll-rate');
     const rateHintEl = document.getElementById('rate-hint');
-    const warningEl = document.getElementById('group-rate-warning');
-    if (lockedEl)  { lockedEl.style.display = 'none'; }
-    if (rateInput) { rateInput.style.display = ''; }
-    if (rateHintEl){ rateHintEl.style.display = ''; }
-    if (warningEl) { warningEl.style.display = 'none'; }
+    const warningEl  = document.getElementById('group-rate-warning');
+    if (lockedEl)   lockedEl.style.display  = 'none';
+    if (rateInput)  rateInput.style.display = '';
+    if (rateHintEl) rateHintEl.style.display= '';
+    if (warningEl)  warningEl.style.display = 'none';
+    suggestTutorRate();
+  } else {
+    // new
+    _resolvedStudentId   = null;
+    _resolvedStudentName = null;
+    const lockedEl   = document.getElementById('group-rate-locked');
+    const rateInput  = document.getElementById('enroll-rate');
+    const rateHintEl = document.getElementById('rate-hint');
+    const warningEl  = document.getElementById('group-rate-warning');
+    if (lockedEl)   lockedEl.style.display  = 'none';
+    if (rateInput)  rateInput.style.display = '';
+    if (rateHintEl) rateHintEl.style.display= '';
+    if (warningEl)  warningEl.style.display = 'none';
     suggestTutorRate();
   }
   updateEnrollPreview();
+}
+
+// ─── COURSE TYPE TOGGLE (returning only) ─────────────────
+function setCourseType(type) {
+  courseType = type;
+  ['newsubject','renew'].forEach(t => {
+    const btn = document.getElementById('ctype-'+t);
+    if (!btn) return;
+    if (t === type) {
+      btn.style.border      = '2px solid var(--teal)';
+      btn.style.background  = 'var(--teal-bg)';
+      btn.style.color       = 'var(--teal)';
+    } else {
+      btn.style.border      = '2px solid var(--border-strong)';
+      btn.style.background  = 'transparent';
+      btn.style.color       = 'var(--text2)';
+    }
+  });
+}
+
+// ─── RETURNING STUDENT DROPDOWN ───────────────────────────
+function populateReturningDropdown(filter) {
+  const sel = document.getElementById('enroll-returning-select');
+  if (!sel) return;
+  const q = (filter||'').toLowerCase();
+  const filtered = DATA.students.filter(s =>
+    !q ||
+    (s.nickname||'').toLowerCase().includes(q) ||
+    (s.full_name||'').toLowerCase().includes(q) ||
+    (s.student_id||'').toLowerCase().includes(q)
+  );
+  sel.innerHTML = filtered.map(s =>
+    `<option value="${s.student_id}">${s.nickname||s.full_name} (${s.student_id})</option>`
+  ).join('');
+}
+
+function filterReturningDropdown(val) {
+  populateReturningDropdown(val);
+}
+
+function onReturningStudentSelect(studentId) {
+  if (!studentId) return;
+  const student = DATA.students.find(s => s.student_id === studentId);
+  if (!student) return;
+  _resolvedStudentId   = student.student_id;
+  _resolvedStudentName = student.nickname || student.full_name;
+
+  // Show locked state, hide search+select
+  const search  = document.getElementById('enroll-returning-search');
+  const sel     = document.getElementById('enroll-returning-select');
+  const locked  = document.getElementById('enroll-returning-locked');
+  const nameEl  = document.getElementById('enroll-returning-locked-name');
+  const toggle  = document.getElementById('enroll-course-type-toggle');
+
+  if (search)  search.style.display  = 'none';
+  if (sel)     sel.style.display     = 'none';
+  if (locked)  { locked.style.display = 'flex'; }
+  if (nameEl)  nameEl.textContent    = `🔒 ${_resolvedStudentName} (${_resolvedStudentId})`;
+  if (toggle)  { toggle.style.display = 'block'; setCourseType('newsubject'); }
+}
+
+function clearReturningSelection() {
+  _resolvedStudentId   = null;
+  _resolvedStudentName = null;
+  const search  = document.getElementById('enroll-returning-search');
+  const sel     = document.getElementById('enroll-returning-select');
+  const locked  = document.getElementById('enroll-returning-locked');
+  const toggle  = document.getElementById('enroll-course-type-toggle');
+  if (search)  { search.style.display = ''; search.value = ''; }
+  if (sel)     { sel.style.display = ''; }
+  if (locked)  locked.style.display  = 'none';
+  if (toggle)  toggle.style.display  = 'none';
+  populateReturningDropdown('');
+}
+
+// ─── NEW STUDENT INPUT — duplicate warning ────────────────
+function onNewStudentInput() {
+  const val  = document.getElementById('enroll-student')?.value.trim();
+  const hint = document.getElementById('student-match-hint');
+  if (!val) { if (hint) hint.textContent = ''; return; }
+  const existing = DATA.students.find(s =>
+    (s.nickname||'').toLowerCase() === val.toLowerCase() ||
+    (s.full_name||'').toLowerCase() === val.toLowerCase()
+  );
+  if (existing) {
+    if (hint) {
+      hint.style.color   = 'var(--amber)';
+      hint.innerHTML     = `⚠️ "${existing.nickname}" already exists (${existing.student_id}). If this is the same person, use <strong>Returning student</strong> instead.`;
+    }
+  } else {
+    if (hint) {
+      hint.style.color   = 'var(--teal)';
+      hint.textContent   = '✨ New student — a new ID will be created automatically';
+    }
+  }
 }
 
 // ─── GROUP STUDENT ROWS ───────────────────────────────────
@@ -3452,14 +3603,156 @@ function addGroupStudentRow() {
   const body = document.getElementById('group-students-body');
   const idx  = body.children.length + 1;
   const div  = document.createElement('div');
-  div.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap';
+  div.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap';
+  div.dataset.studentId   = '';   // resolved student_id (existing mode)
+  div.dataset.studentName = '';   // resolved canonical name (existing mode)
+  div.dataset.rowMode     = 'existing'; // 'existing' | 'new'
+
+  const existingOptions = DATA.students.map(s =>
+    `<option value="${s.student_id}">${s.nickname||s.full_name} (${s.student_id})</option>`
+  ).join('');
+
   div.innerHTML = `
-    <div style="flex:2;min-width:140px">
-      <input type="text" list="student-list" autocomplete="off" placeholder="${lang==='th'?'ชื่อนักเรียน':'Student name'} ${idx}" style="width:100%;font-size:12px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font-family:'DM Sans',sans-serif">
+    <div style="flex:1;min-width:200px">
+      <!-- Mode toggle tabs -->
+      <div style="display:flex;gap:4px;margin-bottom:6px">
+        <button class="grow-tab-existing" onclick="setGroupRowMode(this.closest('[data-row-mode]'),'existing')"
+          style="flex:1;padding:5px 8px;border:2px solid var(--teal);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:var(--teal-bg);color:var(--teal);font-family:'DM Sans',sans-serif">
+          🔍 Existing
+        </button>
+        <button class="grow-tab-new" onclick="setGroupRowMode(this.closest('[data-row-mode]'),'new')"
+          style="flex:1;padding:5px 8px;border:2px solid var(--border-strong);border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif">
+          ✨ New
+        </button>
+      </div>
+      <!-- Existing mode: search + select -->
+      <div class="grow-existing-fields">
+        <input type="text" class="grow-search" placeholder="Type to search..." autocomplete="off"
+          oninput="filterGroupRowDropdown(this)"
+          style="width:100%;font-size:12px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:7px;font-family:'DM Sans',sans-serif;margin-bottom:4px;box-sizing:border-box">
+        <select class="grow-select" size="4"
+          onchange="onGroupRowStudentSelect(this.closest('[data-row-mode]'), this.value)"
+          style="width:100%;border:1px solid var(--border-strong);border-radius:7px;font-size:12px;font-family:'DM Sans',sans-serif;padding:3px;box-sizing:border-box">
+          ${existingOptions}
+        </select>
+        <div class="grow-locked" style="display:none;margin-top:4px;padding:6px 10px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:7px;display:none;align-items:center;justify-content:space-between">
+          <span class="grow-locked-name" style="font-size:12px;font-weight:600;color:var(--teal)"></span>
+          <button onclick="clearGroupRowSelection(this.closest('[data-row-mode]'))" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 3px">× clear</button>
+        </div>
+      </div>
+      <!-- New mode: free text -->
+      <div class="grow-new-fields" style="display:none">
+        <input type="text" class="grow-new-input" autocomplete="off"
+          placeholder="${lang==='th'?'ชื่อนักเรียนใหม่':'New student name'} ${idx}"
+          oninput="onGroupRowNewInput(this)"
+          style="width:100%;font-size:12px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:7px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
+        <div class="grow-new-hint" style="font-size:11px;margin-top:3px"></div>
+      </div>
     </div>
-    <button onclick="this.closest('div').remove();updateGroupRateHint()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:4px">✕</button>`;
+    <button onclick="this.closest('div[data-row-mode]').remove();updateGroupRateHint()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:5px;margin-top:22px">✕</button>`;
   body.appendChild(div);
   updateGroupRateHint();
+}
+
+function setGroupRowMode(rowEl, mode) {
+  rowEl.dataset.rowMode = mode;
+  rowEl.dataset.studentId   = '';
+  rowEl.dataset.studentName = '';
+  const tabEx  = rowEl.querySelector('.grow-tab-existing');
+  const tabNew = rowEl.querySelector('.grow-tab-new');
+  const exFields  = rowEl.querySelector('.grow-existing-fields');
+  const newFields = rowEl.querySelector('.grow-new-fields');
+  if (mode === 'existing') {
+    tabEx.style.border      = '2px solid var(--teal)';
+    tabEx.style.background  = 'var(--teal-bg)';
+    tabEx.style.color       = 'var(--teal)';
+    tabNew.style.border     = '2px solid var(--border-strong)';
+    tabNew.style.background = 'transparent';
+    tabNew.style.color      = 'var(--text2)';
+    exFields.style.display  = 'block';
+    newFields.style.display = 'none';
+    clearGroupRowSelection(rowEl);
+  } else {
+    tabNew.style.border     = '2px solid var(--teal)';
+    tabNew.style.background = 'var(--teal-bg)';
+    tabNew.style.color      = 'var(--teal)';
+    tabEx.style.border      = '2px solid var(--border-strong)';
+    tabEx.style.background  = 'transparent';
+    tabEx.style.color       = 'var(--text2)';
+    newFields.style.display = 'block';
+    exFields.style.display  = 'none';
+  }
+}
+
+function filterGroupRowDropdown(searchInput) {
+  const rowEl = searchInput.closest('[data-row-mode]');
+  const q     = searchInput.value.toLowerCase();
+  const sel   = rowEl.querySelector('.grow-select');
+  if (!sel) return;
+  const filtered = DATA.students.filter(s =>
+    !q ||
+    (s.nickname||'').toLowerCase().includes(q) ||
+    (s.full_name||'').toLowerCase().includes(q) ||
+    (s.student_id||'').toLowerCase().includes(q)
+  );
+  sel.innerHTML = filtered.map(s =>
+    `<option value="${s.student_id}">${s.nickname||s.full_name} (${s.student_id})</option>`
+  ).join('');
+}
+
+function onGroupRowStudentSelect(rowEl, studentId) {
+  if (!studentId) return;
+  const student = DATA.students.find(s => s.student_id === studentId);
+  if (!student) return;
+  rowEl.dataset.studentId   = student.student_id;
+  rowEl.dataset.studentName = student.nickname || student.full_name;
+  const search = rowEl.querySelector('.grow-search');
+  const sel    = rowEl.querySelector('.grow-select');
+  const locked = rowEl.querySelector('.grow-locked');
+  const nameEl = rowEl.querySelector('.grow-locked-name');
+  if (search) search.style.display = 'none';
+  if (sel)    sel.style.display    = 'none';
+  if (locked) locked.style.display = 'flex';
+  if (nameEl) nameEl.textContent   = `🔒 ${rowEl.dataset.studentName} (${rowEl.dataset.studentId})`;
+}
+
+function clearGroupRowSelection(rowEl) {
+  rowEl.dataset.studentId   = '';
+  rowEl.dataset.studentName = '';
+  const search = rowEl.querySelector('.grow-search');
+  const sel    = rowEl.querySelector('.grow-select');
+  const locked = rowEl.querySelector('.grow-locked');
+  if (search) { search.style.display = ''; search.value = ''; }
+  if (sel)    { sel.style.display = ''; }
+  if (locked) locked.style.display = 'none';
+  // re-populate full list
+  if (sel) {
+    sel.innerHTML = DATA.students.map(s =>
+      `<option value="${s.student_id}">${s.nickname||s.full_name} (${s.student_id})</option>`
+    ).join('');
+  }
+}
+
+function onGroupRowNewInput(input) {
+  const rowEl = input.closest('[data-row-mode]');
+  const hint  = rowEl.querySelector('.grow-new-hint');
+  const val   = input.value.trim();
+  if (!val) { if (hint) hint.textContent = ''; return; }
+  const existing = DATA.students.find(s =>
+    (s.nickname||'').toLowerCase() === val.toLowerCase() ||
+    (s.full_name||'').toLowerCase() === val.toLowerCase()
+  );
+  if (existing) {
+    if (hint) {
+      hint.style.color = 'var(--amber)';
+      hint.innerHTML   = `⚠️ "${existing.nickname}" already exists (${existing.student_id}). Use <strong>Existing</strong> tab instead.`;
+    }
+  } else {
+    if (hint) {
+      hint.style.color = 'var(--teal)';
+      hint.textContent = '✨ New student — ID will be created automatically';
+    }
+  }
 }
 
 function updateGroupRateHint() {
@@ -3583,28 +3876,8 @@ function updateEnrollPreview() {
 }
 
 // ─── STUDENT NICKNAME SMART DETECTION ────────────────────
-function onStudentNicknameInput() {
-  const val = document.getElementById('enroll-student')?.value.trim();
-  const hint = document.getElementById('student-match-hint');
-  const newFields = document.getElementById('enroll-new-student-fields');
-  if (!val) {
-    if (hint) hint.textContent = '';
-    if (newFields) newFields.style.display = 'none';
-    return;
-  }
-  // Check if student already exists
-  const existing = DATA.students.find(s =>
-    (s.nickname||'').toLowerCase() === val.toLowerCase() ||
-    (s.full_name||'').toLowerCase() === val.toLowerCase()
-  );
-  if (existing) {
-    if (hint) hint.textContent = `✓ ${lang==='th'?'พบนักเรียนเดิม':'Existing student found'}: ${existing.nickname} (${existing.student_id})`;
-    if (newFields) newFields.style.display = 'none';
-  } else {
-    if (hint) hint.textContent = lang==='th' ? '✨ นักเรียนใหม่ — จะสร้าง ID ใหม่อัตโนมัติ' : '✨ New student — a new ID will be created automatically';
-    if (newFields) newFields.style.display = 'block';
-  }
-}
+// Legacy stub — logic moved to onNewStudentInput()
+function onStudentNicknameInput() { onNewStudentInput(); }
 
 // ─── SAVE WITH PROGRESS BAR ──────────────────────────────
 let isSaving = false;
@@ -4289,7 +4562,7 @@ function renderStudents() {
         : remaining<=3?`<span class="badge badge-alert-med">${lang==='th'?`เหลือ ${remaining}`:`${remaining} left`}</span>`:'—';
 
       html += `<tr class="group-row-${groupId}" style="display:none;cursor:pointer;${rowBg}" onclick="openStudentDetail('${course.course_id}')">
-        <td style="padding-left:32px"><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_nickname||course.student_id}</td>
+        <td style="padding-left:32px"><span class="dot" style="background:${color}"></span>${getStudentNickname(course.student_id, course.course_id)}</td>
         <td>${tutor.name||course.tutor_id}</td>
         <td>${subject}</td>
         <td>${course.block_number||1}</td>
@@ -4349,7 +4622,7 @@ function renderStudents() {
     }
 
     html += `<tr style="cursor:pointer;${rowBg}" onclick="openStudentDetail('${course.course_id}')">
-      <td><span class="dot" style="background:${color}"></span>${student?.nickname||course.student_nickname||course.student_id}${groupBadge}</td>
+      <td><span class="dot" style="background:${color}"></span>${getStudentNickname(course.student_id, course.course_id)}${groupBadge}</td>
       <td>${tutor.name||course.tutor_id}</td>
       <td>${course.subject||'—'}</td>
       <td>${course.block_number||1}</td>
@@ -4402,7 +4675,7 @@ function openStudentDetail(courseId) {
   document.getElementById('students-list-view').style.display   = 'none';
   document.getElementById('students-detail-view').style.display = 'block';
   document.getElementById('detail-student-name').textContent =
-    (student?.nickname||course.student_nickname||course.student_id)+' — '+course.subject;
+    getStudentNickname(course.student_id, course.course_id)+' — '+course.subject;
   document.getElementById('detail-course-info').textContent =
     `${tutor.name||course.tutor_id} · Block ${course.block_number||1} · Invoice: ${course.invoice_ref||'—'} · Paid: ${course.payment_date||'—'}`;
 
@@ -4719,11 +4992,11 @@ function downloadStudentPDFForStudent() {
     )];
     if (siblingCourseIds.length) {
       isGroup = true;
-      const allNames = [student?.nickname||course.student_nickname||course.student_id];
+      const allNames = [getStudentNickname(course.student_id, course.course_id)];
       siblingCourseIds.forEach(cid => {
         const sc = DATA.courses.find(c => c.course_id === cid);
         const ss = DATA.students.find(s => s.student_id === sc?.student_id);
-        allNames.push(ss?.nickname || sc?.student_nickname || cid);
+        allNames.push(getStudentNickname(sc?.student_id, cid));
       });
       groupNames = allNames.join(', ');
     }
@@ -6865,27 +7138,49 @@ async function submitEnrollment() {
   const enrollmentType = enrollType || 'new';
 
   // ── Collect group students ───────────────────────────────
-  let groupStudents = []; // [{ name, feePerHr }]
+  let groupStudents = []; // [{ name, studentId, isNew, feePerHr }]
   if (isGroupMode) {
-    // Fee per hour now comes from the global enroll-fee field (shared for all students)
     const sharedFeePerHr = parseFloat(document.getElementById('enroll-fee').value) || 0;
-    const groupRows = document.querySelectorAll('#group-students-body > div');
-    groupRows.forEach(row => {
-      const nameInput = row.querySelectorAll('input')[0];
-      const name = nameInput?.value.trim() || '';
-      if (name) groupStudents.push({ name, feePerHr: sharedFeePerHr });
+    const groupRows = document.querySelectorAll('#group-students-body > div[data-row-mode]');
+    let rowError = null;
+    groupRows.forEach((row, i) => {
+      const mode = row.dataset.rowMode || 'existing';
+      if (mode === 'existing') {
+        const sid  = row.dataset.studentId;
+        const name = row.dataset.studentName;
+        if (!sid || !name) {
+          rowError = `Please select a student for row ${i+1} (or switch to ✨ New tab)`;
+          return;
+        }
+        groupStudents.push({ name, studentId: sid, isNew: false, feePerHr: sharedFeePerHr });
+      } else {
+        // new
+        const input = row.querySelector('.grow-new-input');
+        const name  = input?.value.trim() || '';
+        if (!name) return; // skip empty rows
+        // Duplicate check — warn but don't block (admin may have confirmed)
+        const existing = DATA.students.find(s =>
+          (s.nickname||'').toLowerCase() === name.toLowerCase()
+        );
+        const sid = existing?.student_id || null; // will be generated at save if null
+        groupStudents.push({ name, studentId: sid, isNew: !existing, feePerHr: sharedFeePerHr });
+      }
     });
-    if (groupStudents.length === 0) {
-      alert(lang==='th'
-        ? 'กรุณากรอกชื่อนักเรียนอย่างน้อย 1 คน'
-        : 'Please add at least one student name');
+    if (rowError) {
+      alert(rowError);
+      resetSaveBtn();
+      isSaving = false;
       return;
+    }
+    if (groupStudents.length === 0) {
+      alert(lang==='th' ? 'กรุณากรอกชื่อนักเรียนอย่างน้อย 1 คน' : 'Please add at least one student');
+      resetSaveBtn(); isSaving = false; return;
     }
     if (!subject || !paidHrs || !sharedFeePerHr) {
       alert(lang==='th'
-        ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
-        : 'Please fill in required fields:\n• Student names\n• Subject\n• Total paid hours\n• Fee per hour');
-      return;
+        ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
+        : 'Please fill in required fields:\n• Subject\n• Total paid hours\n• Fee per hour');
+      resetSaveBtn(); isSaving = false; return;
     }
   } else {
     // ── Single student validation ────────────────────────
@@ -6932,18 +7227,15 @@ async function submitEnrollment() {
       const splitTutorRate = Math.round((tutorRate / numStudents) * 100) / 100;
       const enrolledCourseIds = [];
       for (let i = 0; i < groupStudents.length; i++) {
-        const { name, feePerHr } = groupStudents[i];
+        const { name, studentId: resolvedId, isNew, feePerHr } = groupStudents[i];
         const pct = 20 + Math.round((i / numStudents) * 70);
         setSaveProgress(pct, lang==='th'
           ? `กำลังบันทึก ${name}... (${i+1}/${numStudents})`
           : `Enrolling ${name}... (${i+1}/${numStudents})`);
 
-        const existingStudent = DATA.students.find(s =>
-          (s.nickname||'').toLowerCase() === name.toLowerCase() ||
-          (s.full_name||'').toLowerCase() === name.toLowerCase()
-        );
-        const isNewStudent = !existingStudent;
-        const studentId    = existingStudent?.student_id || 'S' + String(DATA.students.length + 1 + i).padStart(3,'0');
+        // Use resolved ID (existing) or generate new one
+        const studentId    = resolvedId || 'S' + String(DATA.students.length + 1 + i).padStart(3,'0');
+        const isNewStudent = isNew;
 
         const enrollResult = await webAppWrite('addEnrollment', {
           student: {
@@ -7014,18 +7306,52 @@ async function submitEnrollment() {
 
     } else {
       // ── SINGLE STUDENT ───────────────────────────────────
-      const studentName = document.getElementById('enroll-student').value.trim();
-      const feePerHr    = parseFloat(document.getElementById('enroll-fee').value) || 0;
-      const fullName    = document.getElementById('enroll-fullname')?.value.trim() || '';
-      const phone       = document.getElementById('enroll-phone')?.value.trim()    || '';
-      const notes       = document.getElementById('enroll-notes')?.value.trim()    || '';
+      let studentName, studentId, isNewStudent, fullName, phone, notes, lifecycleStatus;
 
-      const existingStudent = DATA.students.find(s =>
-        (s.nickname||'').toLowerCase() === studentName.toLowerCase() ||
-        (s.full_name||'').toLowerCase() === studentName.toLowerCase()
-      );
-      const isNewStudent = !existingStudent;
-      const studentId    = existingStudent?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
+      if (enrollType === 'returning') {
+        // Identity fully resolved — use locked values
+        if (!_resolvedStudentId || !_resolvedStudentName) {
+          alert(lang==='th' ? 'กรุณาเลือกนักเรียน' : 'Please select a student');
+          resetSaveBtn(); isSaving = false; return;
+        }
+        studentId     = _resolvedStudentId;
+        studentName   = _resolvedStudentName;
+        isNewStudent  = false;
+        fullName      = '';
+        phone         = '';
+        notes         = '';
+        lifecycleStatus = courseType; // 'newsubject' or 'renew'
+      } else {
+        // New student
+        studentName  = document.getElementById('enroll-student').value.trim();
+        fullName     = document.getElementById('enroll-fullname')?.value.trim() || '';
+        phone        = document.getElementById('enroll-phone')?.value.trim()    || '';
+        notes        = document.getElementById('enroll-notes')?.value.trim()    || '';
+        const feePerHr = parseFloat(document.getElementById('enroll-fee').value) || 0;
+        if (!studentName) {
+          alert(lang==='th' ? 'กรุณากรอกชื่อนักเรียน' : 'Please enter student name');
+          resetSaveBtn(); isSaving = false; return;
+        }
+        // Hard duplicate check before save
+        const dup = DATA.students.find(s =>
+          (s.nickname||'').toLowerCase() === studentName.toLowerCase()
+        );
+        if (dup) {
+          const proceed = confirm(
+            `⚠️ A student named "${dup.nickname}" already exists (${dup.student_id}).\n\nIf this is the same person, click Cancel and use "Returning student" instead.\n\nClick OK only if this is a DIFFERENT person with the same name.`
+          );
+          if (!proceed) { resetSaveBtn(); isSaving = false; return; }
+        }
+        const existingStudent = DATA.students.find(s =>
+          (s.nickname||'').toLowerCase() === studentName.toLowerCase() ||
+          (s.full_name||'').toLowerCase() === studentName.toLowerCase()
+        );
+        isNewStudent    = !existingStudent;
+        studentId       = existingStudent?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
+        lifecycleStatus = 'new';
+      }
+
+      const feePerHr = parseFloat(document.getElementById('enroll-fee').value) || 0;
 
       setSaveProgress(30, lang==='th'?'กำลังบันทึกนักเรียน...':'Writing student...');
       setSaveProgress(60, lang==='th'?'กำลังสร้างคาบเรียน...':'Creating sessions...');
@@ -7051,7 +7377,7 @@ async function submitEnrollment() {
           invoice_ref:       '',
           payment_date:      '',
           payment_status:    'Pending',
-          enrollment_type:   enrollmentType,
+          enrollment_type:   lifecycleStatus,
           block_number:      calcNextBlock(studentId, subject, tutorId),
           num_students:      1
         },
@@ -7098,6 +7424,7 @@ function saveEnrollDraft() {
       tutor:   document.getElementById('enroll-tutor')?.value   || '',
       comm:    document.getElementById('enroll-jane')?.value    || 'none',
       type:    enrollType || 'new',
+      courseType: courseType || 'newsubject',
     };
     localStorage.setItem('poppadi_enroll_draft', JSON.stringify(draft));
   } catch(_) {}
@@ -7107,7 +7434,6 @@ function restoreEnrollDraft() {
     const raw = localStorage.getItem('poppadi_enroll_draft');
     if (!raw) return;
     const d = JSON.parse(raw);
-    if (d.student) document.getElementById('enroll-student').value = d.student;
     if (d.subject) document.getElementById('enroll-subject').value = d.subject;
     if (d.hours)   document.getElementById('enroll-hours').value   = d.hours;
     if (d.fee)     document.getElementById('enroll-fee').value     = d.fee;
@@ -7115,6 +7441,12 @@ function restoreEnrollDraft() {
     if (d.tutor)   { const s = document.getElementById('enroll-tutor'); if(s) s.value = d.tutor; }
     if (d.comm)    { const s = document.getElementById('enroll-jane');  if(s) s.value = d.comm;  }
     if (d.type)    setEnrollType(d.type);
+    if (d.courseType) setCourseType(d.courseType);
+    // Only restore student name for 'new' mode (returning needs fresh selection)
+    if (d.type === 'new' && d.student) {
+      const el = document.getElementById('enroll-student');
+      if (el) el.value = d.student;
+    }
     if (d.student || d.subject) showToast(lang==='th' ? '📝 โหลดข้อมูลร่างแล้ว' : '📝 Draft restored');
   } catch(_) {}
 }
@@ -7406,7 +7738,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.2';
+  const cacheVersion = '3.3';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -7675,14 +8007,15 @@ function applyTutorScheduleFilter() {
 // ─── STUDENT NICKNAME HELPER ─────────────────────────────────
 // Checks Students sheet first, then Courses sheet as fallback
 function getStudentNickname(studentId, courseId) {
-  const student = DATA.students.find(s => s.student_id === studentId);
-  if (student?.nickname) return student.nickname;
-  if (courseId) {
-    const course = DATA.courses.find(c => c.course_id === courseId);
-    if (course?.student_nickname) return course.student_nickname;
-    if (course?.student_name) return course.student_name;
-  }
-  return studentId || '—';
+  // Always resolve student_id via Courses — authoritative link between session and student.
+  // Session rows may carry a stale student_id if the course was manually corrected.
+  const course     = courseId ? DATA.courses.find(c => c.course_id === courseId) : null;
+  const resolvedId = course?.student_id || studentId;
+  const student    = DATA.students.find(s => s.student_id === resolvedId);
+  if (student?.nickname)        return student.nickname;
+  if (course?.student_nickname) return course.student_nickname;
+  if (course?.student_name)     return course.student_name;
+  return resolvedId || '—';
 }
 
 // ─── MOBILE LANGUAGE TOGGLE ──────────────────────────────────
