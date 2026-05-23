@@ -1312,7 +1312,7 @@
         <div class="form-row three">
           <div class="form-group">
             <label data-en="Total paid hours" data-th="ชั่วโมงที่จ่าย">Total paid hours</label>
-            <input type="number" id="enroll-hours" placeholder="e.g. 20" oninput="saveEnrollDraft()">
+            <input type="number" id="enroll-hours" placeholder="e.g. 20" oninput="saveEnrollDraft();updateHrsCounter()">
           </div>
           <div class="form-group">
             <label data-en="Fee per hour (฿)" data-th="ค่าเรียน/ชม. (฿)">Fee per hour (฿) <span style="font-size:10px;color:var(--text3)" data-en="per student" data-th="ต่อคน">per student</span></label>
@@ -1366,7 +1366,10 @@
 
       <!-- STEP 3: Schedule -->
       <div class="card">
-        <div class="card-title" data-en="Agreed schedule" data-th="ตารางที่ตกลงไว้">Agreed schedule</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="card-title" style="margin:0" data-en="Agreed schedule" data-th="ตารางที่ตกลงไว้">Agreed schedule</div>
+          <div id="enroll-hrs-counter" style="font-size:13px;font-weight:600;color:var(--text3)"></div>
+        </div>
         <div class="table-wrap">
           <table style="table-layout:fixed;width:100%">
             <colgroup>
@@ -6403,7 +6406,7 @@ function makeSchedRowHTML(isFirst) {
 
   const btn = isFirst
     ? `<span></span>`
-    : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button>`;
+    : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove();updateHrsCounter()">${lang==='th'?'ลบ':'Remove'}</button>`;
 
   return `
     <td><input type="date" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box"></td>
@@ -6413,7 +6416,7 @@ function makeSchedRowHTML(isFirst) {
     <td><select class="sched-end" onchange="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--teal);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box;color:var(--teal)">
       ${generateTimeOptions(defaultEnd)}
     </select></td>
-    <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" value="${defaultHrs}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" step="0.5" min="0.5"></td>
+    <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'));updateHrsCounter()" value="${defaultHrs}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif" step="0.5" min="0.5"></td>
     <td>${btn}</td>`;
 }
 
@@ -6497,6 +6500,19 @@ function autoHoursFromTimes(endInput) {
   hrsInput.style.borderColor = 'var(--teal)';
 }
 
+function updateHrsCounter() {
+  const counter = document.getElementById('enroll-hrs-counter');
+  if (!counter) return;
+  const total = parseFloat(document.getElementById('enroll-hours')?.value) || 0;
+  const scheduled = Array.from(document.querySelectorAll('#enroll-schedule-body .sched-hrs'))
+    .reduce((sum, el) => sum + (parseFloat(el.value) || 0), 0);
+  if (!total) { counter.textContent = ''; return; }
+  const over  = scheduled > total;
+  const exact = scheduled === total;
+  counter.textContent = `${scheduled} / ${total} hrs`;
+  counter.style.color = over ? 'var(--red)' : exact ? 'var(--teal)' : 'var(--text3)';
+}
+
 function addScheduleRow() {
   const tbody = document.getElementById('enroll-schedule-body');
   const row = document.createElement('tr');
@@ -6536,12 +6552,14 @@ function addScheduleRow() {
     if (prevEnd   && newEnd)   { newEnd.value = prevEnd; newEnd.style.color = 'var(--teal)'; newEnd.style.borderColor = 'var(--teal)'; }
     if (prevHrs   && newHrs)   newHrs.value   = prevHrs;
   }
+  updateHrsCounter();
 }
 
 function initScheduleBody() {
   const tbody = document.getElementById('enroll-schedule-body');
   if (!tbody) return;
   tbody.innerHTML = `<tr>${makeSchedRowHTML(true)}</tr>`;
+  updateHrsCounter();
 }
 
 // ─── REPEAT SCHEDULE ──────────────────────────────────────
@@ -6665,7 +6683,7 @@ function applyRepeatSchedule() {
     const isFirst = i === 0;
     const btn = isFirst
       ? `<span></span>`
-      : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove()">${lang==='th'?'ลบ':'Remove'}</button>`;
+      : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove();updateHrsCounter()">${lang==='th'?'ลบ':'Remove'}</button>`;
 
     row.innerHTML = `
       <td><input type="date" value="${dateStr}" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box"></td>
@@ -6675,7 +6693,7 @@ function applyRepeatSchedule() {
       <td><select class="sched-end" onchange="autoHoursFromTimes(this)" style="font-size:12px;padding:4px 6px;border:1px solid var(--teal);border-radius:6px;font-family:'DM Sans',sans-serif;width:100%;box-sizing:border-box;color:var(--teal)">
         ${generateTimeOptions(endTime)}
       </select></td>
-      <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'))" value="${hrs}" step="0.5" min="0.5" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif"></td>
+      <td><input type="number" class="sched-hrs" oninput="autoEndTime(this.closest('tr').querySelector('.sched-start'));updateHrsCounter()" value="${hrs}" step="0.5" min="0.5" style="font-size:12px;padding:4px 6px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:'DM Sans',sans-serif"></td>
       <td>${btn}</td>`;
     tbody.appendChild(row);
   }
