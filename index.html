@@ -3181,9 +3181,7 @@ function openEditSession(sessionId, groupSiblings) {
   function formatEndDisplay(endVal) {
     if (!endVal) return '—';
     const [h, m] = endVal.split(':').map(Number);
-    const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    return `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   }
 
   const initialEnd = calcEndTime(s.start_time || '', thisHrs);
@@ -5312,13 +5310,12 @@ function renderFallback() {
 // ─── TIME FORMATTING ──────────────────────────────────────
 function formatTime(t) {
   if (!t) return '—';
-  // Handle HH:MM:SS or HH:MM
+  // Handle HH:MM:SS or HH:MM — display in 24h format
   const parts = t.split(':');
   if (parts.length < 2) return t;
-  let h = parseInt(parts[0]), m = parseInt(parts[1]);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+  const h = String(parseInt(parts[0])).padStart(2,'0');
+  const m = String(parseInt(parts[1])).padStart(2,'0');
+  return `${h}:${m}`;
 }
 
 function formatTimeRange(start, end) {
@@ -6888,19 +6885,16 @@ function generateTimeOptions(selectedVal) {
   for (let h = 6; h <= 23; h++) {
     for (let m of [0, 30]) {
       if (h === 23 && m === 30) {
-        // include 11:30 PM as the last option
-        const val      = `23:30`;
-        const displayH = 11;
-        const label    = `11:30 PM`;
-        const sel      = val === selectedVal ? 'selected' : '';
+        // include 23:30 as the last option
+        const val   = `23:30`;
+        const label = `23:30`;
+        const sel   = val === selectedVal ? 'selected' : '';
         options.push(`<option value="${val}" ${sel}>${label}</option>`);
         break;
       }
-      const val      = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-      const displayH = h > 12 ? h - 12 : h === 12 ? 12 : h;
-      const ampm     = h >= 12 ? 'PM' : 'AM';
-      const label    = `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
-      const sel      = val === selectedVal ? 'selected' : '';
+      const val   = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      const label = val;
+      const sel   = val === selectedVal ? 'selected' : '';
       options.push(`<option value="${val}" ${sel}>${label}</option>`);
     }
   }
