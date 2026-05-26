@@ -2506,7 +2506,8 @@ function renderSchedule() {
       return str;
     }
 
-    // Group sessions that share tutor + date + start_time + subject
+    // Group sessions that share tutor + date + start_time + subject + enrollment type
+    // (private sessions are never merged with group sessions even if times match)
     const groups = [];
     const used = new Set();
     list.forEach(s => {
@@ -2514,12 +2515,14 @@ function renderSchedule() {
       const sDate = normDate(s);
       const sTime = normTime(s.start_time);
       const sSubj = getSubjectForSession(s);
+      const sType = getEnrollType(s);
       const siblings = list.filter(x =>
         !used.has(x.session_id) &&
         x.tutor_id === s.tutor_id &&
         normDate(x) === sDate &&
         normTime(x.start_time) === sTime &&
-        getSubjectForSession(x) === sSubj
+        getSubjectForSession(x) === sSubj &&
+        getEnrollType(x) === sType
       );
       siblings.forEach(x => used.add(x.session_id));
       groups.push(siblings);
@@ -3181,7 +3184,9 @@ function openEditSession(sessionId, groupSiblings) {
   function formatEndDisplay(endVal) {
     if (!endVal) return '—';
     const [h, m] = endVal.split(':').map(Number);
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
   }
 
   const initialEnd = calcEndTime(s.start_time || '', thisHrs);
@@ -5310,12 +5315,13 @@ function renderFallback() {
 // ─── TIME FORMATTING ──────────────────────────────────────
 function formatTime(t) {
   if (!t) return '—';
-  // Handle HH:MM:SS or HH:MM — display in 24h format
+  // Handle HH:MM:SS or HH:MM
   const parts = t.split(':');
   if (parts.length < 2) return t;
-  const h = String(parseInt(parts[0])).padStart(2,'0');
-  const m = String(parseInt(parts[1])).padStart(2,'0');
-  return `${h}:${m}`;
+  let h = parseInt(parts[0]), m = parseInt(parts[1]);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
 }
 
 function formatTimeRange(start, end) {
@@ -5422,19 +5428,22 @@ function getCalSessions() {
   const all = DATA.sessions.filter(s => !tutorFilter || s.tutor_id===tutorFilter);
 
   // Deduplicate group sessions — keep only one representative per group
-  // Group = same tutor + normalised date + normalised start_time + subject
+  // Group = same tutor + normalised date + normalised start_time + subject + enrollment type
+  // Private sessions are never merged with group sessions even if times match
   const seen = new Set();
   return all.filter(s => {
     const sDate = normDate(s);
     const sTime = normTime(s.start_time);
     const subj  = getSubjectForSession(s);
-    const key   = `${s.tutor_id}|${sDate}|${sTime}|${subj}`;
-    // Find all siblings
+    const sType = getEnrollType(s);
+    const key   = `${s.tutor_id}|${sDate}|${sTime}|${subj}|${sType}`;
+    // Find all siblings — must also match enrollment type
     const siblings = all.filter(x =>
       x.tutor_id === s.tutor_id &&
       normDate(x) === sDate &&
       normTime(x.start_time) === sTime &&
-      getSubjectForSession(x) === subj
+      getSubjectForSession(x) === subj &&
+      getEnrollType(x) === sType
     );
     if (siblings.length <= 1) return true; // not a group — always include
     // For groups: only include the first session_id alphabetically (consistent representative)
@@ -5454,6 +5463,15 @@ function normDate(s) {
 function normTime(t) {
   const str = String(t||'').trim();
   return str.length >= 5 ? str.substring(0,5) : str;
+}
+
+// Returns 'group' if the session belongs to a group course, otherwise 'private'
+// Used to prevent private sessions from being merged with group sessions in display
+function getEnrollType(session) {
+  if (!session) return 'private';
+  const course = DATA.courses.find(c => c.course_id === session.course_id);
+  if (!course) return 'private';
+  return (course.lifecycle_status === 'group' || course.enrollment_type === 'group') ? 'group' : 'private';
 }
 
 function getEventColor(session) {
@@ -5631,11 +5649,13 @@ function openCalSessionPopup(sessionId, anchorEl) {
   }
   function normT(t) { const str=String(t||'').trim(); return str.length>=5?str.substring(0,5):str; }
   const sDate = normD(s), sTime = normT(s.start_time);
+  const sType = getEnrollType(s);
   const siblings = DATA.sessions.filter(x =>
     x.tutor_id === s.tutor_id &&
     normD(x) === sDate &&
     normT(x.start_time) === sTime &&
-    getSubjectForSession(x) === subject
+    getSubjectForSession(x) === subject &&
+    getEnrollType(x) === sType
   );
 
   const tutor = getTutor(s.tutor_id);
@@ -5756,7 +5776,7 @@ function renderCalendar() {
         html += `<div style="min-height:52px;padding:2px;border-radius:6px;background:${isToday?'var(--teal-bg)':'transparent'}">
           <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--teal)':'var(--text)'};text-align:center;margin-bottom:2px">${day}</div>
           ${daySessions.slice(0,2).map(s => renderCalEventPill(s, true)).join('')}
-          ${daySessions.length > 2 ? `<div style="font-size:9px;color:var(--text3);text-align:center">+${daySessions.length-2}</div>` : ''}
+          ${daySessions.length > 2 ? `<button onclick="calDate=new Date(${d.getFullYear()},${d.getMonth()},${d.getDate()});localStorage.setItem('poppadi_cal_date',calDate.toISOString());setCalView('day')" style="display:block;width:100%;font-size:9px;color:var(--teal);text-align:center;background:none;border:none;cursor:pointer;padding:2px 0;font-weight:600">+${daySessions.length-2} more ▸</button>` : ''}
         </div>`;
       }
       html += `</div>`;
@@ -6885,16 +6905,19 @@ function generateTimeOptions(selectedVal) {
   for (let h = 6; h <= 23; h++) {
     for (let m of [0, 30]) {
       if (h === 23 && m === 30) {
-        // include 23:30 as the last option
-        const val   = `23:30`;
-        const label = `23:30`;
-        const sel   = val === selectedVal ? 'selected' : '';
+        // include 11:30 PM as the last option
+        const val      = `23:30`;
+        const displayH = 11;
+        const label    = `11:30 PM`;
+        const sel      = val === selectedVal ? 'selected' : '';
         options.push(`<option value="${val}" ${sel}>${label}</option>`);
         break;
       }
-      const val   = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-      const label = val;
-      const sel   = val === selectedVal ? 'selected' : '';
+      const val      = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      const displayH = h > 12 ? h - 12 : h === 12 ? 12 : h;
+      const ampm     = h >= 12 ? 'PM' : 'AM';
+      const label    = `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
+      const sel      = val === selectedVal ? 'selected' : '';
       options.push(`<option value="${val}" ${sel}>${label}</option>`);
     }
   }
