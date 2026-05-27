@@ -2568,6 +2568,7 @@ function renderSchedule() {
               :canMakeup?`<button class="btn btn-sm" onclick="openMakeupFromSchedule('${s.session_id}')">${lang==='th'?'นัดชดเชย':'Schedule makeup'}</button>`:'—'}
             ${s.makeup_ref?`<span class="linked-tag" style="margin-left:4px">↩ ${s.makeup_ref}</span>`:''}
             ${!isLocked && !isPastLocked?`<button onclick="openEditSession('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2);margin-left:4px">✏️</button>`:''}
+            ${s.status==='Scheduled'?`<button onclick="openAdvancedEdit('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--amber,#BA7517);border-radius:6px;background:var(--amber-bg,#FAEEDA);cursor:pointer;color:var(--amber,#BA7517);margin-left:4px">🔐</button>`:''}
           </td>
         </tr>`;
       }
@@ -2616,6 +2617,10 @@ function renderSchedule() {
       // Edit date/time button (updates all in group)
       const editBtn = isLocked ? '' :
         `<button onclick="openEditSessionGroup(${sessionIdsJson})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2)">✏️</button>`;
+      // Advanced Edit — use first session in group as representative
+      const advEditBtn = s.status === 'Scheduled'
+        ? `<button onclick="openAdvancedEdit('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--amber,#BA7517);border-radius:6px;background:var(--amber-bg,#FAEEDA);cursor:pointer;color:var(--amber,#BA7517);margin-left:4px">🔐</button>`
+        : '';
 
       const names = group.map(x => getStudentNickname(x.student_id, x.course_id)).join(', ');
 
@@ -2645,6 +2650,7 @@ function renderSchedule() {
         <td colspan="2">
           ${studentRows}
           ${markAllBtns}
+          ${editBtn || advEditBtn ? `<div style="margin-top:6px;display:flex;gap:4px">${editBtn}${advEditBtn}</div>` : ''}
         </td>
       </tr>`;
     }).join('');
@@ -4215,6 +4221,274 @@ async function saveCourseEdits(courseId) {
   }
 }
 
+// ─── ADVANCED EDIT (extend session + deduct from last) ───
+function openAdvancedEdit(sessionId) {
+  const s = DATA.sessions.find(x => x.session_id === sessionId);
+  if (!s) return;
+
+  // Only allow on Scheduled sessions
+  if (s.status !== 'Scheduled') {
+    alert('⚠️ Advanced Edit is only available for Scheduled sessions.\n\nIf this session is already Completed, mark it back to Scheduled first.');
+    return;
+  }
+
+  // PIN gate
+  const pin = prompt('🔐 Enter PIN to use Advanced Edit:');
+  if (pin !== '2846') {
+    if (pin !== null) alert('❌ Incorrect PIN.');
+    return;
+  }
+
+  // Find all sessions for this course_id, sorted by date then start_time
+  const courseId = s.course_id;
+  const courseSessions = DATA.sessions
+    .filter(x => x.course_id === courseId && x.status !== 'Cancelled')
+    .sort((a, b) => {
+      const da = parseSessionDate(String(a.date || '').trim());
+      const db = parseSessionDate(String(b.date || '').trim());
+      if (!da || !db) return 0;
+      const diff = da - db;
+      if (diff !== 0) return diff;
+      return (a.start_time || '').localeCompare(b.start_time || '');
+    });
+
+  if (courseSessions.length < 2) {
+    alert('⚠️ Cannot use Advanced Edit — this is the only session in this enrollment.\nThere is no last session to deduct from.');
+    return;
+  }
+
+  const lastSession = courseSessions[courseSessions.length - 1];
+
+  // Prevent editing the last session itself
+  if (lastSession.session_id === s.session_id) {
+    alert('⚠️ This is the last session in the enrollment.\n\nAdvanced Edit can only be used on earlier sessions.');
+    return;
+  }
+
+  // Helper: add minutes to HH:MM string
+  function addMins(timeStr, mins) {
+    const [h, m] = timeStr.split(':').map(Number);
+    const total = h * 60 + m + mins;
+    return String(Math.floor(total / 60) % 24).padStart(2,'0') + ':' + String(total % 60).padStart(2,'0');
+  }
+
+  // Helper: subtract minutes from HH:MM string, returns null if result < 0
+  function subMins(timeStr, mins) {
+    const [h, m] = timeStr.split(':').map(Number);
+    const total = h * 60 + m - mins;
+    if (total <= 0) return null;
+    return String(Math.floor(total / 60)).padStart(2,'0') + ':' + String(total % 60).padStart(2,'0');
+  }
+
+  function fmtT(t) {
+    if (!t) return '—';
+    const p = t.split(':');
+    return String(parseInt(p[0])).padStart(2,'0') + ':' + String(parseInt(p[1])).padStart(2,'0');
+  }
+
+  const currentEnd = s.end_time || '';
+  const lastEnd    = lastSession.end_time || '';
+  const lastStart  = lastSession.start_time || '';
+
+  // Calculate last session's current duration in minutes
+  function durationMins(start, end) {
+    if (!start || !end) return 0;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    return (eh * 60 + em) - (sh * 60 + sm);
+  }
+  const lastDurMins = durationMins(lastStart, lastEnd);
+
+  const course = DATA.courses.find(c => c.course_id === courseId);
+  const lastNick = getStudentNickname(lastSession.student_id, lastSession.course_id);
+
+  // Build modal
+  const existing = document.getElementById('adv-edit-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'adv-edit-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  modal.innerHTML = `
+    <div style="background:var(--surface,#fff);border-radius:14px;padding:24px;max-width:360px;width:100%;font-family:'DM Sans',sans-serif;box-shadow:0 12px 40px rgba(0,0,0,0.2)">
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px">🔐 Advanced Edit</div>
+      <div style="font-size:12px;color:var(--text2,#666);margin-bottom:16px">Extend this session · deduct from last session</div>
+
+      <div style="background:var(--surface2,#f5f5f5);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px">
+        <div style="font-weight:600;margin-bottom:4px">This session</div>
+        <div style="color:var(--text2,#666)">${fmtDate(s.date)} · ${fmtT(s.start_time)}–${fmtT(currentEnd)} · ${s.hours}h</div>
+      </div>
+
+      <div style="background:var(--surface2,#f5f5f5);border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:12px">
+        <div style="font-weight:600;margin-bottom:4px">Last session (will be reduced)</div>
+        <div style="color:var(--text2,#666)">${fmtDate(lastSession.date)} · ${fmtT(lastStart)}–${fmtT(lastEnd)} · ${lastSession.hours}h</div>
+      </div>
+
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">Add extra time to this session:</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button id="adv-30" onclick="advEditPreview('${s.session_id}','${lastSession.session_id}',30)"
+          style="flex:1;padding:10px;border:2px solid var(--border-strong,#ccc);border-radius:8px;background:var(--surface,#fff);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">
+          +30 min
+        </button>
+        <button id="adv-60" onclick="advEditPreview('${s.session_id}','${lastSession.session_id}',60)"
+          style="flex:1;padding:10px;border:2px solid var(--border-strong,#ccc);border-radius:8px;background:var(--surface,#fff);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">
+          +1 hr
+        </button>
+      </div>
+
+      <div id="adv-preview" style="display:none;background:var(--amber-bg,#fff8e1);border:1px solid var(--amber,#f59e0b);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px"></div>
+
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('adv-edit-modal').remove()"
+          style="flex:1;padding:10px;border:1px solid var(--border-strong,#ccc);border-radius:8px;background:var(--surface,#fff);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">
+          Cancel
+        </button>
+        <button id="adv-confirm-btn" onclick="advEditConfirm()" disabled
+          style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--teal,#1D9E75);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;opacity:0.4">
+          Confirm
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+
+  // Close on backdrop click
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.remove();
+  });
+}
+
+// Stores pending advanced edit data between preview and confirm
+let _advEditPending = null;
+
+function advEditPreview(sessionId, lastSessionId, extraMins) {
+  const s    = DATA.sessions.find(x => x.session_id === sessionId);
+  const last = DATA.sessions.find(x => x.session_id === lastSessionId);
+  if (!s || !last) return;
+
+  function addMins(timeStr, mins) {
+    const [h, m] = timeStr.split(':').map(Number);
+    const total = h * 60 + m + mins;
+    return String(Math.floor(total / 60) % 24).padStart(2,'0') + ':' + String(total % 60).padStart(2,'0');
+  }
+  function subMinsStr(timeStr, mins) {
+    const [h, m] = timeStr.split(':').map(Number);
+    const total = h * 60 + m - mins;
+    if (total <= 0) return null;
+    return String(Math.floor(total / 60)).padStart(2,'0') + ':' + String(total % 60).padStart(2,'0');
+  }
+  function fmtT(t) {
+    if (!t) return '—';
+    const p = t.split(':');
+    return String(parseInt(p[0])).padStart(2,'0') + ':' + String(parseInt(p[1])).padStart(2,'0');
+  }
+  function durationMins(start, end) {
+    if (!start || !end) return 0;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    return (eh * 60 + em) - (sh * 60 + sm);
+  }
+
+  const lastDurMins = durationMins(last.start_time, last.end_time);
+
+  // Validate last session has enough time
+  if (extraMins >= lastDurMins) {
+    document.getElementById('adv-preview').style.display = 'block';
+    document.getElementById('adv-preview').innerHTML =
+      `⚠️ <strong>Cannot apply.</strong> The last session is only ${lastDurMins} min long — not enough to deduct ${extraMins} min.`;
+    document.getElementById('adv-confirm-btn').disabled = true;
+    document.getElementById('adv-confirm-btn').style.opacity = '0.4';
+    _advEditPending = null;
+    return;
+  }
+
+  const newCurrentEnd = addMins(s.end_time || s.start_time, extraMins);
+  const newLastEnd    = subMinsStr(last.end_time, extraMins);
+  const newCurrentHrs = (durationMins(s.start_time, newCurrentEnd) / 60).toFixed(2).replace(/\.?0+$/, '');
+  const newLastHrs    = (durationMins(last.start_time, newLastEnd) / 60).toFixed(2).replace(/\.?0+$/, '');
+
+  // Highlight selected button
+  ['adv-30','adv-60'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) { btn.style.borderColor = 'var(--border-strong,#ccc)'; btn.style.background = 'var(--surface,#fff)'; }
+  });
+  const selId = extraMins === 30 ? 'adv-30' : 'adv-60';
+  const selBtn = document.getElementById(selId);
+  if (selBtn) { selBtn.style.borderColor = 'var(--teal,#1D9E75)'; selBtn.style.background = 'var(--teal-bg,#E1F5EE)'; }
+
+  // Show preview
+  const preview = document.getElementById('adv-preview');
+  preview.style.display = 'block';
+  preview.innerHTML = `
+    <div style="font-weight:600;margin-bottom:6px">📋 Preview of changes:</div>
+    <div style="margin-bottom:4px">This session: ${fmtT(s.start_time)}–<strong>${fmtT(newCurrentEnd)}</strong> (${newCurrentHrs}h)</div>
+    <div>Last session (${fmtDate(last.date)}): ${fmtT(last.start_time)}–<strong>${fmtT(newLastEnd)}</strong> (${newLastHrs}h)</div>`;
+
+  // Enable confirm
+  document.getElementById('adv-confirm-btn').disabled = false;
+  document.getElementById('adv-confirm-btn').style.opacity = '1';
+
+  _advEditPending = {
+    sessionId,
+    lastSessionId,
+    extraMins,
+    newCurrentEnd,
+    newLastEnd,
+    newCurrentHrs: parseFloat(newCurrentHrs),
+    newLastHrs: parseFloat(newLastHrs),
+    s,
+    last
+  };
+}
+
+async function advEditConfirm() {
+  if (!_advEditPending) return;
+  const { sessionId, lastSessionId, newCurrentEnd, newLastEnd, newCurrentHrs, newLastHrs, s, last } = _advEditPending;
+
+  const confirmBtn = document.getElementById('adv-confirm-btn');
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Saving…'; }
+
+  try {
+    // Write current session with new end_time and hours
+    const r1 = await webAppWrite('updateSessionDateTime', {
+      sessionId,
+      date: s.date,
+      start_time: s.start_time,
+      end_time: newCurrentEnd,
+      userEmail: currentUser?.email
+    });
+    if (!r1?.success) throw new Error(r1?.error || 'Failed to update this session');
+
+    // Write last session with reduced end_time and hours
+    const r2 = await webAppWrite('updateSessionDateTime', {
+      sessionId: lastSessionId,
+      date: last.date,
+      start_time: last.start_time,
+      end_time: newLastEnd,
+      userEmail: currentUser?.email
+    });
+    if (!r2?.success) throw new Error(r2?.error || 'Failed to update last session');
+
+    // Update DATA in memory
+    const sObj = DATA.sessions.find(x => x.session_id === sessionId);
+    if (sObj) { sObj.end_time = newCurrentEnd; sObj.hours = newCurrentHrs; }
+    const lObj = DATA.sessions.find(x => x.session_id === lastSessionId);
+    if (lObj) { lObj.end_time = newLastEnd; lObj.hours = newLastHrs; }
+
+    document.getElementById('adv-edit-modal')?.remove();
+    _advEditPending = null;
+
+    // Refresh current view
+    showPage(currentPage);
+    alert(`✅ Done!\n\nThis session extended to ${newCurrentEnd}.\nLast session reduced to end at ${newLastEnd}.`);
+
+  } catch (err) {
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Confirm'; confirmBtn.style.opacity = '1'; }
+    alert('❌ Error: ' + err.message + '\n\nNo changes were saved. Please try again.');
+  }
+}
+
 // ─── UPDATE SESSION STATUS ───────────────────────────────
 async function updateSessionStatus(sessionId, newStatus, silent) {
   // silent=true: skip modal, just write and update DATA (used by markGroupAll)
@@ -5751,6 +6025,9 @@ function openCalSessionPopup(sessionId, anchorEl) {
   const editBtn = !isLocked
     ? `<button id="cal-edit-time-btn" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">✏️ ${lang==='th'?'แก้เวลา':'Edit time'}</button>`
     : `<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`;
+  const advEditBtnCal = s.status === 'Scheduled'
+    ? `<button onclick="document.getElementById('cal-session-popup')?.remove();openAdvancedEdit('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--amber,#BA7517);border-radius:5px;background:var(--amber-bg,#FAEEDA);color:var(--amber,#BA7517);cursor:pointer;font-family:'DM Sans',sans-serif;margin-left:6px">🔐 Advanced</button>`
+    : '';
 
   const popup = document.createElement('div');
   popup.id = 'cal-session-popup';
@@ -5765,7 +6042,7 @@ function openCalSessionPopup(sessionId, anchorEl) {
     </div>
     <div style="margin-bottom:8px">${studentRows}</div>
     ${markAllBtns}
-    <div style="margin-top:8px">${editBtn}</div>`;
+    <div style="margin-top:8px;display:flex;align-items:center">${editBtn}${advEditBtnCal}</div>`;
 
   document.body.appendChild(popup);
 
