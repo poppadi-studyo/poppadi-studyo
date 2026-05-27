@@ -3663,7 +3663,7 @@ function clearReturningSelection() {
 
 // ─── NEW STUDENT INPUT — duplicate warning ────────────────
 function onNewStudentInput() {
-  const val  = document.getElementById('enroll-student')?.value.trim();
+  const val  = capFirst(document.getElementById('enroll-student')?.value.trim());
   const hint = document.getElementById('student-match-hint');
   if (!val) { if (hint) hint.textContent = ''; return; }
   const existing = DATA.students.find(s =>
@@ -4510,7 +4510,7 @@ function renderPendingPayments() {
   body.innerHTML = pending.map(course => {
     const student = DATA.students.find(s => s.student_id === course.student_id);
     const tutor   = getTutor(course.tutor_id);
-    const name    = student?.nickname || course.student_name || course.student_id;
+    const name    = course.student_nickname || student?.nickname || course.student_name || course.student_id;
     return `<tr style="cursor:pointer" onclick="openPendingDetail('${course.course_id}')">
       <td>${name}</td>
       <td>${course.subject||'—'}</td>
@@ -5513,6 +5513,12 @@ function normDate(s) {
 function normTime(t) {
   const str = String(t||'').trim();
   return str.length >= 5 ? str.substring(0,5) : str;
+}
+
+// Auto-capitalise first letter of student name inputs
+function capFirst(str) {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 // Returns 'group' if the session belongs to a group course, otherwise 'private'
@@ -7282,7 +7288,7 @@ async function submitEnrollment() {
       } else {
         // new
         const input = row.querySelector('.grow-new-input');
-        const name  = input?.value.trim() || '';
+        const name  = capFirst(input?.value.trim() || '');
         if (!name) return; // skip empty rows
         // Duplicate check — warn but don't block (admin may have confirmed)
         const existing = DATA.students.find(s =>
@@ -7310,13 +7316,23 @@ async function submitEnrollment() {
     }
   } else {
     // ── Single student validation ────────────────────────
-    const studentName = document.getElementById('enroll-student').value.trim();
-    const feePerHr    = parseFloat(document.getElementById('enroll-fee').value) || 0;
-    if (!studentName || !subject || !tutorId || !paidHrs || !feePerHr) {
-      alert(lang==='th'
-        ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
-        : 'Please fill in required fields:\n• Student name\n• Subject\n• Total paid hours\n• Fee per hour');
-      return;
+    // For returning students, name is already resolved via _resolvedStudentId — skip name field check
+    const feePerHr = parseFloat(document.getElementById('enroll-fee').value) || 0;
+    if (enrollType !== 'returning') {
+      const studentName = capFirst(document.getElementById('enroll-student').value.trim());
+      if (!studentName || !subject || !tutorId || !paidHrs || !feePerHr) {
+        alert(lang==='th'
+          ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• ชื่อนักเรียน\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
+          : 'Please fill in required fields:\n• Student name\n• Subject\n• Total paid hours\n• Fee per hour');
+        resetSaveBtn(); isSaving = false; return;
+      }
+    } else {
+      if (!subject || !tutorId || !paidHrs || !feePerHr) {
+        alert(lang==='th'
+          ? 'กรุณากรอกข้อมูลที่จำเป็น:\n• วิชา\n• จำนวนชั่วโมง\n• ค่าเรียน/ชม.'
+          : 'Please fill in required fields:\n• Subject\n• Total paid hours\n• Fee per hour');
+        resetSaveBtn(); isSaving = false; return;
+      }
     }
   }
 
@@ -7456,7 +7472,7 @@ async function submitEnrollment() {
         lifecycleStatus = courseType; // 'newsubject' or 'renew'
       } else {
         // New student
-        studentName  = document.getElementById('enroll-student').value.trim();
+        studentName  = capFirst(document.getElementById('enroll-student').value.trim());
         fullName     = document.getElementById('enroll-fullname')?.value.trim() || '';
         phone        = document.getElementById('enroll-phone')?.value.trim()    || '';
         notes        = document.getElementById('enroll-notes')?.value.trim()    || '';
@@ -7470,10 +7486,14 @@ async function submitEnrollment() {
           (s.nickname||'').toLowerCase() === studentName.toLowerCase()
         );
         if (dup) {
-          const proceed = confirm(
-            `⚠️ A student named "${dup.nickname}" already exists (${dup.student_id}).\n\nIf this is the same person, click Cancel and use "Returning student" instead.\n\nClick OK only if this is a DIFFERENT person with the same name.`
+          // Hard block — cannot click through. Must use Returning student or change the name.
+          alert(
+            `⛔ "${dup.nickname}" already exists in the system (${dup.student_id}).\n\n` +
+            `You cannot create a duplicate.\n\n` +
+            `• If this IS ${dup.nickname} → close this alert, switch to "Returning student" tab\n` +
+            `• If this is a DIFFERENT person → close this alert, use a different name`
           );
-          if (!proceed) { resetSaveBtn(); isSaving = false; return; }
+          resetSaveBtn(); isSaving = false; return;
         }
         const existingStudent = DATA.students.find(s =>
           (s.nickname||'').toLowerCase() === studentName.toLowerCase() ||
