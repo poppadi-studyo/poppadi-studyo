@@ -2747,15 +2747,49 @@ function renderMakeupQueue() {
     el.innerHTML = `<div class="empty">${lang==='th'?'ไม่มีคาบที่รอชดเชย':'No pending makeups'}</div>`;
     return;
   }
-  el.innerHTML = pending.map(s => {
+
+  // Group sessions: group-type sessions with same tutor+date+time+subject → one card
+  // Private sessions → always their own card
+  const used = new Set();
+  const groups = [];
+  pending.forEach(s => {
+    if (used.has(s.session_id)) return;
+    const sDate = normDate(s), sTime = normTime(s.start_time);
+    const sSubj = getSubjectForSession(s), sType = getEnrollType(s);
+    let siblings;
+    if (sType === 'group') {
+      siblings = pending.filter(x =>
+        !used.has(x.session_id) &&
+        x.tutor_id === s.tutor_id &&
+        normDate(x) === sDate &&
+        normTime(x.start_time) === sTime &&
+        getSubjectForSession(x) === sSubj &&
+        getEnrollType(x) === 'group'
+      );
+    } else {
+      siblings = [s];
+    }
+    siblings.forEach(x => used.add(x.session_id));
+    groups.push(siblings);
+  });
+
+  el.innerHTML = groups.map(group => {
+    const s = group[0]; // representative session
     const tutor = getTutor(s.tutor_id);
     const color = COLOR_MAP[tutor.color] || '#888';
     const isMiss = s.status === 'Missed';
-    return `<div class="makeup-item" id="mitem-${s.session_id}" onclick="selectMakeup('${s.session_id}')">
+    const isGroup = group.length > 1;
+    const names = isGroup
+      ? group.map(x => DATA.students.find(st=>st.student_id===x.student_id)?.nickname||x.student_id).join(', ')
+      : (DATA.students.find(st=>st.student_id===s.student_id)?.nickname||s.student_id);
+    // Use a composite id for group cards, single id for private
+    const cardId = isGroup ? 'mitem-group-' + group.map(x=>x.session_id).sort().join('_') : 'mitem-' + s.session_id;
+    const clickArg = isGroup ? group.map(x=>x.session_id).join(',') : s.session_id;
+    return `<div class="makeup-item" id="${cardId}" onclick="selectMakeup('${clickArg}')">
       <div class="makeup-top">
         <div>
-          <div class="makeup-name"><span class="dot" style="background:${color}"></span>${DATA.students.find(st=>st.student_id===s.student_id)?.nickname||s.student_id}</div>
-          <div class="makeup-meta">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${fmtDate(s.date)}</div>
+          <div class="makeup-name"><span class="dot" style="background:${color}"></span>${names}${isGroup?` <span style="font-size:10px;opacity:0.6">(group · ${group.length})</span>`:''}</div>
+          <div class="makeup-meta">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${fmtDate(s.date)} · ${formatTimeRange(s.start_time,s.end_time)}</div>
         </div>
         <span class="badge ${isMiss?'badge-miss':'badge-cancel'}">${isMiss?(lang==='th'?'ชดเชย 50%':'50% makeup'):(lang==='th'?'ชดเชยเต็ม':'Full makeup')}</span>
       </div>
@@ -2763,16 +2797,32 @@ function renderMakeupQueue() {
   }).join('');
 }
 
-function selectMakeup(sessionId) {
+// selectedMakeupGroup: array of sessions (1 for private, N for group)
+let selectedMakeupGroup = [];
+
+function selectMakeup(sessionIdOrIds) {
   document.querySelectorAll('.makeup-item').forEach(el => el.classList.remove('selected'));
-  document.getElementById('mitem-'+sessionId)?.classList.add('selected');
-  const s = DATA.sessions.find(x => x.session_id === sessionId);
-  if (!s) return;
-  selectedMakeup = s;
+  // sessionIdOrIds may be a single id or comma-separated ids for a group
+  const ids = sessionIdOrIds.split(',').map(x => x.trim()).filter(Boolean);
+  const sessions = ids.map(id => DATA.sessions.find(x => x.session_id === id)).filter(Boolean);
+  if (!sessions.length) return;
+
+  selectedMakeupGroup = sessions;
+  selectedMakeup = sessions[0]; // keep for backward compat (conflict check, etc.)
+
+  // Highlight the card
+  const cardId = ids.length > 1
+    ? 'mitem-group-' + ids.slice().sort().join('_')
+    : 'mitem-' + ids[0];
+  document.getElementById(cardId)?.classList.add('selected');
+
+  const s = sessions[0];
   const tutor   = getTutor(s.tutor_id);
-  const student = DATA.students.find(st => st.student_id === s.student_id);
-  const name    = student?.nickname || s.student_id;
   const hrs     = Number(s.hours || 1);
+  const isGroup = sessions.length > 1;
+  const names   = isGroup
+    ? sessions.map(x => DATA.students.find(st=>st.student_id===x.student_id)?.nickname||x.student_id).join(', ')
+    : (DATA.students.find(st=>st.student_id===s.student_id)?.nickname||s.student_id);
 
   document.getElementById('makeup-placeholder').style.display = 'none';
   document.getElementById('makeup-done').style.display = 'none';
@@ -2784,7 +2834,6 @@ function selectMakeup(sessionId) {
 
   // Auto-set start time from original session
   if (s.start_time) {
-    // Normalise to HH:MM for matching select options
     const normStart = s.start_time.length === 5 ? s.start_time : s.start_time.substring(0,5);
     Array.from(startSel.options).forEach(opt => {
       if (opt.value === normStart || opt.value === s.start_time) opt.selected = true;
@@ -2804,7 +2853,7 @@ function selectMakeup(sessionId) {
   }
 
   document.getElementById('makeup-selected-info').innerHTML = `
-    <div style="font-weight:500">${name}</div>
+    <div style="font-weight:500">${names}${isGroup?` <span style="font-size:11px;color:var(--text3)">(group · ${sessions.length} students)</span>`:''}</div>
     <div style="font-size:12px;color:var(--text2);margin-top:2px">${tutor.name||s.tutor_id} · ${getSubjectForSession(s)} · ${fmtDate(s.date)}</div>
     <div style="font-size:12px;color:var(--text2);margin-top:2px">${lang==='th'?'เวลาเดิม:':'Original time:'} ${formatTimeRange(s.start_time, s.end_time)} · ${hrs} ${lang==='th'?'ชม.':'hrs'}</div>
     <div style="margin-top:6px"><span class="badge ${s.status==='Missed'?'badge-miss':'badge-cancel'}">${s.status==='Missed'?(lang==='th'?'ขาดเรียน — ชดเชย 50%':'Missed — 50% makeup'):(lang==='th'?'ยกเลิก — ชดเชยเต็ม':'Cancelled — full makeup')}</span></div>
@@ -2838,6 +2887,7 @@ function openMakeupFromSchedule(sessionId) {
 
 function clearMakeup() {
   selectedMakeup = null;
+  selectedMakeupGroup = [];
   document.querySelectorAll('.makeup-item').forEach(el => el.classList.remove('selected'));
   document.getElementById('makeup-placeholder').style.display = 'block';
   document.getElementById('makeup-fields').style.display = 'none';
@@ -2908,40 +2958,44 @@ async function confirmMakeup() {
   setTimeout(() => { const b = document.getElementById('makeup-progress-bar'); if(b) b.style.width='80%'; }, 50);
 
   const inner = document.getElementById('makeup-save-inner');
-  const snap = selectedMakeup;
+  const snapGroup = selectedMakeupGroup.length ? selectedMakeupGroup : [selectedMakeup];
+  const snap = snapGroup[0];
+  const notes = document.getElementById('makeup-notes').value;
 
   try {
-    await webAppWrite('scheduleMakeup', {
-      originalSessionId: snap.session_id,
-      newDate: d, startTime: s, endTime: e,
-      notes: document.getElementById('makeup-notes').value
-    });
-
-    // Update local DATA in memory with a proper stub makeup session
-    // so makeupExists Set correctly excludes this from the queue on renderAll()
-    const orig = DATA.sessions.find(x => x.session_id === snap.session_id);
-    const stubId = 'MAKEUP_' + snap.session_id + '_stub';
-    if (orig) orig.status = 'Cancelled';
-    // Add stub makeup session — makeupExists checks for sessions where makeup_ref === snap.session_id
-    if (!DATA.sessions.find(x => x.makeup_ref === snap.session_id)) {
-      DATA.sessions.push({
-        session_id:   stubId,
-        course_id:    snap.course_id,
-        student_id:   snap.student_id,
-        tutor_id:     snap.tutor_id,
-        date:         d,
-        start_time:   s,
-        end_time:     e,
-        hours:        snap.hours,
-        status:       'Scheduled',
-        makeup_ref:   snap.session_id,
-        total_revenue: '0', tutor_pay: '0', commission_amt: '0', school_remainder: '0'
+    // Save each session in the group individually (one sheet row per student)
+    for (const sess of snapGroup) {
+      await webAppWrite('scheduleMakeup', {
+        originalSessionId: sess.session_id,
+        newDate: d, startTime: s, endTime: e,
+        notes: notes
       });
+      // Update local DATA stub so it's removed from queue immediately
+      if (!DATA.sessions.find(x => x.makeup_ref === sess.session_id)) {
+        DATA.sessions.push({
+          session_id:    'MAKEUP_' + sess.session_id + '_stub',
+          course_id:     sess.course_id,
+          student_id:    sess.student_id,
+          tutor_id:      sess.tutor_id,
+          date:          d,
+          start_time:    s,
+          end_time:      e,
+          hours:         sess.hours,
+          status:        'Scheduled',
+          makeup_ref:    sess.session_id,
+          total_revenue: '0', tutor_pay: '0', commission_amt: '0', school_remainder: '0'
+        });
+      }
     }
-    // Remove from queue DOM immediately — don't wait for OK click
-    const queueItem = document.getElementById('mitem-' + snap.session_id);
-    if (queueItem) queueItem.remove();
-    // If queue is now empty, show the empty state
+
+    // Remove card(s) from queue DOM immediately
+    const isGroup = snapGroup.length > 1;
+    if (isGroup) {
+      const cardId = 'mitem-group-' + snapGroup.map(x=>x.session_id).sort().join('_');
+      document.getElementById(cardId)?.remove();
+    } else {
+      document.getElementById('mitem-' + snap.session_id)?.remove();
+    }
     const queueEl = document.getElementById('makeup-queue');
     if (queueEl && queueEl.querySelectorAll('.makeup-item').length === 0) {
       queueEl.innerHTML = `<div class="empty">${lang==='th'?'ไม่มีคาบที่รอชดเชย':'No pending makeups'}</div>`;
@@ -2950,15 +3004,14 @@ async function confirmMakeup() {
     const bar = document.getElementById('makeup-progress-bar');
     if (bar) bar.style.width = '100%';
 
-    const student = DATA.students.find(st => st.student_id === snap.student_id);
-    const name = student?.nickname || snap.student_id;
+    const names = snapGroup.map(x => DATA.students.find(st=>st.student_id===x.student_id)?.nickname||x.student_id).join(', ');
 
     setTimeout(() => {
       if (inner) inner.innerHTML = `
         <div style="font-size:36px;margin-bottom:12px">✅</div>
         <div style="font-size:16px;font-weight:600;margin-bottom:6px">${lang==='th'?'นัดชดเชยแล้ว!':'Makeup scheduled!'}</div>
-        <div style="font-size:13px;color:var(--text3);margin-bottom:4px">${name} → ${fmtDate(d)} ${formatTime(s)}${e?'–'+formatTime(e):''}</div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:20px">${lang==='th'?'เชื่อมโยงกับ':'Linked to'} ${fmtDate(snap.date)}</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:4px">${names} → ${fmtDate(d)} ${formatTime(s)}${e?'–'+formatTime(e):''}</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:20px">${lang==='th'?'เชื่อมโยงกับ':'Linked to'} ${fmtDate(snap.date)}${snapGroup.length>1?' ('+snapGroup.length+' sessions saved)':''}</div>
         <button onclick="document.getElementById('makeup-save-modal')?.remove();isMakeupSaving=false;renderAll();"
           style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">OK</button>`;
     }, 400);
@@ -3184,9 +3237,7 @@ function openEditSession(sessionId, groupSiblings) {
   function formatEndDisplay(endVal) {
     if (!endVal) return '—';
     const [h, m] = endVal.split(':').map(Number);
-    const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    return `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   }
 
   const initialEnd = calcEndTime(s.start_time || '', thisHrs);
@@ -5315,13 +5366,12 @@ function renderFallback() {
 // ─── TIME FORMATTING ──────────────────────────────────────
 function formatTime(t) {
   if (!t) return '—';
-  // Handle HH:MM:SS or HH:MM
+  // Handle HH:MM:SS or HH:MM — display in 24h format
   const parts = t.split(':');
   if (parts.length < 2) return t;
-  let h = parseInt(parts[0]), m = parseInt(parts[1]);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+  const h = String(parseInt(parts[0])).padStart(2,'0');
+  const m = String(parseInt(parts[1])).padStart(2,'0');
+  return `${h}:${m}`;
 }
 
 function formatTimeRange(start, end) {
@@ -6905,19 +6955,14 @@ function generateTimeOptions(selectedVal) {
   for (let h = 6; h <= 23; h++) {
     for (let m of [0, 30]) {
       if (h === 23 && m === 30) {
-        // include 11:30 PM as the last option
-        const val      = `23:30`;
-        const displayH = 11;
-        const label    = `11:30 PM`;
-        const sel      = val === selectedVal ? 'selected' : '';
-        options.push(`<option value="${val}" ${sel}>${label}</option>`);
+        const val = `23:30`;
+        const sel = val === selectedVal ? 'selected' : '';
+        options.push(`<option value="${val}" ${sel}>23:30</option>`);
         break;
       }
-      const val      = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-      const displayH = h > 12 ? h - 12 : h === 12 ? 12 : h;
-      const ampm     = h >= 12 ? 'PM' : 'AM';
-      const label    = `${displayH}:${String(m).padStart(2,'0')} ${ampm}`;
-      const sel      = val === selectedVal ? 'selected' : '';
+      const val   = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      const label = val;
+      const sel   = val === selectedVal ? 'selected' : '';
       options.push(`<option value="${val}" ${sel}>${label}</option>`);
     }
   }
