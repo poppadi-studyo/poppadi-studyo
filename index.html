@@ -4456,6 +4456,7 @@ async function advEditConfirm() {
       date: s.date,
       start_time: s.start_time,
       end_time: newCurrentEnd,
+      hours: newCurrentHrs,
       userEmail: currentUser?.email
     });
     if (!r1?.success) throw new Error(r1?.error || 'Failed to update this session');
@@ -4466,6 +4467,7 @@ async function advEditConfirm() {
       date: last.date,
       start_time: last.start_time,
       end_time: newLastEnd,
+      hours: newLastHrs,
       userEmail: currentUser?.email
     });
     if (!r2?.success) throw new Error(r2?.error || 'Failed to update last session');
