@@ -5827,7 +5827,7 @@ function renderCalendar() {
       for (let i = 0; i < firstDay; i++) html += `<div></div>`;
       for (let day = 1; day <= daysInMonth; day++) {
         const d = new Date(y, m, day);
-        const daySessions = sessions.filter(s => isSameDay(parseSessionDate(s.date)||new Date(0), d));
+        const daySessions = sessions.filter(s => isSameDay(parseSessionDate(s.date)||new Date(0), d)).sort((a,b) => (a.start_time||'').localeCompare(b.start_time||''));
         const isToday = isSameDay(d, today);
         html += `<div style="min-height:52px;padding:2px;border-radius:6px;background:${isToday?'var(--teal-bg)':'transparent'}">
           <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--teal)':'var(--text)'};text-align:center;margin-bottom:2px">${day}</div>
