@@ -6519,10 +6519,10 @@ function showMonthlySummary() {
           ['Tutor payouts','ค่าสอนรวม', totalTutorPay, '#333'],
           ['Commission','คอมมิชชั่นรวม', totalCommission, '#333'],
           ['Fixed expenses','ค่าใช้จ่ายคงที่', totalExpenses, '#E24B4A'],
-          ['School remainder','คงเหลือโรงเรียน', schoolRemainder, '#333'],
+          ['School remainder','คงเหลือโรงเรียน', schoolRemainder, schoolRemainder >= 0 ? '#333' : '#E24B4A'],
           ["AJ. Pop 20% share","ส่วนแบ่ง 20%", profitShare, '#378ADD'],
           ['Total WHT 3%','ภาษีหัก ณ ที่จ่าย 3%', totalWHT, '#E24B4A'],
-          ['Net to school','รายได้สุทธิ', netSchool, '#1D9E75'],
+          ['Net to school','รายได้สุทธิ', netSchool, netSchool >= 0 ? '#1D9E75' : '#E24B4A'],
           ['Sessions taught','คาบที่สอน', monthSessions.length, '#333'],
         ].map(([en,th,val,color])=>`
           <div style="background:#f7f6f3;border-radius:10px;padding:12px 14px">
@@ -6678,10 +6678,10 @@ function downloadMonthlySummaryPDF() {
     <div class="metric"><label>Tutor Payouts</label><strong>฿${fmt(totalTutorPay)}</strong></div>
     <div class="metric"><label>Commission</label><strong>฿${fmt(totalCommission)}</strong></div>
     <div class="metric"><label>Fixed Expenses</label><strong class="red">฿${fmt(totalExpenses)}</strong></div>
-    <div class="metric"><label>School Remainder</label><strong>฿${fmt(schoolRemainder)}</strong></div>
+    <div class="metric"><label>School Remainder</label><strong class="${schoolRemainder >= 0 ? '' : 'red'}">฿${fmt(schoolRemainder)}</strong></div>
     <div class="metric"><label>AJ. Pop 20% Share</label><strong style="color:#378ADD">฿${fmt(profitShare)}</strong></div>
     <div class="metric"><label>Total WHT 3%</label><strong class="red">฿${fmt(totalWHT)}</strong></div>
-    <div class="metric"><label>Net to School</label><strong class="green">฿${fmt(netSchool)}</strong></div>
+    <div class="metric"><label>Net to School</label><strong class="${netSchool >= 0 ? 'green' : 'red'}">฿${fmt(netSchool)}</strong></div>
     <div class="metric"><label>Sessions Taught</label><strong>${monthSessions.length}</strong></div>
   </div>
 
