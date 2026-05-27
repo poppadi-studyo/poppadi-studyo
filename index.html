@@ -4480,7 +4480,7 @@ async function advEditConfirm() {
     _advEditPending = null;
 
     // Refresh current view
-    showPage(currentPage);
+    showPage(localStorage.getItem('poppadi_page') || 'schedule');
     alert(`✅ Done!\n\nThis session extended to ${newCurrentEnd}.\nLast session reduced to end at ${newLastEnd}.`);
 
   } catch (err) {
