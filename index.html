@@ -2544,9 +2544,7 @@ function renderSchedule() {
         const isPastLocked = isLocked && !isCompleted;
         const canMakeup = s.status === 'Cancelled' || s.status === 'Missed';
 
-        const statusDropdown = isLocked
-          ? `${statusBadge(s.status)}${isPastLocked?`<span style="font-size:10px;color:var(--text3);margin-left:4px">🔒</span>`:''}`
-          : `<select onchange="updateSessionStatus('${s.session_id}', this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
+        const statusDropdown = `<select onchange="updateSessionStatus('${s.session_id}', this.value, false, true)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
               <option value="Scheduled"  ${s.status==='Scheduled' ?'selected':''}>${lang==='th'?'กำหนดการ':'Scheduled'}</option>
               <option value="Completed"  ${s.status==='Completed' ?'selected':''}>${lang==='th'?'สอนแล้ว':'Completed'}</option>
               <option value="Missed"     ${s.status==='Missed'    ?'selected':''}>${lang==='th'?'ขาดเรียน':'Missed'}</option>
@@ -2563,11 +2561,9 @@ function renderSchedule() {
           ${showRevenue ? `<td>฿${fmt(s.total_revenue)}</td>` : ''}
           <td>${statusDropdown}</td>
           <td>
-            ${isCompleted?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'ล็อคแล้ว':'Locked'}</span>`
-              :isPastLocked?`<span style="font-size:11px;color:var(--text3)">🔒 ${lang==='th'?'เดือนที่ผ่านมา':'Past month'}</span>`
-              :canMakeup?`<button class="btn btn-sm" onclick="openMakeupFromSchedule('${s.session_id}')">${lang==='th'?'นัดชดเชย':'Schedule makeup'}</button>`:'—'}
+            ${canMakeup?`<button class="btn btn-sm" onclick="openMakeupFromSchedule('${s.session_id}')">${lang==='th'?'นัดชดเชย':'Schedule makeup'}</button>`:'—'}
             ${s.makeup_ref?`<span class="linked-tag" style="margin-left:4px">↩ ${s.makeup_ref}</span>`:''}
-            ${!isLocked && !isPastLocked?`<button onclick="openEditSession('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2);margin-left:4px">✏️</button>`:''}
+            <button onclick="openEditSession('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2);margin-left:4px">✏️</button>
             ${s.status==='Scheduled'?`<button onclick="openAdvancedEdit('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--amber,#BA7517);border-radius:6px;background:var(--amber-bg,#FAEEDA);cursor:pointer;color:var(--amber,#BA7517);margin-left:4px">🔐</button>`:''}
           </td>
         </tr>`;
@@ -2585,9 +2581,7 @@ function renderSchedule() {
         const isPastLock = isLocked && !isComp;
         const canMakeup = x.status === 'Cancelled' || x.status === 'Missed';
 
-        const dropdown = isLocked
-          ? `${statusBadge(x.status)}${isPastLock?`<span style="font-size:10px;color:var(--text3);margin-left:4px">🔒</span>`:''}`
-          : `<select onchange="updateSessionStatus('${x.session_id}', this.value)" style="font-size:12px;padding:3px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
+        const dropdown = `<select onchange="updateSessionStatus('${x.session_id}', this.value, false, true)" style="font-size:12px;padding:3px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;cursor:pointer">
               <option value="Scheduled"  ${x.status==='Scheduled' ?'selected':''}>${lang==='th'?'กำหนดการ':'Scheduled'}</option>
               <option value="Completed"  ${x.status==='Completed' ?'selected':''}>${lang==='th'?'สอนแล้ว':'Completed'}</option>
               <option value="Missed"     ${x.status==='Missed'    ?'selected':''}>${lang==='th'?'ขาดเรียน':'Missed'}</option>
@@ -2601,22 +2595,21 @@ function renderSchedule() {
         </div>`;
       }).join('');
 
-      // Mark all buttons (only if not locked)
-      const markAllBtns = isLocked ? '' : `
+      // Mark all buttons — always visible
+      const markAllBtns = `
         <div style="display:flex;gap:6px;margin-top:6px">
-          <button data-sids='${sessionIdsJson}' data-status='Completed' onclick="markGroupAll(JSON.parse(this.dataset.sids),this.dataset.status)"
+          <button data-sids='${sessionIdsJson}' data-status='Completed' onclick="markGroupAll(JSON.parse(this.dataset.sids),this.dataset.status,true)"
             style="font-size:11px;padding:3px 10px;border:1px solid var(--teal);border-radius:5px;background:var(--teal-bg);color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif">
             ✓ ${lang==='th'?'สอนครบทุกคน':'Mark all Completed'}
           </button>
-          <button data-sids='${sessionIdsJson}' data-status='Cancelled' onclick="markGroupAll(JSON.parse(this.dataset.sids),this.dataset.status)"
+          <button data-sids='${sessionIdsJson}' data-status='Cancelled' onclick="markGroupAll(JSON.parse(this.dataset.sids),this.dataset.status,true)"
             style="font-size:11px;padding:3px 10px;border:1px solid var(--border-strong);border-radius:5px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif">
             ✕ ${lang==='th'?'ยกเลิกทุกคน':'Mark all Cancelled'}
           </button>
         </div>`;
 
-      // Edit date/time button (updates all in group)
-      const editBtn = isLocked ? '' :
-        `<button onclick="openEditSessionGroup(${sessionIdsJson})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2)">✏️</button>`;
+      // Edit date/time button — always visible
+      const editBtn = `<button onclick="openEditSessionGroup(${sessionIdsJson})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2)">✏️</button>`;
       // Advanced Edit — find first Scheduled session in group as representative
       const advEditRepresentative = group.find(x => x.status === 'Scheduled') || null;
       const advEditBtn = advEditRepresentative
@@ -3179,7 +3172,7 @@ function renderTutorDetail() {
 
 // ─── EDIT SESSION DATE/TIME ───────────────────────────────
 // ─── GROUP SESSION HELPERS ────────────────────────────────
-async function markGroupAll(sessionIds, newStatus) {
+async function markGroupAll(sessionIds, newStatus, forceOverride) {
   if (!sessionIds.length) return;
   const label = newStatus === 'Completed'
     ? (lang==='th' ? 'สอนครบทุกคน' : 'All Completed')
@@ -3204,7 +3197,7 @@ async function markGroupAll(sessionIds, newStatus) {
 
   try {
     for (let i = 0; i < sessionIds.length; i++) {
-      await updateSessionStatus(sessionIds[i], newStatus, true);
+      await updateSessionStatus(sessionIds[i], newStatus, true, forceOverride);
       const pct = Math.round(((i+1)/sessionIds.length)*80)+20;
       const bar = document.getElementById('group-status-bar');
       const msg = document.getElementById('group-status-msg');
@@ -3247,10 +3240,7 @@ function openEditSessionGroup(sessionIds) {
 function openEditSession(sessionId, groupSiblings) {
   const s = DATA.sessions.find(x => x.session_id === sessionId);
   if (!s) return;
-  if (isMonthLocked(s.date)) {
-    alert(lang==='th' ? '🔒 เดือนนี้ล็อคแล้ว ไม่สามารถแก้ไขได้' : '🔒 This month is locked — cannot edit');
-    return;
-  }
+  // Month lock does not block list-view edits — override is always passed
 
   const course   = DATA.courses.find(c => c.course_id === s.course_id);
   const paidHrs  = Number(course?.total_paid_hrs || 0);
@@ -4522,13 +4512,14 @@ async function advEditConfirm() {
 }
 
 // ─── UPDATE SESSION STATUS ───────────────────────────────
-async function updateSessionStatus(sessionId, newStatus, silent) {
+async function updateSessionStatus(sessionId, newStatus, silent, forceOverride) {
   // silent=true: skip modal, just write and update DATA (used by markGroupAll)
+  // forceOverride=true: bypass month lock (admin list view always passes this)
   if (silent) {
     try {
       await webAppWrite('updateSessionStatus', {
         sessionId, newStatus, userEmail: currentUser?.email,
-        ...(sessionUnlocked ? { override: true } : {})
+        ...((sessionUnlocked || forceOverride) ? { override: true } : {})
       });
       const s = DATA.sessions.find(x => x.session_id === sessionId);
       if (s) s.status = newStatus;
@@ -4574,7 +4565,7 @@ async function updateSessionStatus(sessionId, newStatus, silent) {
   try {
     await webAppWrite('updateSessionStatus', {
       sessionId, newStatus, userEmail: currentUser?.email,
-      ...(sessionUnlocked ? { override: true } : {})
+      ...((sessionUnlocked || forceOverride) ? { override: true } : {})
     });
 
     // Update local DATA in memory
