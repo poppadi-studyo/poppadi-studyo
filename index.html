@@ -2608,8 +2608,8 @@ function renderSchedule() {
           </button>
         </div>`;
 
-      // Edit date/time button — always visible
-      const editBtn = `<button onclick="openEditSessionGroup(${sessionIdsJson})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2)">✏️</button>`;
+      // Edit date/time button — always visible (use data-sids to avoid quote-breaking in onclick)
+      const editBtn = `<button data-sids='${sessionIdsJson}' onclick="openEditSessionGroup(JSON.parse(this.dataset.sids))" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2)">✏️</button>`;
       // Advanced Edit — find first Scheduled session in group as representative
       const advEditRepresentative = group.find(x => x.status === 'Scheduled') || null;
       const advEditBtn = advEditRepresentative
