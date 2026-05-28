@@ -5719,19 +5719,10 @@ function setScheduleView(mode) {
   document.getElementById('sched-view-cal').style.color       = mode==='calendar' ? '#fff':'var(--text2)';
   if (mode==='calendar') {
     populateCalTutorFilter();
-    // Sync tutor filter from list → calendar
-    const listTutor = localStorage.getItem('poppadi_sched_tutor') || '';
-    localStorage.setItem('poppadi_cal_tutor', listTutor);
-    const calSel = document.getElementById('cal-filter-tutor');
-    if (calSel) calSel.value = listTutor;
     renderCalendar();
   }
   if (mode==='list') {
-    // Sync tutor filter from calendar → list
-    const calTutor = localStorage.getItem('poppadi_cal_tutor') || '';
-    localStorage.setItem('poppadi_sched_tutor', calTutor);
-    const listSel = document.getElementById('filter-tutor');
-    if (listSel) listSel.value = calTutor;
+    populateSchedTutorFilter();
     renderSchedule();
   }
 }
