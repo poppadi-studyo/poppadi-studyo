@@ -2617,9 +2617,10 @@ function renderSchedule() {
       // Edit date/time button (updates all in group)
       const editBtn = isLocked ? '' :
         `<button onclick="openEditSessionGroup(${sessionIdsJson})" style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);border-radius:6px;background:none;cursor:pointer;color:var(--text2)">✏️</button>`;
-      // Advanced Edit — use first session in group as representative
-      const advEditBtn = s.status === 'Scheduled'
-        ? `<button onclick="openAdvancedEdit('${s.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--amber,#BA7517);border-radius:6px;background:var(--amber-bg,#FAEEDA);cursor:pointer;color:var(--amber,#BA7517);margin-left:4px">🔐</button>`
+      // Advanced Edit — find first Scheduled session in group as representative
+      const advEditRepresentative = group.find(x => x.status === 'Scheduled') || null;
+      const advEditBtn = advEditRepresentative
+        ? `<button onclick="openAdvancedEdit('${advEditRepresentative.session_id}')" style="font-size:11px;padding:3px 8px;border:1px solid var(--amber,#BA7517);border-radius:6px;background:var(--amber-bg,#FAEEDA);cursor:pointer;color:var(--amber,#BA7517);margin-left:4px">🔐</button>`
         : '';
 
       const names = group.map(x => getStudentNickname(x.student_id, x.course_id)).join(', ');
@@ -2689,6 +2690,21 @@ function renderSchedule() {
       ? rows.replace(/<tr data-section="sched-prev">/g, '<tr data-section="sched-prev" style="display:none">')
       : rows;
   }
+  // Future sessions — all months after current month
+  let futureSessions = DATA.sessions.filter(s => {
+    const d = parseSessionDate(String(s.date||'').trim());
+    if (!d || isNaN(d.getTime())) return false;
+    const sYM = d.getFullYear() * 12 + d.getMonth();
+    return sYM > currYM;
+  });
+  if (currentRole === 'tutor' && currentTutorId) {
+    futureSessions = futureSessions.filter(s => s.tutor_id === currentTutorId);
+  } else {
+    if (tutorFilter) futureSessions = futureSessions.filter(s => s.tutor_id === tutorFilter);
+  }
+  if (statusFilter) futureSessions = futureSessions.filter(s => s.status === statusFilter);
+  futureSessions.sort(sortFn);
+
   if (sessions.length) {
     if (pastSessions.length) {
       html += renderSectionHeaderRow(
@@ -2697,6 +2713,20 @@ function renderSchedule() {
       );
     }
     html += buildRows(sessions, pastSessions.length ? 'sched-curr' : null);
+  }
+  if (futureSessions.length) {
+    // Group future sessions by month for label
+    const futureMonths = [...new Set(futureSessions.map(s => {
+      const d = parseSessionDate(String(s.date||'').trim());
+      if (!d) return '';
+      const months = lang==='th'?MONTHS_TH:MONTHS_EN;
+      return months[d.getMonth()] + ' ' + d.getFullYear();
+    }).filter(Boolean))];
+    const futureLabel = futureMonths.length === 1
+      ? `${lang==='th'?'เดือนหน้า':'Upcoming'} — ${futureMonths[0]} (${futureSessions.length})`
+      : `${lang==='th'?'เดือนถัดไป':'Upcoming months'} (${futureSessions.length})`;
+    html += renderSectionHeaderRow(futureLabel, 'sched-future', false, colSpan);
+    html += buildRows(futureSessions, 'sched-future');
   }
   body.innerHTML = html;
 
@@ -7477,6 +7507,19 @@ function applyRepeatSchedule() {
     return;
   }
 
+  // Hours cap — block if total scheduled hours would exceed paid hours
+  const paidHrsCap = parseFloat(document.getElementById('enroll-hours')?.value) || 0;
+  const hrsPerSess = parseFloat(hrs) || 0;
+  const totalScheduledHrs = count * hrsPerSess;
+  if (paidHrsCap > 0 && totalScheduledHrs > paidHrsCap) {
+    const maxSessions = Math.floor(paidHrsCap / hrsPerSess);
+    alert(`⛔ Cannot generate ${count} sessions.\n\n` +
+      `${count} sessions × ${hrsPerSess}h = ${totalScheduledHrs}h total\n` +
+      `But this enrollment is only paid for ${paidHrsCap}h.\n\n` +
+      `Maximum sessions at ${hrsPerSess}h each: ${maxSessions}`);
+    return;
+  }
+
   const tbody = document.getElementById('enroll-schedule-body');
   if (!tbody) return;
 
@@ -7635,6 +7678,16 @@ async function submitEnrollment() {
   if (sessions.length === 0) {
     alert(lang==='th' ? 'กรุณาเพิ่มอย่างน้อย 1 คาบพร้อมวันที่' : 'Please add at least 1 session with a date');
     return;
+  }
+
+  // Hours cap — hard block if total scheduled hours exceed paid hours
+  const totalScheduled = sessions.reduce((sum, s) => sum + (s.hours || 0), 0);
+  if (paidHrs > 0 && Math.round(totalScheduled * 100) > Math.round(paidHrs * 100)) {
+    alert(`⛔ Cannot save enrollment.\n\n` +
+      `Scheduled: ${totalScheduled}h across ${sessions.length} sessions\n` +
+      `Paid for: ${paidHrs}h\n\n` +
+      `Please remove ${totalScheduled - paidHrs}h worth of sessions before saving.`);
+    resetSaveBtn(); isSaving = false; return;
   }
 
   setSaveProgress(10, lang==='th'?'กำลังตรวจสอบ...':'Validating...');
