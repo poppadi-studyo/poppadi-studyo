@@ -910,7 +910,12 @@
       </div>
       <div class="two-col">
         <div>
-          <p style="font-size:12px;color:var(--text3);margin-bottom:12px" data-en="Pending makeup queue" data-th="รอนัดชดเชย">Pending makeup queue</p>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <p style="font-size:12px;color:var(--text3);margin:0" data-en="Pending makeup queue" data-th="รอนัดชดเชย">Pending makeup queue</p>
+            <select id="makeup-filter-tutor" onchange="renderMakeupQueue()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <option value="">All tutors</option>
+            </select>
+          </div>
           <div id="makeup-queue"></div>
         </div>
         <div>
@@ -2430,15 +2435,8 @@ function renderSchedule() {
     unlockBtn.style.borderColor = sessionUnlocked ? 'var(--teal)' : '';
   }
 
-  // Populate tutor filter
+  // Populate tutor filter (done by populateSchedTutorFilter on load)
   const tutorSel = document.getElementById('filter-tutor');
-  if (tutorSel && tutorSel.options.length <= 1) {
-    DATA.tutors.filter(t=>t.active==='TRUE').forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t.tutor_id; opt.textContent = t.name;
-      tutorSel.appendChild(opt);
-    });
-  }
 
   // Current month sessions
   let sessions = filterByMonth([...DATA.sessions], 'date');
@@ -2762,15 +2760,25 @@ function toggleScheduleSection(sectionId) {
 // ─── SCHEDULE (Student detail view) ──────────────────────
 // ─── MAKEUP ───────────────────────────────────────────────
 function renderMakeupQueue() {
+  // Populate tutor filter dropdown
+  const tutorFilterSel = document.getElementById('makeup-filter-tutor');
+  if (tutorFilterSel && tutorFilterSel.options.length <= 1) {
+    DATA.tutors.filter(t=>t.active==='TRUE').forEach(t=>{
+      const o=document.createElement('option');o.value=t.tutor_id;o.textContent=t.name;tutorFilterSel.appendChild(o);
+    });
+  }
+  const tutorFilter = tutorFilterSel?.value || '';
+
   // Sessions that need a makeup = Cancelled or Missed, AND no makeup session exists referencing them yet
   const makeupExists = new Set(
     DATA.sessions
       .filter(s => s.makeup_ref && (s.status === 'Scheduled' || s.status === 'Completed' || s.status === 'Makeup'))
       .map(s => s.makeup_ref)
   );
-  const pending = DATA.sessions.filter(s =>
+  let pending = DATA.sessions.filter(s =>
     (s.status === 'Cancelled' || s.status === 'Missed') && !makeupExists.has(s.session_id)
   );
+  if (tutorFilter) pending = pending.filter(s => s.tutor_id === tutorFilter);
   const el = document.getElementById('makeup-queue');
   if (!pending.length) {
     el.innerHTML = `<div class="empty">${lang==='th'?'ไม่มีคาบที่รอชดเชย':'No pending makeups'}</div>`;
@@ -5737,6 +5745,17 @@ const WEEKDAYS_TH = ['อา','จ','อ','พ','พฤ','ศ','ส'];
 const MONTHS_EN   = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_TH   = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
+function populateSchedTutorFilter() {
+  const sel = document.getElementById('filter-tutor');
+  if (sel && sel.options.length <= 1) {
+    DATA.tutors.filter(t=>t.active==='TRUE').forEach(t=>{
+      const o=document.createElement('option');o.value=t.tutor_id;o.textContent=t.name;sel.appendChild(o);
+    });
+  }
+  const saved = localStorage.getItem('poppadi_sched_tutor');
+  if (saved && sel) sel.value = saved;
+}
+
 function populateCalTutorFilter() {
   const sel = document.getElementById('cal-filter-tutor');
   if (sel && sel.options.length <= 1) {
@@ -8251,7 +8270,9 @@ function onAppReady() {
       openStudentDetail(savedCourse);
     }
 
-    // Restore schedule filters
+    // Restore schedule filters — populate dropdowns first so options exist before setting values
+    populateSchedTutorFilter();
+    populateCalTutorFilter();
     const schedTutor  = localStorage.getItem('poppadi_sched_tutor');
     const schedStatus = localStorage.getItem('poppadi_sched_status');
     if (schedTutor)  { const el = document.getElementById('filter-tutor');  if (el) { el.value = schedTutor;  renderSchedule(); } }
