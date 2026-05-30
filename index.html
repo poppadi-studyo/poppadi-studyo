@@ -5505,11 +5505,13 @@ function renderExpenses() {
     </tr>
   `).join('') + `<tr><td><strong>${lang==='th'?'รวม':'Total'}</strong></td><td><strong>฿${fmt(total)}</strong></td></tr>`;
 
-  const schoolRem = DATA.sessions
-    .filter(s=>s.status==='Completed'||s.status==='Makeup')
-    .reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
-  const gap = total - schoolRem;
-  const ppopShare = Math.max(0, schoolRem - total) * 0.2;
+  const mayCompletedSessions = filterByMonth(DATA.sessions, 'date')
+    .filter(s=>s.status==='Completed'||s.status==='Makeup');
+  const mayExpenses = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth));
+  const schoolRem = mayCompletedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  const totalMayExp = mayExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
+  const gap = totalMayExp - schoolRem;
+  const ppopShare = Math.max(0, schoolRem - totalMayExp) * 0.2;
 
   document.getElementById('expenses-metrics').innerHTML = `
     <div class="metric"><div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่รวม':'Total fixed expenses'}</div><div class="metric-value">฿${fmt(total)}</div></div>
@@ -6450,7 +6452,7 @@ function showMonthlySummary() {
   const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
   const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
-  const totalExpenses   = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
   const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
@@ -6635,7 +6637,7 @@ function downloadMonthlySummaryPDF() {
   const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
   const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
-  const totalExpenses   = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
   const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
@@ -6762,7 +6764,7 @@ function downloadMonthlySummaryExcel() {
   const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
   const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
-  const totalExpenses   = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
   const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
@@ -6876,7 +6878,7 @@ function copyMonthlySummaryTable() {
   const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
   const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
-  const totalExpenses   = DATA.expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+  const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
   const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
