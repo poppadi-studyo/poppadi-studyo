@@ -5842,11 +5842,15 @@ function getEnrollType(session) {
 function getEventColor(session) {
   const tutorFilter = document.getElementById('cal-filter-tutor')?.value || '';
   if (tutorFilter) {
-    // Single tutor view — color by course/paid block
-    const colors = ['#1D9E75','#378ADD','#7F77DD','#D85A30','#D4537E','#BA7517','#888780','#E24B4A','#2196F3','#9C27B0'];
-    const courses = DATA.courses.filter(c=>c.tutor_id===tutorFilter);
-    const idx = courses.findIndex(c=>c.course_id===session.course_id);
-    return colors[Math.max(0,idx) % colors.length];
+    // Single tutor view — color by course so each course/block is visually distinct.
+    // Take the numeric part of the course_id (C056 → 56) and multiply by the golden
+    // angle (137.508°). This spreads consecutive course numbers far apart on the colour
+    // wheel, so C056 and C057 look completely different, and never collides by wraparound
+    // the way the old index % palette did. Stable per course, order-independent.
+    const cid = String(session.course_id || '');
+    const num = parseInt((cid.match(/\d+/) || ['0'])[0], 10);
+    const hue = (num * 137.508) % 360;
+    return `hsl(${hue.toFixed(0)}, 62%, 48%)`;
   } else {
     // All tutors — color by tutor
     const tutor = getTutor(session.tutor_id);
