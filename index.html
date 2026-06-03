@@ -7582,6 +7582,19 @@ function calcNextBlock(studentId, subject, tutorId) {
   return maxBlock + 1;
 }
 
+// Generate the next safe student ID by finding the HIGHEST existing S-number and
+// incrementing — never uses array length (which breaks when IDs have gaps like a
+// missing S025). The `offset` lets a group loop reserve consecutive IDs for multiple
+// new students in one batch before DATA.students has refreshed. The GAS backend is the
+// final authority and will re-validate, but this keeps the frontend payload sane.
+function nextSafeStudentId(offset = 0) {
+  const maxNum = DATA.students.reduce((max, s) => {
+    const m = String(s.student_id || '').match(/^S(\d+)$/);
+    return m ? Math.max(max, parseInt(m[1])) : max;
+  }, 0);
+  return 'S' + String(maxNum + 1 + offset).padStart(3, '0');
+}
+
 async function submitEnrollment() {
   const isGroupMode  = enrollType === 'group';
   const subject      = document.getElementById('enroll-subject').value.trim();
@@ -7710,8 +7723,10 @@ async function submitEnrollment() {
           ? `กำลังบันทึก ${name}... (${i+1}/${numStudents})`
           : `Enrolling ${name}... (${i+1}/${numStudents})`);
 
-        // Use resolved ID (existing) or generate new one
-        const studentId    = resolvedId || 'S' + String(DATA.students.length + 1 + i).padStart(3,'0');
+        // Use resolved ID (existing student) or generate next safe one.
+        // offset = i reserves a distinct ID per new student in this batch (gaps are harmless;
+        // GAS re-validates against the live sheet as the final authority).
+        const studentId    = resolvedId || nextSafeStudentId(i);
         const isNewStudent = isNew;
 
         const enrollResult = await webAppWrite('addEnrollment', {
@@ -7835,7 +7850,7 @@ async function submitEnrollment() {
           (s.full_name||'').toLowerCase() === studentName.toLowerCase()
         );
         isNewStudent    = !existingStudent;
-        studentId       = existingStudent?.student_id || 'S' + String(DATA.students.length + 1).padStart(3,'0');
+        studentId       = existingStudent?.student_id || nextSafeStudentId();
         lifecycleStatus = 'new';
       }
 
