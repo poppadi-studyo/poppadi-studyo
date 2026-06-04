@@ -1585,6 +1585,17 @@ let tutorChart = null;
 let selectedMonth = getCurrentMonthStr(); // currently viewed month
 let CACHE_KEY = 'poppadi_cache';
 
+// ─── ACCOUNTANT SHARE (Steven contributes ฿1,000/mo from Jun 2026) ───
+// Real accountant cost = ฿4,000 (฿3,000 from school + ฿1,000 from AJ. Steven)
+// The ฿1,000 acts as school income AND increases the real fixed-cost target,
+// so AJ. Pop's 20% profit share is unaffected (numerator: +1000, denom: +1000)
+const ACCOUNTANT_SHARE_AMOUNT  = 1000;
+const ACCOUNTANT_SHARE_TUTOR   = 'T002';      // AJ. Steven
+const ACCOUNTANT_SHARE_FROM_MO = '2026-06';   // YYYY-MM, inclusive
+function getAccountantShare(monthStr) {
+  return (monthStr && monthStr >= ACCOUNTANT_SHARE_FROM_MO) ? ACCOUNTANT_SHARE_AMOUNT : 0;
+}
+
 // ─── MONTH HELPERS ────────────────────────────────────────
 function getCurrentMonthStr() {
   const now = new Date();
@@ -1845,8 +1856,12 @@ function renderOverview() {
   );
   const activeSessions     = monthSessions.filter(s => s.status !== 'Cancelled');
   const realizedIncome     = completedSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
-  const schoolRemainder    = completedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
-  const predictedSchoolRem = activeSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  const schoolRemainderRaw = completedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  const predictedSchoolRemRaw = activeSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  // Accountant share: ฿1,000 from Steven flows to school pool from Jun 2026 onward
+  const accountantShare    = getAccountantShare(selectedMonth);
+  const schoolRemainder    = schoolRemainderRaw + accountantShare;
+  const predictedSchoolRem = predictedSchoolRemRaw + accountantShare;
   const totalExpenses      = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0)
                            || DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
 
@@ -1912,6 +1927,7 @@ function renderOverview() {
         ? (lang==='th'?`✅ ครอบคลุมค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)} แล้ว`:`✅ ฿${fmt(totalExpenses)} fixed costs already covered`)
         : (lang==='th'?`จากคาบที่สอนแล้ว — ยังต้องการอีก ฿${fmt(gap)} เพื่อครอบคลุม ฿${fmt(totalExpenses)}`:`From completed sessions — ฿${fmt(gap)} still needed to cover ฿${fmt(totalExpenses)}`)
       }</div>
+      ${accountantShare > 0 ? `<div class="metric-sub" style="margin-top:4px;font-size:11px;color:var(--text3)">${lang==='th'?`รวม ฿${fmt(accountantShare)} ส่วนสมทบค่าบัญชีจาก AJ. Steven`:`Includes ฿${fmt(accountantShare)} accountant-share contribution from AJ. Steven`}</div>` : ''}
     </div>
     <div class="metric">
       <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่ (เป้าหมาย)':'Fixed costs (monthly target)'}</div>
@@ -3161,11 +3177,15 @@ function renderTutorDetail() {
         tC=done.reduce((s,x)=>s+Number(x.commission_amt||0),0),
         tR=done.reduce((s,x)=>s+Number(x.school_remainder||0),0),
         vat=tP*0.03,net=tP-vat;
+  // Accountant share: ฿1,000 deducted from Steven (T002) from Jun 2026 onward
+  const tdAccShare = (tutorId===ACCOUNTANT_SHARE_TUTOR) ? getAccountantShare(selectedMonth) : 0;
+  const netFinal   = net - tdAccShare;
   document.getElementById('tutor-metrics').innerHTML=`
     <div class="metric"><div class="metric-label">${lang==='th'?'ยอดรวม':'Total billed'}</div><div class="metric-value">฿${fmt(tB)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'ค่าสอน':'Tutor pay'}</div><div class="metric-value">฿${fmt(tP)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'ภาษี 3%':'VAT 3%'}</div><div class="metric-value">฿${fmt(vat)}</div></div>
-    <div class="metric"><div class="metric-label">${lang==='th'?'ยอดโอน':'Net transfer'}</div><div class="metric-value" style="color:var(--teal)">฿${fmt(net)}</div></div>
+    ${tdAccShare>0?`<div class="metric"><div class="metric-label">${lang==='th'?'ส่วนสมทบค่าบัญชี':'Accountant share'}</div><div class="metric-value" style="color:var(--red)">−฿${fmt(tdAccShare)}</div></div>`:''}
+    <div class="metric"><div class="metric-label">${lang==='th'?'ยอดโอน':'Net transfer'}</div><div class="metric-value" style="color:${netFinal>=0?'var(--teal)':'var(--red)'}">฿${fmt(netFinal)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'คอมมิชชั่น':'Commission'}</div><div class="metric-value">฿${fmt(tC)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน':'School remainder'}</div><div class="metric-value">฿${fmt(tR)}</div></div>`;
   const all = monthSessions.filter(s=>s.tutor_id===tutorId);
@@ -5508,14 +5528,16 @@ function renderExpenses() {
   const mayCompletedSessions = filterByMonth(DATA.sessions, 'date')
     .filter(s=>s.status==='Completed'||s.status==='Makeup');
   const mayExpenses = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth));
-  const schoolRem = mayCompletedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  const schoolRemRaw = mayCompletedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  const accShare    = getAccountantShare(selectedMonth);
+  const schoolRem   = schoolRemRaw + accShare;   // ฿1,000 contribution from AJ. Steven (Jun 2026+)
   const totalMayExp = mayExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
   const gap = totalMayExp - schoolRem;
   const ppopShare = Math.max(0, schoolRem - totalMayExp) * 0.2;
 
   document.getElementById('expenses-metrics').innerHTML = `
     <div class="metric"><div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่รวม':'Total fixed expenses'}</div><div class="metric-value">฿${fmt(total)}</div></div>
-    <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน (จริง)':'School remainder (realized)'}</div><div class="metric-value">฿${fmt(schoolRem)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน (จริง)':'School remainder (realized)'}</div><div class="metric-value">฿${fmt(schoolRem)}</div>${accShare>0?`<div style="font-size:10px;color:var(--text3);margin-top:3px">+ ฿${fmt(accShare)} ${lang==='th'?'จาก AJ. Steven':'from AJ. Steven'}</div>`:''}</div>
     <div class="metric ${gap>0?'gap-bad':'gap-good'}"><div class="metric-label">${gap>0?(lang==='th'?'ยอดที่ยังขาด':'Gap remaining'):(lang==='th'?'ครอบคลุมแล้ว':'Fully covered')}</div><div class="metric-value">${gap>0?'฿'+fmt(gap):'฿'+fmt(Math.abs(gap))}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'แบ่งกำไร 20% (AJ. Pop)':'20% profit share (AJ. Pop)'}</div><div class="metric-value">฿${fmt(ppopShare)}</div></div>
   `;
@@ -6457,7 +6479,8 @@ function showMonthlySummary() {
   const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
   const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
+  const msAccShare      = getAccountantShare(selectedMonth);
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + msAccShare;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -6484,10 +6507,11 @@ function showMonthlySummary() {
     if (!sessions.length) return null;
     const pay  = sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
     const wht  = pay*0.03;
-    const net  = pay - wht;
+    const accDeduct = (tutor.tutor_id===ACCOUNTANT_SHARE_TUTOR) ? msAccShare : 0;
+    const net  = pay - wht - accDeduct;
     const hrs  = sessions.reduce((s,x)=>s+Number(x.hours||0),0);
     const color= COLOR_MAP[tutor.color]||'#888';
-    return { tutor, pay, wht, net, hrs, color };
+    return { tutor, pay, wht, net, hrs, color, accDeduct };
   }).filter(Boolean);
 
   // ── Commission breakdown ─────────────────────────────────
@@ -6513,13 +6537,13 @@ function showMonthlySummary() {
   }).join('') || `<tr><td colspan="4" style="padding:8px 10px;color:#aaa;text-align:center">No commission this month</td></tr>`;
 
   // ── Tutor rows ───────────────────────────────────────────
-  const tutorRows = tutorBreakdown.map(({tutor,pay,wht,net,hrs,color}) =>
+  const tutorRows = tutorBreakdown.map(({tutor,pay,wht,net,hrs,color,accDeduct}) =>
     `<tr style="border-bottom:1px solid #eee">
-      <td style="padding:8px 10px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:6px"></span>${tutor.name}</td>
+      <td style="padding:8px 10px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:6px"></span>${tutor.name}${accDeduct>0?` <span style="font-size:10px;color:#E24B4A">(−฿${fmt(accDeduct)} acct)</span>`:''}</td>
       <td style="padding:8px 10px;text-align:center">${hrs}</td>
       <td style="padding:8px 10px;text-align:right">฿${fmt(pay)}</td>
       <td style="padding:8px 10px;text-align:right;color:#E24B4A">${'฿'+fmt(wht)}</td>
-      <td style="padding:8px 10px;text-align:right;color:#1D9E75;font-weight:500">฿${fmt(net)}</td>
+      <td style="padding:8px 10px;text-align:right;color:${net>=0?'#1D9E75':'#E24B4A'};font-weight:500">฿${fmt(net)}</td>
     </tr>`
   ).join('');
 
@@ -6556,6 +6580,7 @@ function showMonthlySummary() {
           ['Tutor payouts','ค่าสอนรวม', totalTutorPay, '#333'],
           ['Commission','คอมมิชชั่นรวม', totalCommission, '#333'],
           ['Fixed expenses','ค่าใช้จ่ายคงที่', totalExpenses, '#E24B4A'],
+          ...(msAccShare>0?[['Accountant share (Steven)','สมทบบัญชี (Steven)', msAccShare, '#1D9E75']]:[]),
           ['School remainder','คงเหลือโรงเรียน', schoolRemainder, schoolRemainder >= 0 ? '#333' : '#E24B4A'],
           ["AJ. Pop 20% share","ส่วนแบ่ง 20%", profitShare, '#378ADD'],
           ['Total WHT 3%','ภาษีหัก ณ ที่จ่าย 3%', totalWHT, '#E24B4A'],
@@ -6642,7 +6667,8 @@ function downloadMonthlySummaryPDF() {
   const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
   const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
+  const pdfAccShare     = getAccountantShare(selectedMonth);
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + pdfAccShare;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -6653,11 +6679,12 @@ function downloadMonthlySummaryPDF() {
     const pay = sessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
     const hrs = sessions.reduce((s,x)=>s+Number(x.hours||0),0);
     const wht = pay*0.03;
-    const net = pay - wht;
-    return `<tr><td>${tutor.name}</td><td style="text-align:center">${hrs}</td>
+    const accDeduct = (tutor.tutor_id===ACCOUNTANT_SHARE_TUTOR) ? pdfAccShare : 0;
+    const net = pay - wht - accDeduct;
+    return `<tr><td>${tutor.name}${accDeduct>0?` <span style="font-size:10px;color:#E24B4A">(−฿${fmt(accDeduct)} acct)</span>`:''}</td><td style="text-align:center">${hrs}</td>
       <td style="text-align:right">฿${fmt(pay)}</td>
       <td style="text-align:right;color:#E24B4A">${'฿'+fmt(wht)}</td>
-      <td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(net)}</td></tr>`;
+      <td style="text-align:right;color:${net>=0?'#1D9E75':'#E24B4A'};font-weight:600">฿${fmt(net)}</td></tr>`;
   }).join('');
 
   // Commission breakdown
@@ -6715,6 +6742,7 @@ function downloadMonthlySummaryPDF() {
     <div class="metric"><label>Tutor Payouts</label><strong>฿${fmt(totalTutorPay)}</strong></div>
     <div class="metric"><label>Commission</label><strong>฿${fmt(totalCommission)}</strong></div>
     <div class="metric"><label>Fixed Expenses</label><strong class="red">฿${fmt(totalExpenses)}</strong></div>
+    ${pdfAccShare>0?`<div class="metric"><label>Accountant Share (Steven)</label><strong class="green">฿${fmt(pdfAccShare)}</strong></div>`:''}
     <div class="metric"><label>School Remainder</label><strong class="${schoolRemainder >= 0 ? '' : 'red'}">฿${fmt(schoolRemainder)}</strong></div>
     <div class="metric"><label>AJ. Pop 20% Share</label><strong style="color:#378ADD">฿${fmt(profitShare)}</strong></div>
     <div class="metric"><label>Total WHT 3%</label><strong class="red">฿${fmt(totalWHT)}</strong></div>
@@ -6727,6 +6755,7 @@ function downloadMonthlySummaryPDF() {
     <thead><tr><th>Tutor</th><th style="text-align:center">Hrs</th><th style="text-align:right">Gross Pay</th><th style="text-align:right">WHT 3%</th><th style="text-align:right">Net Transfer</th></tr></thead>
     <tbody>${tutorRows}</tbody>
   </table>
+  ${pdfAccShare>0?`<div style="font-size:10px;color:#888;margin-top:-12px;margin-bottom:12px">Note: AJ. Steven net transfer reflects ฿${fmt(pdfAccShare)} accountant share contribution.</div>`:''}
 
   <h3>Commission Breakdown with WHT 3%</h3>
   <table>
@@ -6769,7 +6798,8 @@ function downloadMonthlySummaryExcel() {
   const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
   const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
+  const csvAccShare     = getAccountantShare(selectedMonth);
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + csvAccShare;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -6822,6 +6852,7 @@ function downloadMonthlySummaryExcel() {
     toCSVRow(['Total Tutor Pay', totalTutorPay]),
     toCSVRow(['Total Commission', totalCommission]),
     toCSVRow(['Fixed Expenses', totalExpenses]),
+    ...(csvAccShare>0?[toCSVRow(['Accountant Share (from AJ. Steven)', csvAccShare])]:[]),
     toCSVRow(['School Remainder', schoolRemainder]),
     toCSVRow(["AJ. Pop 20% Share", profitShare]),
     toCSVRow(['Total WHT 3%', +(totalTutorPay*0.03 + totalCommission*0.03).toFixed(2)]),
@@ -6829,13 +6860,16 @@ function downloadMonthlySummaryExcel() {
     toCSVRow(['Sessions Taught', monthSessions.length]),
     '',
     toCSVRow(['TUTOR PAYOUTS']),
-    toCSVRow(['Tutor','Full Name (EN)','Full Name (TH)','Hours','Gross Pay','WHT 3%','Net Transfer']),
+    toCSVRow(['Tutor','Full Name (EN)','Full Name (TH)','Hours','Gross Pay','WHT 3%','Accountant Share','Net Transfer']),
     ...DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
       const sess = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
       if (!sess.length) return null;
       const pay = sess.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
       const hrs = sess.reduce((s,x)=>s+Number(x.hours||0),0);
-      return toCSVRow([tutor.name, tutor.full_name_en||'', tutor.full_name_th||'', hrs, pay, +(pay*0.03).toFixed(2), +(pay*0.97).toFixed(2)]);
+      const accDeduct = (tutor.tutor_id===ACCOUNTANT_SHARE_TUTOR) ? csvAccShare : 0;
+      const wht = +(pay*0.03).toFixed(2);
+      const net = +(pay - wht - accDeduct).toFixed(2);
+      return toCSVRow([tutor.name, tutor.full_name_en||'', tutor.full_name_th||'', hrs, pay, wht, accDeduct, net]);
     }).filter(Boolean),
     '',
     toCSVRow(['COMMISSION']),
@@ -6883,7 +6917,8 @@ function copyMonthlySummaryTable() {
   const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
   const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission;
+  const txtAccShare     = getAccountantShare(selectedMonth);
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + txtAccShare;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -6898,6 +6933,7 @@ function copyMonthlySummaryTable() {
   lines.push(tab('Total Tutor Pay',  '\u0e3f'+fmt(totalTutorPay)));
   lines.push(tab('Total Commission', '\u0e3f'+fmt(totalCommission)));
   lines.push(tab('Fixed Expenses',   '\u0e3f'+fmt(totalExpenses)));
+  if (txtAccShare>0) lines.push(tab('Accountant Share (from AJ. Steven)', '\u0e3f'+fmt(txtAccShare)));
   lines.push(tab('School Remainder', '\u0e3f'+fmt(schoolRemainder)));
   lines.push(tab("AJ. Pop 20% Share",  '\u0e3f'+fmt(profitShare)));
   lines.push(tab('Total WHT 3%',     '\u0e3f'+fmt(totalTutorPay*0.03 + totalCommission*0.03)));
@@ -6905,14 +6941,17 @@ function copyMonthlySummaryTable() {
   lines.push(tab('Sessions Taught',  String(monthSessions.length)));
   lines.push('');
   lines.push('TUTOR PAYOUTS');
-  lines.push(tab('Tutor','Full Name (EN)','Full Name (TH)','Hours','Gross Pay','WHT 3%','Net Transfer'));
+  lines.push(tab('Tutor','Full Name (EN)','Full Name (TH)','Hours','Gross Pay','WHT 3%','Acct Share','Net Transfer'));
   DATA.tutors.filter(t=>t.active==='TRUE').forEach(function(tutor) {
     var sess = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
     if (!sess.length) return;
     var pay = sess.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
     var hrs = sess.reduce((s,x)=>s+Number(x.hours||0),0);
+    var accDeduct = (tutor.tutor_id===ACCOUNTANT_SHARE_TUTOR) ? txtAccShare : 0;
+    var wht = pay*0.03;
+    var net = pay - wht - accDeduct;
     lines.push(tab(tutor.name, tutor.full_name_en||'—', tutor.full_name_th||'—',
-      String(hrs), '\u0e3f'+fmt(pay), '\u0e3f'+fmt(pay*0.03), '\u0e3f'+fmt(pay*0.97)));
+      String(hrs), '\u0e3f'+fmt(pay), '\u0e3f'+fmt(wht), accDeduct>0?'\u0e3f'+fmt(accDeduct):'—', '\u0e3f'+fmt(net)));
   });
   lines.push('');
   lines.push('COMMISSION');
@@ -8245,7 +8284,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.3';
+  const cacheVersion = '3.4';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
