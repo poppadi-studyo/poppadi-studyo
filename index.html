@@ -709,6 +709,7 @@
       <button class="nav-item active" onclick="showPage('overview', this)">
         <span class="nav-icon">◎</span>
         <span data-en="Overview" data-th="ภาพรวม">Overview</span>
+        <span id="nav-overdue-badge" style="display:none;margin-left:auto;background:#E24B4A;color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center"></span>
       </button>
       <button class="nav-item" onclick="showPage('schedule', this)">
         <span class="nav-icon">◫</span>
@@ -777,6 +778,21 @@
       <div id="overview-loading" class="loading"><div class="spinner"></div> Loading live data from Google Sheets...</div>
       <div id="overview-content" style="display:none">
         <div class="metrics" id="overview-metrics" style="grid-template-columns:1fr 1fr"></div>
+
+        <!-- OVERDUE SCHEDULED SESSIONS — auto-hides when empty -->
+        <div class="card" id="overdue-section" style="display:none;border-left:3px solid var(--amber,#BA7517)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div>
+              <div class="card-title" style="margin:0;color:var(--amber,#BA7517)" data-en="⏰ Needs status update" data-th="⏰ ต้องอัปเดตสถานะ">⏰ Needs status update</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:2px" data-en="Sessions whose start time passed more than 2 hours ago but are still Scheduled" data-th="คาบที่ผ่านเวลามากกว่า 2 ชั่วโมงแล้ว แต่ยังขึ้นว่ากำหนดการ">Sessions whose start time passed more than 2 hours ago but are still Scheduled</div>
+            </div>
+            <select id="overdue-filter-tutor" onchange="renderOverdueSection()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+              <option value="" data-en="All tutors" data-th="ครูทั้งหมด">All tutors</option>
+            </select>
+          </div>
+          <div id="overdue-list"></div>
+        </div>
+
         <div class="two-col">
           <div class="card">
             <div class="card-title" data-en="Fixed cost coverage" data-th="การครอบคลุมค่าใช้จ่าย">Fixed cost coverage</div>
@@ -2031,6 +2047,253 @@ function renderOverview() {
   renderTutorChart(monthSessions);
   renderCommissionCard(monthSessions);
   renderOtherIncomeOverviewCard();
+  renderOverdueSection();
+  renderOverdueBadge();
+}
+
+// ─── OVERDUE SESSIONS VIEW ───────────────────────────────
+// Shows Scheduled sessions whose start time passed >2hrs ago — the chase list
+// before locking the monthly summary. Mirrors the makeup queue grouping logic
+// so a group class shows as one card with one action covering all students.
+
+const OVERDUE_THRESHOLD_HRS = 2;
+
+function getOverdueSessions() {
+  const nowMs = Date.now();
+  const cutoffMs = nowMs - (OVERDUE_THRESHOLD_HRS * 3600 * 1000);
+
+  // Find all Scheduled sessions where date+start_time is older than cutoff
+  const overdue = DATA.sessions.filter(s => {
+    if (s.status !== 'Scheduled') return false;
+    const d = parseSessionDate(s.date);
+    if (!d) return false;
+    // Combine date with start_time (HH:MM)
+    const st = normTime(s.start_time);
+    if (st && /^\d{1,2}:\d{2}$/.test(st)) {
+      const [hh, mm] = st.split(':').map(Number);
+      d.setHours(hh || 0, mm || 0, 0, 0);
+    }
+    return d.getTime() < cutoffMs;
+  });
+
+  // Tutor filter
+  const tutorFilter = (typeof localStorage !== 'undefined' && localStorage.getItem('poppadi_overdue_tutor')) || '';
+  const filtered = tutorFilter
+    ? overdue.filter(s => s.tutor_id === tutorFilter)
+    : overdue;
+
+  // Group: same tutor + normDate + normTime + subject + enrollType
+  const groupMap = new Map();
+  filtered.forEach(s => {
+    const key = [
+      s.tutor_id || '',
+      normDate(s),
+      normTime(s.start_time),
+      getSubjectForSession(s) || '',
+      getEnrollType(s)
+    ].join('|');
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key).push(s);
+  });
+
+  // Convert to array of groups, sort oldest first
+  const groups = Array.from(groupMap.values());
+  groups.sort((a, b) => {
+    const da = parseSessionDate(a[0].date)?.getTime() || 0;
+    const db = parseSessionDate(b[0].date)?.getTime() || 0;
+    return da - db;
+  });
+  return { groups, totalSessions: filtered.length, totalAllTutors: overdue.length };
+}
+
+function renderOverdueBadge() {
+  // Badge always reflects ALL overdue (not filtered) so admins see the true count
+  const { totalAllTutors } = getOverdueSessions();
+  const desktop = document.getElementById('nav-overdue-badge');
+  const mobile  = document.getElementById('mobile-overdue-badge');
+  if (desktop) {
+    if (totalAllTutors > 0) {
+      desktop.textContent = String(totalAllTutors);
+      desktop.style.display = 'inline-block';
+    } else {
+      desktop.style.display = 'none';
+    }
+  }
+  if (mobile) {
+    if (totalAllTutors > 0) {
+      mobile.textContent = String(totalAllTutors);
+      mobile.style.display = 'inline-block';
+    } else {
+      mobile.style.display = 'none';
+    }
+  }
+}
+
+function renderOverdueSection() {
+  const section = document.getElementById('overdue-section');
+  const listEl  = document.getElementById('overdue-list');
+  const filterEl = document.getElementById('overdue-filter-tutor');
+  if (!section || !listEl) return;
+
+  // Populate tutor filter dropdown (only once)
+  if (filterEl && filterEl.options.length <= 1) {
+    DATA.tutors.filter(t => t.active === 'TRUE').forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.tutor_id;
+      opt.textContent = t.name || t.tutor_id;
+      filterEl.appendChild(opt);
+    });
+    // Restore saved selection
+    const saved = localStorage.getItem('poppadi_overdue_tutor') || '';
+    if (saved) filterEl.value = saved;
+    filterEl.addEventListener('change', () => {
+      localStorage.setItem('poppadi_overdue_tutor', filterEl.value);
+    });
+  }
+
+  const { groups, totalAllTutors } = getOverdueSessions();
+
+  // Hide entire section when ZERO overdue across all tutors
+  if (totalAllTutors === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+
+  // If filter applied but no results for that tutor, show a friendly empty message
+  if (groups.length === 0) {
+    listEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">${lang==='th'?'ไม่มีคาบเกินกำหนดสำหรับครูที่เลือก':'No overdue sessions for the selected tutor'}</div>`;
+    return;
+  }
+
+  const nowMs = Date.now();
+
+  listEl.innerHTML = groups.map(group => {
+    const rep = group[0];
+    const tutor = getTutor(rep.tutor_id);
+    const tutorName = tutor.name || rep.tutor_id;
+    const tutorColor = COLOR_MAP[tutor.color] || '#888';
+    const subject = getSubjectForSession(rep) || '—';
+    const dateStr = fmtDate(rep.date);
+    const timeStr = rep.start_time
+      ? formatTime(rep.start_time) + (rep.end_time ? '–' + formatTime(rep.end_time) : '')
+      : '—';
+
+    // Compute "X days overdue" (days since the session start)
+    const d = parseSessionDate(rep.date);
+    if (d) {
+      const st = normTime(rep.start_time);
+      if (st && /^\d{1,2}:\d{2}$/.test(st)) {
+        const [hh, mm] = st.split(':').map(Number);
+        d.setHours(hh || 0, mm || 0, 0, 0);
+      }
+    }
+    const daysOverdue = d ? Math.floor((nowMs - d.getTime()) / (24 * 3600 * 1000)) : 0;
+    const overdueLabel = daysOverdue >= 1
+      ? (lang === 'th' ? `เกินกำหนด ${daysOverdue} วัน` : `${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} overdue`)
+      : (lang === 'th' ? 'เกินกำหนดวันนี้' : 'Overdue today');
+
+    // Student list — single or "Group of N: names"
+    const isGroup = group.length > 1;
+    const studentNames = group.map(s => getStudentNickname(s.student_id, s.course_id)).join(', ');
+    const studentLine = isGroup
+      ? (lang === 'th'
+          ? `กลุ่ม ${group.length} คน: ${studentNames}`
+          : `Group of ${group.length}: ${studentNames}`)
+      : `${studentNames} (${rep.course_id || '—'})`;
+
+    // Build session IDs JSON for the action buttons (using data-sids pattern per spec)
+    const sessionIdsJson = JSON.stringify(group.map(s => s.session_id));
+
+    const completedLabel = isGroup
+      ? (lang === 'th' ? '✓ สอนครบทุกคน' : '✓ All Completed')
+      : (lang === 'th' ? '✓ สอนแล้ว' : '✓ Completed');
+    const cancelledLabel = isGroup
+      ? (lang === 'th' ? '✗ ยกเลิกทุกคน' : '✗ All Cancelled')
+      : (lang === 'th' ? '✗ ยกเลิก' : '✗ Cancelled');
+    const makeupLabel = lang === 'th' ? '📅 นัดชดเชย' : '📅 Set Makeup';
+
+    return `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surface)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${tutorColor};flex-shrink:0"></span>
+          <strong style="font-size:13px">${tutorName}</strong>
+          <span style="color:var(--text3);font-size:12px">·</span>
+          <span style="font-size:12px">${dateStr}</span>
+          <span style="color:var(--text3);font-size:12px">·</span>
+          <span style="font-size:12px">${timeStr}</span>
+          <span style="color:var(--text3);font-size:12px">·</span>
+          <span style="font-size:12px;color:var(--text2)">${subject}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${studentLine}</div>
+        <div style="font-size:11px;color:var(--amber,#BA7517);margin-bottom:10px">⏰ ${overdueLabel}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button data-sids='${sessionIdsJson}' onclick="handleOverdueQuickAction(JSON.parse(this.dataset.sids), 'Completed')"
+            style="padding:6px 12px;border:1px solid var(--teal,#1D9E75);background:var(--teal-bg,#E1F5EE);color:var(--teal,#1D9E75);border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">
+            ${completedLabel}
+          </button>
+          <button data-sids='${sessionIdsJson}' onclick="handleOverdueQuickAction(JSON.parse(this.dataset.sids), 'Cancelled')"
+            style="padding:6px 12px;border:1px solid var(--red,#E24B4A);background:transparent;color:var(--red,#E24B4A);border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">
+            ${cancelledLabel}
+          </button>
+          <button data-sids='${sessionIdsJson}' onclick="openMakeupFromOverdue(JSON.parse(this.dataset.sids))"
+            style="padding:6px 12px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text2);border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">
+            ${makeupLabel}
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function handleOverdueQuickAction(sessionIds, newStatus) {
+  if (!sessionIds || !sessionIds.length) return;
+  if (newStatus === 'Cancelled') {
+    const msg = sessionIds.length > 1
+      ? (lang === 'th' ? `ยืนยันการยกเลิก ${sessionIds.length} คาบ?` : `Cancel ${sessionIds.length} sessions?`)
+      : (lang === 'th' ? 'ยืนยันการยกเลิกคาบนี้?' : 'Cancel this session?');
+    if (!confirm(msg)) return;
+  }
+  // For group: use markGroupAll (existing helper with progress modal)
+  // For single: use updateSessionStatus directly with forceOverride for past-month bypass
+  if (sessionIds.length > 1) {
+    await markGroupAll(sessionIds, newStatus, true);
+  } else {
+    await updateSessionStatus(sessionIds[0], newStatus, false, true);
+  }
+  // Badge/section auto-update via renderAll() inside the action handlers
+}
+
+async function openMakeupFromOverdue(sessionIds) {
+  if (!sessionIds || !sessionIds.length) return;
+  // A Scheduled session isn't eligible for makeup — the existing workflow
+  // expects the original to be Cancelled or Missed. So we mark it Cancelled
+  // first (silently, with override for past months), then navigate to the
+  // makeup page with it pre-selected. From the admin's perspective this is
+  // a one-click "convert to makeup" action.
+  const confirmMsg = sessionIds.length > 1
+    ? (lang === 'th'
+        ? `จะยกเลิก ${sessionIds.length} คาบและไปยังหน้าชดเชยใช่ไหม?`
+        : `Mark ${sessionIds.length} sessions as Cancelled and open makeup scheduling?`)
+    : (lang === 'th'
+        ? 'จะยกเลิกคาบนี้และไปยังหน้าชดเชยใช่ไหม?'
+        : 'Mark this session Cancelled and open makeup scheduling?');
+  if (!confirm(confirmMsg)) return;
+  try {
+    if (sessionIds.length > 1) {
+      // Sequential silent writes — no modal noise
+      for (const id of sessionIds) {
+        await updateSessionStatus(id, 'Cancelled', true, true);
+      }
+    } else {
+      await updateSessionStatus(sessionIds[0], 'Cancelled', true, true);
+    }
+    // Refresh DATA + UI before navigating
+    await loadAllData();
+    showPage('makeup');
+    setTimeout(() => selectMakeup(sessionIds.join(',')), 150);
+  } catch (e) {
+    alert((lang === 'th' ? 'เกิดข้อผิดพลาด: ' : 'Error: ') + e.message);
+  }
 }
 
 function updateScenario(schoolPerHr, shortfall) {
@@ -8314,7 +8577,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.5';
+  const cacheVersion = '3.6';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -8707,7 +8970,7 @@ initAuth();
 <!-- MOBILE BOTTOM TAB BAR -->
 <nav class="mobile-tabs" id="mobile-tab-bar">
   <button class="mobile-tab active" onclick="showPage('overview', this)" data-page="overview">
-    <span class="mobile-tab-icon">◎</span>
+    <span class="mobile-tab-icon" style="position:relative">◎<span id="mobile-overdue-badge" style="display:none;position:absolute;top:-2px;right:-8px;background:#E24B4A;color:#fff;font-size:9px;font-weight:600;padding:1px 5px;border-radius:8px;min-width:14px;text-align:center;line-height:1.2"></span></span>
     <span class="mobile-tab-label" data-en="Overview" data-th="ภาพรวม">Overview</span>
   </button>
   <button class="mobile-tab" onclick="showPage('schedule', this)" data-page="schedule">
