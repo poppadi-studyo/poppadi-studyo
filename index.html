@@ -2943,6 +2943,17 @@ function clearMakeup() {
   document.querySelectorAll('.makeup-item').forEach(el => el.classList.remove('selected'));
   document.getElementById('makeup-placeholder').style.display = 'block';
   document.getElementById('makeup-fields').style.display = 'none';
+  // Reset input values so a future selection starts clean
+  ['makeup-date','makeup-start','makeup-end','makeup-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const endDisplay = document.getElementById('makeup-end-display');
+  if (endDisplay) endDisplay.textContent = '—';
+  const hrsDisplay = document.getElementById('makeup-hrs-display');
+  if (hrsDisplay) hrsDisplay.textContent = '—';
+  const warn = document.getElementById('makeup-conflict-warning');
+  if (warn) warn.style.display = 'none';
 }
 
 function checkMakeupConflict() {
@@ -3064,7 +3075,7 @@ async function confirmMakeup() {
         <div style="font-size:16px;font-weight:600;margin-bottom:6px">${lang==='th'?'นัดชดเชยแล้ว!':'Makeup scheduled!'}</div>
         <div style="font-size:13px;color:var(--text3);margin-bottom:4px">${names} → ${fmtDate(d)} ${formatTime(s)}${e?'–'+formatTime(e):''}</div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:20px">${lang==='th'?'เชื่อมโยงกับ':'Linked to'} ${fmtDate(snap.date)}${snapGroup.length>1?' ('+snapGroup.length+' sessions saved)':''}</div>
-        <button onclick="document.getElementById('makeup-save-modal')?.remove();isMakeupSaving=false;renderAll();"
+        <button onclick="document.getElementById('makeup-save-modal')?.remove();isMakeupSaving=false;clearMakeup();renderAll();"
           style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">OK</button>`;
     }, 400);
 
@@ -4525,16 +4536,35 @@ async function advEditConfirm() {
     const lObj = DATA.sessions.find(x => x.session_id === lastSessionId);
     if (lObj) { lObj.end_time = newLastEnd; lObj.hours = newLastHrs; }
 
-    document.getElementById('adv-edit-modal')?.remove();
     _advEditPending = null;
 
-    // Refresh current view
-    showPage(localStorage.getItem('poppadi_page') || 'schedule');
-    alert(`✅ Done!\n\nThis session extended to ${newCurrentEnd}.\nLast session reduced to end at ${newLastEnd}.`);
+    // Show success state inside the modal — matches the pattern used by other save flows
+    const advModal = document.getElementById('adv-edit-modal');
+    if (advModal) {
+      advModal.innerHTML = `
+        <div style="background:var(--surface,#fff);border-radius:14px;padding:24px;max-width:360px;width:100%;font-family:'DM Sans',sans-serif;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.2)">
+          <div style="font-size:36px;margin-bottom:12px">✅</div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:8px">${lang==='th'?'อัปเดตแล้ว!':'Done!'}</div>
+          <div style="font-size:13px;color:var(--text2,#666);margin-bottom:6px">${lang==='th'?'คาบนี้:':'This session:'} ${newCurrentEnd}</div>
+          <div style="font-size:13px;color:var(--text2,#666);margin-bottom:20px">${lang==='th'?'คาบสุดท้าย:':'Last session:'} ${newLastEnd}</div>
+          <button onclick="document.getElementById('adv-edit-modal')?.remove();showPage(localStorage.getItem('poppadi_page')||'schedule');"
+            style="padding:10px 28px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500">OK</button>
+        </div>`;
+    }
 
   } catch (err) {
     if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Confirm'; confirmBtn.style.opacity = '1'; }
-    alert('❌ Error: ' + err.message + '\n\nNo changes were saved. Please try again.');
+    const advModal = document.getElementById('adv-edit-modal');
+    if (advModal) {
+      advModal.innerHTML = `
+        <div style="background:var(--surface,#fff);border-radius:14px;padding:24px;max-width:360px;width:100%;font-family:'DM Sans',sans-serif;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.2)">
+          <div style="font-size:36px;margin-bottom:12px">❌</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:8px">${lang==='th'?'เกิดข้อผิดพลาด':'Save failed'}</div>
+          <div style="font-size:12px;color:var(--text2,#666);margin-bottom:20px">${err.message}</div>
+          <button onclick="document.getElementById('adv-edit-modal')?.remove()"
+            style="padding:8px 20px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">${lang==='th'?'ปิด':'Close'}</button>
+        </div>`;
+    }
   }
 }
 
@@ -5542,16 +5572,7 @@ function renderExpenses() {
   `;
 }
 
-function addExpense() {
-  const name = document.getElementById('new-expense-name').value.trim();
-  const amt  = document.getElementById('new-expense-amt').value.trim();
-  if (!name || !amt) return;
-  DATA.expenses.push({ expense_id: 'E'+(DATA.expenses.length+1).toString().padStart(3,'0'), month: new Date().toISOString().slice(0,7), item_name: name, amount: amt, category: 'other' });
-  document.getElementById('new-expense-name').value = '';
-  document.getElementById('new-expense-amt').value  = '';
-  renderExpenses();
-  renderOverview();
-}
+// (Dead sync addExpense removed — async version below is the real handler)
 
 // ─── OTHER INCOME ─────────────────────────────────────────
 function renderOtherIncome() {
@@ -7831,7 +7852,7 @@ async function submitEnrollment() {
           <div style="font-size:11px;color:#888;margin-top:2px">${lang==='th'?`(แบ่ง ฿${fmt(splitTutorRate)}/hr × ${numStudents} คน)`:`(฿${fmt(splitTutorRate)}/hr per record × ${numStudents} students)`}</div>
         </div>
         <div style="margin-bottom:16px;font-size:12px;color:#BA7517">⏳ ${lang==='th'?'ยืนยันการชำระเงินด้านล่าง':'Confirm payment in Pending payments below'}</div>
-        <button onclick="this.closest('div').parentElement.remove();document.getElementById('group-students-body').innerHTML='';document.getElementById('enroll-subject').value='';document.getElementById('enroll-hours').value='';initScheduleBody();resetSaveBtn();localStorage.removeItem('poppadi_cache');setTimeout(()=>loadAllData().then(()=>renderPendingPayments()),2000)"
+        <button onclick="this.closest('div').parentElement.remove();resetEnrollmentForm();initScheduleBody();resetSaveBtn();localStorage.removeItem('poppadi_cache');setTimeout(()=>loadAllData().then(()=>renderPendingPayments()),2000)"
           style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">
           ${lang==='th'?'เสร็จแล้ว':'Done'}
         </button>
@@ -7937,10 +7958,7 @@ async function submitEnrollment() {
         paidHrs, feePerHr, tutorRate, commTo,
         courseId: result.course_id, sessions,
         onDone: async () => {
-          document.getElementById('enroll-student').value = '';
-          document.getElementById('enroll-subject').value = '';
-          document.getElementById('enroll-hours').value   = '';
-          document.getElementById('enroll-fee').value     = '';
+          resetEnrollmentForm();
           initScheduleBody();
           resetSaveBtn();
           await loadAllData();
@@ -7997,6 +8015,19 @@ function restoreEnrollDraft() {
 }
 function clearEnrollDraft() {
   try { localStorage.removeItem('poppadi_enroll_draft'); } catch(_) {}
+}
+
+// Resets all user-entered enrollment fields. Called after successful enrollment
+// from both single-mode (via onDone) and group-mode (via Done button).
+function resetEnrollmentForm() {
+  ['enroll-student','enroll-subject','enroll-hours','enroll-fee',
+   'enroll-rate','enroll-notes','enroll-fullname','enroll-phone'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const groupBody = document.getElementById('group-students-body');
+  if (groupBody) groupBody.innerHTML = '';
+  if (typeof clearReturningSelection === 'function') clearReturningSelection();
 }
 
 // ─── POST-SAVE ENROLLMENT SUMMARY ────────────────────────
@@ -8283,7 +8314,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.4';
+  const cacheVersion = '3.5';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
