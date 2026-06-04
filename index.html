@@ -1154,21 +1154,38 @@
         </div>
       </div>
       <div class="two-col">
-        <div class="card">
-          <div class="card-title" data-en="Monthly fixed costs" data-th="ค่าใช้จ่ายคงที่รายเดือน">Monthly fixed costs</div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr>
-                <th data-en="Item" data-th="รายการ">Item</th>
-                <th data-en="Amount (฿)" data-th="จำนวน (฿)">Amount (฿)</th>
-              </tr></thead>
-              <tbody id="expenses-body"></tbody>
-            </table>
+        <div>
+          <!-- This month's expenses (driven by global selectedMonth) -->
+          <div class="card">
+            <div class="card-title">
+              <span id="expenses-current-title" data-en="This month's expenses" data-th="ค่าใช้จ่ายเดือนนี้">This month's expenses</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr>
+                  <th data-en="Item" data-th="รายการ">Item</th>
+                  <th data-en="Amount (฿)" data-th="จำนวน (฿)">Amount (฿)</th>
+                </tr></thead>
+                <tbody id="expenses-body"></tbody>
+              </table>
+            </div>
+            <div style="margin-top:14px;display:flex;gap:8px">
+              <input type="text" id="new-expense-name" data-en="New expense item" data-th="รายการค่าใช้จ่ายใหม่" placeholder="New expense item" style="flex:1;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+              <input type="number" id="new-expense-amt" placeholder="฿" style="width:90px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+              <button class="btn btn-sm btn-primary" onclick="addExpense()" data-en="Add" data-th="เพิ่ม">Add</button>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:var(--text3)" data-en="New items are added to the selected month above." data-th="รายการใหม่จะถูกเพิ่มในเดือนที่เลือกด้านบน">New items are added to the selected month above.</div>
           </div>
-          <div style="margin-top:14px;display:flex;gap:8px">
-            <input type="text" id="new-expense-name" data-en="New expense item" data-th="รายการค่าใช้จ่ายใหม่" placeholder="New expense item" style="flex:1;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
-            <input type="number" id="new-expense-amt" placeholder="฿" style="width:90px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
-            <button class="btn btn-sm btn-primary" onclick="addExpense()" data-en="Add" data-th="เพิ่ม">Add</button>
+
+          <!-- History (collapsed by default) -->
+          <div class="card" style="margin-top:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleExpensesHistory()">
+              <div class="card-title" style="margin:0">
+                <span data-en="History — all months" data-th="ประวัติ — ทุกเดือน">History — all months</span>
+              </div>
+              <div id="expenses-history-toggle" style="font-size:18px;color:var(--text3);user-select:none">▸</div>
+            </div>
+            <div id="expenses-history-wrap" style="display:none;margin-top:12px"></div>
           </div>
         </div>
         <div>
@@ -5817,31 +5834,102 @@ function downloadStudentPDFForStudent() {
 // ─── EXPENSES ─────────────────────────────────────────────
 function renderExpenses() {
   const body = document.getElementById('expenses-body');
-  const total = DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
 
-  body.innerHTML = DATA.expenses.map(e => `
-    <tr>
-      <td>${e.item_name||'—'}</td>
-      <td>฿${fmt(e.amount)}</td>
-    </tr>
-  `).join('') + `<tr><td><strong>${lang==='th'?'รวม':'Total'}</strong></td><td><strong>฿${fmt(total)}</strong></td></tr>`;
+  // Filter to selected month for the main card
+  const monthExpenses = DATA.expenses.filter(e => (e.month||'').startsWith(selectedMonth));
+  const totalMonth    = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
 
-  const mayCompletedSessions = filterByMonth(DATA.sessions, 'date')
+  // Build month label for the card title (e.g. "This month's expenses — June 2026")
+  const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
+  const monthText  = monthLabel ? (lang==='th' ? monthLabel.labelTh : monthLabel.label) : selectedMonth;
+  const titleEl    = document.getElementById('expenses-current-title');
+  if (titleEl) {
+    titleEl.textContent = (lang==='th' ? 'ค่าใช้จ่ายเดือนนี้ — ' : "This month's expenses — ") + monthText;
+  }
+
+  if (!monthExpenses.length) {
+    body.innerHTML = `<tr><td colspan="2" class="empty">${lang==='th'?'ยังไม่มีค่าใช้จ่ายในเดือนนี้':'No expenses recorded for this month yet'}</td></tr>`;
+  } else {
+    body.innerHTML = monthExpenses.map(e => `
+      <tr>
+        <td>${e.item_name||'—'}</td>
+        <td>฿${fmt(e.amount)}</td>
+      </tr>
+    `).join('') + `<tr style="border-top:2px solid var(--border-strong);background:var(--surface2)"><td><strong>${lang==='th'?'รวม':'Total'}</strong></td><td><strong>฿${fmt(totalMonth)}</strong></td></tr>`;
+  }
+
+  // Re-render history if it's currently open (keeps it in sync with month change)
+  const histWrap = document.getElementById('expenses-history-wrap');
+  if (histWrap && histWrap.style.display !== 'none') renderExpensesHistory();
+
+  // Metrics card (right side) — uses selected month
+  const monthCompletedSessions = filterByMonth(DATA.sessions, 'date')
     .filter(s=>s.status==='Completed'||s.status==='Makeup');
-  const mayExpenses = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth));
-  const schoolRemRaw = mayCompletedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
-  const accShare    = getAccountantShare(selectedMonth);
-  const schoolRem   = schoolRemRaw + accShare;   // ฿1,000 contribution from AJ. Steven (Jun 2026+)
-  const totalMayExp = mayExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
-  const gap = totalMayExp - schoolRem;
-  const ppopShare = Math.max(0, schoolRem - totalMayExp) * 0.2;
+  const schoolRemRaw = monthCompletedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  const accShare     = getAccountantShare(selectedMonth);
+  const schoolRem    = schoolRemRaw + accShare;   // ฿1,000 contribution from AJ. Steven (Jun 2026+)
+  const gap          = totalMonth - schoolRem;
+  const ppopShare    = Math.max(0, schoolRem - totalMonth) * 0.2;
 
   document.getElementById('expenses-metrics').innerHTML = `
-    <div class="metric"><div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่รวม':'Total fixed expenses'}</div><div class="metric-value">฿${fmt(total)}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่รวม':'Total fixed expenses'}</div><div class="metric-value">฿${fmt(totalMonth)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน (จริง)':'School remainder (realized)'}</div><div class="metric-value">฿${fmt(schoolRem)}</div>${accShare>0?`<div style="font-size:10px;color:var(--text3);margin-top:3px">+ ฿${fmt(accShare)} ${lang==='th'?'จาก AJ. Steven':'from AJ. Steven'}</div>`:''}</div>
     <div class="metric ${gap>0?'gap-bad':'gap-good'}"><div class="metric-label">${gap>0?(lang==='th'?'ยอดที่ยังขาด':'Gap remaining'):(lang==='th'?'ครอบคลุมแล้ว':'Fully covered')}</div><div class="metric-value">${gap>0?'฿'+fmt(gap):'฿'+fmt(Math.abs(gap))}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'แบ่งกำไร 20% (AJ. Pop)':'20% profit share (AJ. Pop)'}</div><div class="metric-value">฿${fmt(ppopShare)}</div></div>
   `;
+}
+
+// ─── EXPENSES — History (all months, collapsible) ─────────
+function toggleExpensesHistory() {
+  const wrap   = document.getElementById('expenses-history-wrap');
+  const toggle = document.getElementById('expenses-history-toggle');
+  if (!wrap || !toggle) return;
+  const willOpen = wrap.style.display === 'none';
+  wrap.style.display = willOpen ? 'block' : 'none';
+  toggle.textContent = willOpen ? '▾' : '▸';
+  if (willOpen) renderExpensesHistory();
+}
+
+function renderExpensesHistory() {
+  const wrap = document.getElementById('expenses-history-wrap');
+  if (!wrap) return;
+
+  // Group by month (YYYY-MM), newest first
+  const byMonth = {};
+  DATA.expenses.forEach(e => {
+    const m = (e.month || '').slice(0, 7);   // YYYY-MM
+    if (!m) return;
+    if (!byMonth[m]) byMonth[m] = [];
+    byMonth[m].push(e);
+  });
+  const months = Object.keys(byMonth).sort().reverse();
+
+  if (!months.length) {
+    wrap.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:8px 0">${lang==='th'?'ยังไม่มีประวัติ':'No history yet'}</div>`;
+    return;
+  }
+
+  wrap.innerHTML = months.map(m => {
+    const monthLabel = getMonthOptions().find(o => o.val === m);
+    const mText      = monthLabel ? (lang==='th' ? monthLabel.labelTh : monthLabel.label) : m;
+    const items      = byMonth[m];
+    const total      = items.reduce((s,e)=>s+Number(e.amount||0),0);
+    const isCurrent  = (m === selectedMonth);
+    return `
+      <div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px dashed var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+          <div style="font-weight:600;font-size:13px">${mText}${isCurrent?` <span style="font-size:10px;color:var(--text3);font-weight:400">(${lang==='th'?'เดือนที่เลือก':'selected'})</span>`:''}</div>
+          <div style="font-weight:600;font-size:13px">฿${fmt(total)}</div>
+        </div>
+        ${items.map(e => `
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);padding:2px 0">
+            <div>${e.item_name||'—'}</div>
+            <div>฿${fmt(e.amount)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
 }
 
 // (Dead sync addExpense removed — async version below is the real handler)
