@@ -1926,8 +1926,7 @@ function renderOverview() {
       <div class="metric-sub">${gapCovered
         ? (lang==='th'?`✅ ครอบคลุมค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)} แล้ว`:`✅ ฿${fmt(totalExpenses)} fixed costs already covered`)
         : (lang==='th'?`จากคาบที่สอนแล้ว — ยังต้องการอีก ฿${fmt(gap)} เพื่อครอบคลุม ฿${fmt(totalExpenses)}`:`From completed sessions — ฿${fmt(gap)} still needed to cover ฿${fmt(totalExpenses)}`)
-      }</div>
-      ${accountantShare > 0 ? `<div class="metric-sub" style="margin-top:4px;font-size:11px;color:var(--text3)">${lang==='th'?`รวม ฿${fmt(accountantShare)} ส่วนสมทบค่าบัญชีจาก AJ. Steven`:`Includes ฿${fmt(accountantShare)} accountant-share contribution from AJ. Steven`}</div>` : ''}
+      }${accountantShare > 0 ? `<br>${lang==='th'?`รวม ฿${fmt(accountantShare)} ส่วนสมทบค่าบัญชีจาก AJ. Steven`:`Includes ฿${fmt(accountantShare)} accountant-share contribution from AJ. Steven`}` : ''}</div>
     </div>
     <div class="metric">
       <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่ (เป้าหมาย)':'Fixed costs (monthly target)'}</div>
