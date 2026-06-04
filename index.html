@@ -1593,7 +1593,7 @@ function showWebAppPrompt() {
 }
 
 // ─── STATE ────────────────────────────────────────────────
-let DATA = { tutors:[], students:[], courses:[], sessions:[], expenses:[], invoices:[], otherIncome:[] };
+let DATA = { tutors:[], students:[], courses:[], sessions:[], expenses:[], invoices:[], otherIncome:[], videoSales:[], videoConfig:[] };
 let sessionUnlocked = false; // PIN-unlocked for this page load — resets on refresh
 let lang = 'en';
 let selectedMakeup = null;
@@ -1691,6 +1691,9 @@ async function loadAllData() {
     try {
       const parsed = JSON.parse(cached);
       DATA = parsed.data;
+      // Phase 15 — defensive defaults for caches predating video module
+      if (!DATA.videoSales)  DATA.videoSales  = [];
+      if (!DATA.videoConfig) DATA.videoConfig = [];
       renderAll();
       if (showingOverview) {
         document.getElementById('overview-loading').style.display = 'none';
@@ -1702,7 +1705,7 @@ async function loadAllData() {
 
   // Fetch fresh data from Sheets in background
   try {
-    const [tutorRows, studentRows, courseRows, sessionRows, expenseRows, invoiceRows, otherIncomeRows] = await Promise.all([
+    const [tutorRows, studentRows, courseRows, sessionRows, expenseRows, invoiceRows, otherIncomeRows, videoSaleRows, videoConfigRows] = await Promise.all([
       fetchSheet('Tutors!A:H'),
       fetchSheet('Students!A:F'),
       fetchSheet('Courses!A:R'),
@@ -1710,6 +1713,8 @@ async function loadAllData() {
       fetchSheet('Expenses!A:E'),
       fetchSheet('Invoices!A:G'),
       fetchSheet('OtherIncome!A:F'),
+      fetchSheet('VideoCourseSales!A:W'),    // Phase 15 — 23 columns A..W
+      fetchSheet('VideoCourseConfig!A:Q'),   // Phase 15 — 17 columns A..Q
     ]);
 
     DATA.tutors      = parseSheet(tutorRows);
@@ -1719,6 +1724,8 @@ async function loadAllData() {
     DATA.expenses    = parseSheet(expenseRows);
     DATA.invoices    = parseSheet(invoiceRows);
     DATA.otherIncome = parseSheet(otherIncomeRows);
+    DATA.videoSales  = parseSheet(videoSaleRows  || []);
+    DATA.videoConfig = parseSheet(videoConfigRows || []);
 
     localStorage.setItem(CACHE_KEY, JSON.stringify({ data: DATA, cachedAt: new Date().toISOString() }));
 
