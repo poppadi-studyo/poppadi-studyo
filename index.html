@@ -786,7 +786,7 @@
               <div class="card-title" style="margin:0;color:var(--amber,#BA7517)" data-en="⏰ Needs status update" data-th="⏰ ต้องอัปเดตสถานะ">⏰ Needs status update</div>
               <div style="font-size:12px;color:var(--text3);margin-top:2px" data-en="Sessions whose start time passed more than 2 hours ago but are still Scheduled" data-th="คาบที่ผ่านเวลามากกว่า 2 ชั่วโมงแล้ว แต่ยังขึ้นว่ากำหนดการ">Sessions whose start time passed more than 2 hours ago but are still Scheduled</div>
             </div>
-            <select id="overdue-filter-tutor" onchange="renderOverdueSection()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
+            <select id="overdue-filter-tutor" onchange="localStorage.setItem('poppadi_overdue_tutor', this.value);renderOverdueSection()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif">
               <option value="" data-en="All tutors" data-th="ครูทั้งหมด">All tutors</option>
             </select>
           </div>
@@ -2077,7 +2077,11 @@ function getOverdueSessions() {
   });
 
   // Tutor filter
-  const tutorFilter = (typeof localStorage !== 'undefined' && localStorage.getItem('poppadi_overdue_tutor')) || '';
+  // Tutor filter — prefer live DOM value; fall back to saved value before DOM exists
+  const filterEl = document.getElementById('overdue-filter-tutor');
+  const tutorFilter = (filterEl && filterEl.value)
+    || (typeof localStorage !== 'undefined' && localStorage.getItem('poppadi_overdue_tutor'))
+    || '';
   const filtered = tutorFilter
     ? overdue.filter(s => s.tutor_id === tutorFilter)
     : overdue;
@@ -2143,12 +2147,10 @@ function renderOverdueSection() {
       opt.textContent = t.name || t.tutor_id;
       filterEl.appendChild(opt);
     });
-    // Restore saved selection
+    // Restore saved selection — the onchange handler on the select itself
+    // already writes to localStorage on change, no addEventListener needed
     const saved = localStorage.getItem('poppadi_overdue_tutor') || '';
     if (saved) filterEl.value = saved;
-    filterEl.addEventListener('change', () => {
-      localStorage.setItem('poppadi_overdue_tutor', filterEl.value);
-    });
   }
 
   const { groups, totalAllTutors } = getOverdueSessions();
