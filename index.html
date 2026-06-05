@@ -2731,13 +2731,31 @@ function renderCommissionCard(monthSessions) {
     s.status === 'Completed' || s.status === 'Makeup'
   );
 
-  // Aggregate commission per recipient
+  // Aggregate tutoring commission per recipient
   const commMap = {};
   sessions.forEach(s => {
     const who = s.commission_who || s.commission_to || 'none';
     if (!who || who === 'none') return;
     if (!commMap[who]) commMap[who] = 0;
     commMap[who] += Number(s.commission_amt || 0);
+  });
+
+  // Aggregate video sales payouts for this month
+  const videoMap = {}; // name → { amount, role }
+  const monthVideoSales = (DATA.videoSales || []).filter(s =>
+    s.status !== 'Voided' && (s.month || '').startsWith(selectedMonth)
+  );
+  function _addVideo(name, amount, role) {
+    if (!name || !amount) return;
+    if (!videoMap[name]) videoMap[name] = { amount: 0, role };
+    videoMap[name].amount += Number(amount || 0);
+  }
+  monthVideoSales.forEach(s => {
+    _addVideo('Au',                s.payout_au,          'developer');
+    _addVideo(s.project_owner,     s.payout_owner,       'owner');
+    _addVideo(s.coordinator,       s.payout_coordinator, 'coordinator');
+    _addVideo(s.influencer_name,   s.payout_influencer,  'influencer');
+    _addVideo(s.streamer_name,     s.payout_streamer,    'streamer');
   });
 
   // Map raw sheet keys to display names
@@ -2757,46 +2775,64 @@ function renderCommissionCard(monthSessions) {
 
   if (!wrap || !card) return;
 
-  if (!Object.keys(commMap).length) {
+  const hasSession = Object.keys(commMap).length > 0;
+  const hasVideo   = Object.keys(videoMap).length > 0;
+
+  if (!hasSession && !hasVideo) {
     const emptyHtml = `<div class="empty" style="padding:20px 0">${lang==='th'?'ยังไม่มีคอมมิชชั่นเดือนนี้':'No commission recorded this month'}</div>`;
     wrap.innerHTML = emptyHtml;
     if (tutorWrap) tutorWrap.innerHTML = emptyHtml;
     return;
   }
 
-  // Look up full names from tutors data (for ppop specifically)
   function getDisplayName(who) {
-    // Try to match commission recipient key to a tutor record
-    const tutorMatch = DATA.tutors.find(t => {
-      const id = t.tutor_id?.toLowerCase();
-      const nm = t.name?.toLowerCase().replace(/[^a-z]/g,'');
-      return who === 'ppop' && (id === 't001' || nm.includes('pop'));
-    });
     if (who === 'ppop') {
       const t = DATA.tutors.find(t => t.tutor_id === 'T001');
-      return { display: t?.name || 'AJ. Pop', full_en: t?.full_name_en || '', full_th: t?.full_name_th || '' };
+      return { display: t?.name || 'AJ. Pop', full_th: t?.full_name_th || '', full_en: t?.full_name_en || '' };
     }
-    if (who === 'jane') return { display: 'Jane', full_en: 'Jane', full_th: '' };
-    if (who === 'eye')  return { display: 'Eye', full_en: 'Eye', full_th: '' };
-    return { display: who, full_en: '', full_th: '' };
+    if (who === 'jane') return { display: 'Jane', full_th: '', full_en: '' };
+    if (who === 'eye')  return { display: 'Eye',  full_th: '', full_en: '' };
+    return { display: who, full_th: '', full_en: '' };
   }
 
-  let totalGross = 0, totalWHT = 0, totalNet = 0;
-  const rows = Object.entries(commMap).map(([who, gross]) => {
-    const wht = gross * 0.03;
+  function makeRow(label, gross, subLabel) {
+    const wht = Math.round(gross * 0.03 * 100) / 100;
     const net = gross - wht;
-    totalGross += gross; totalWHT += wht; totalNet += net;
-    const { display, full_en, full_th } = getDisplayName(who);
-    const nameHtml = full_th
-      ? `<div style="font-weight:500">${display}</div><div style="font-size:11px;color:var(--text3);margin-top:1px">${full_th}${full_en ? ' · ' + full_en : ''}</div>`
-      : `<div style="font-weight:500">${display}</div>`;
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:10px 12px">${nameHtml}</td>
+    return { gross, wht, net, html: `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:10px 12px">
+        <div style="font-weight:500">${label}</div>
+        ${subLabel ? `<div style="font-size:11px;color:var(--text3);margin-top:1px">${subLabel}</div>` : ''}
+      </td>
       <td style="padding:10px 12px;text-align:right">฿${fmt(gross)}</td>
       <td style="padding:10px 12px;text-align:right;color:var(--red)">฿${fmt(wht)}</td>
       <td style="padding:10px 12px;text-align:right;color:var(--teal);font-weight:600">฿${fmt(net)}</td>
-    </tr>`;
-  }).join('');
+    </tr>` };
+  }
+
+  let totalGross = 0, totalWHT = 0, totalNet = 0;
+  let allRows = '';
+
+  // Section 1 — Tutoring commission
+  if (hasSession) {
+    allRows += `<tr><td colspan="4" style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;background:var(--surface2)">Tutoring commission</td></tr>`;
+    Object.entries(commMap).forEach(([who, gross]) => {
+      const { display, full_th, full_en } = getDisplayName(who);
+      const sub = full_th ? `${full_th}${full_en ? ' · '+full_en : ''}` : '';
+      const r = makeRow(display, gross, sub);
+      totalGross += r.gross; totalWHT += r.wht; totalNet += r.net;
+      allRows += r.html;
+    });
+  }
+
+  // Section 2 — Video sales payouts
+  if (hasVideo) {
+    allRows += `<tr><td colspan="4" style="padding:6px 12px 4px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;background:var(--surface2)">Video course payouts</td></tr>`;
+    Object.entries(videoMap).forEach(([name, { amount, role }]) => {
+      const r = makeRow(name, amount, role);
+      totalGross += r.gross; totalWHT += r.wht; totalNet += r.net;
+      allRows += r.html;
+    });
+  }
 
   const commHtml = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -2808,7 +2844,7 @@ function renderCommissionCard(monthSessions) {
           <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase">${lang==='th'?'ยอดโอน':'Net transfer'}</th>
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody>${allRows}</tbody>
       <tfoot>
         <tr style="border-top:2px solid var(--border-strong);background:var(--surface2)">
           <td style="padding:10px 12px;font-weight:600">${lang==='th'?'รวม':'Total'}</td>
@@ -2820,8 +2856,8 @@ function renderCommissionCard(monthSessions) {
     </table>
     <div style="font-size:11px;color:var(--text3);margin-top:10px">
       ${lang==='th'
-        ? 'WHT 3% หักจากค่าคอมมิชชั่นทั้งหมด · แสดงเฉพาะคาบที่ Completed และ Makeup'
-        : 'WHT 3% deducted from all commission amounts · Completed & Makeup sessions only'}
+        ? 'WHT 3% หักจากค่าตอบแทนทั้งหมด · วิดีโอจาก Active sales เดือนนี้เท่านั้น'
+        : 'WHT 3% deducted from all amounts · Video payouts from Active sales this month only'}
     </div>`;
   wrap.innerHTML = commHtml;
   if (tutorWrap) tutorWrap.innerHTML = commHtml;
