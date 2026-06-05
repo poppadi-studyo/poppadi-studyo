@@ -753,6 +753,10 @@
         <span class="nav-icon">⊙</span>
         <span data-en="Audit log" data-th="ประวัติการแก้ไข">Audit log</span>
       </button>
+      <button class="nav-item" onclick="showPage('advsettings', this)" id="nav-advsettings" style="display:none">
+        <span class="nav-icon">⚙</span>
+        <span data-en="Advanced settings" data-th="ตั้งค่าขั้นสูง">Advanced settings</span>
+      </button>
     </nav>
     <div class="lang-switch">
       <button class="lang-btn active" onclick="setLang('en', this)">EN</button>
@@ -1679,6 +1683,62 @@
       </div>
     </div>
 
+    <!-- ADVANCED SETTINGS (Video Config) -->
+    <div class="page" id="page-advsettings">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Advanced settings</div>
+          <div class="page-sub">Edit video course channel rates — PIN protected</div>
+        </div>
+      </div>
+
+      <!-- PIN gate -->
+      <div id="adv-pin-gate" class="card" style="max-width:340px">
+        <div class="card-title">PIN required</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input type="password" id="adv-pin-input" placeholder="Enter PIN" maxlength="6"
+            style="flex:1;padding:8px 12px;border:1px solid var(--border-strong);border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif"
+            onkeydown="if(event.key==='Enter')verifyAdvPin()">
+          <button class="btn btn-primary" onclick="verifyAdvPin()">Unlock</button>
+        </div>
+        <div id="adv-pin-error" style="font-size:12px;color:var(--red);display:none">Incorrect PIN</div>
+      </div>
+
+      <!-- Settings content (hidden until PIN unlocked) -->
+      <div id="adv-settings-content" style="display:none">
+
+        <!-- Video channel rates -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div class="card-title" style="margin:0">Video channel rates</div>
+            <div style="font-size:11px;color:var(--text3)">Changes save to Google Sheets immediately</div>
+          </div>
+          <div id="adv-config-body"></div>
+        </div>
+
+        <!-- Tier threshold -->
+        <div class="card" style="margin-top:14px">
+          <div class="card-title">Tier threshold</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:12px">
+            Sales 1 – <strong id="adv-tier-display">20</strong> = Tier 1 &nbsp;·&nbsp; Sales 21+ = Tier 2
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <div>
+              <div class="field-label">T1 / T2 threshold (sales per person per month)</div>
+              <input type="number" id="adv-tier-input" min="1" max="100"
+                style="width:120px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif">
+            </div>
+            <button class="btn btn-primary" onclick="saveAdvTierThreshold()">Save</button>
+            <div id="adv-tier-status" style="font-size:12px;color:var(--text3)"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:8px">
+            Note: this changes the in-memory threshold for this session. To make it permanent, it will be saved to localStorage and respected on next load.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- AUDIT LOG -->
     <div class="page" id="page-audit">
       <div class="page-header">
@@ -2121,7 +2181,7 @@ function renderAll() {
   // Each renderer is isolated — one failure won't block the others or freeze the spinner
   const renderers = [
     renderOverview, renderSchedule, renderMakeupQueue,
-    renderTutors, renderStudents, renderExpenses, renderOtherIncome, renderVideoSales
+    renderTutors, renderStudents, renderExpenses, renderOtherIncome, renderVideoSales, renderAdvSettings
   ];
   renderers.forEach(fn => {
     try { fn(); } catch(e) { console.warn('renderAll: ' + fn.name + ' failed —', e.message); }
@@ -6864,6 +6924,153 @@ function exportVideoHistoryExcel() {
   URL.revokeObjectURL(url);
 }
 
+
+// ─── ADVANCED SETTINGS (Phase 15 Step 11) ─────────────────
+const ADV_SETTINGS_PIN = '2846';
+let _advUnlocked = false;
+
+function renderAdvSettings() {
+  // Show nav item to admins
+  const navBtn = document.getElementById('nav-advsettings');
+  if (navBtn && currentUser) navBtn.style.display = '';
+
+  // Reset PIN gate on each page load unless already unlocked this session
+  if (!_advUnlocked) {
+    const gate    = document.getElementById('adv-pin-gate');
+    const content = document.getElementById('adv-settings-content');
+    if (gate)    gate.style.display    = '';
+    if (content) content.style.display = 'none';
+    const pinInput = document.getElementById('adv-pin-input');
+    if (pinInput) { pinInput.value = ''; pinInput.focus(); }
+  } else {
+    _renderAdvConfigTable();
+  }
+}
+
+function verifyAdvPin() {
+  const input = document.getElementById('adv-pin-input');
+  const error = document.getElementById('adv-pin-error');
+  if (!input) return;
+  if (input.value === ADV_SETTINGS_PIN) {
+    _advUnlocked = true;
+    const gate    = document.getElementById('adv-pin-gate');
+    const content = document.getElementById('adv-settings-content');
+    if (gate)    gate.style.display    = 'none';
+    if (content) content.style.display = '';
+    _renderAdvConfigTable();
+  } else {
+    if (error) error.style.display = '';
+    input.value = '';
+    input.focus();
+    setTimeout(() => { if (error) error.style.display = 'none'; }, 2000);
+  }
+}
+
+function _renderAdvConfigTable() {
+  const body = document.getElementById('adv-config-body');
+  if (!body) return;
+
+  // Tier threshold
+  const tierInput = document.getElementById('adv-tier-input');
+  const tierDisp  = document.getElementById('adv-tier-display');
+  if (tierInput) tierInput.value = VIDEO_TIER_THRESHOLD;
+  if (tierDisp)  tierDisp.textContent = VIDEO_TIER_THRESHOLD;
+
+  const configs = DATA.videoConfig || [];
+  if (!configs.length) {
+    body.innerHTML = '<div class="empty">No channel config loaded — refresh the page</div>';
+    return;
+  }
+
+  // Editable fields per channel (subset — the key rate fields)
+  const fields = [
+    { key: 'owner_t1',         label: 'Owner T1 (฿)',         type: 'number' },
+    { key: 'owner_t2',         label: 'Owner T2 (฿)',         type: 'number' },
+    { key: 'au_t1',            label: 'Au T1 (฿)',            type: 'number' },
+    { key: 'au_t2',            label: 'Au T2 (฿)',            type: 'number' },
+    { key: 'coordinator',      label: 'Coordinator (฿)',      type: 'number' },
+    { key: 'influencer_mode',  label: 'Influencer mode',      type: 'text'   },
+    { key: 'influencer_value', label: 'Influencer value',     type: 'number' },
+    { key: 'streamer_mode',    label: 'Streamer mode',        type: 'text'   },
+    { key: 'streamer_value',   label: 'Streamer value',       type: 'number' },
+    { key: 'platform_fee_t1',  label: 'Platform fee T1 (฿)', type: 'number' },
+    { key: 'platform_fee_t2',  label: 'Platform fee T2 (฿)', type: 'number' },
+    { key: 'card_fee',         label: 'Card fee (฿)',         type: 'number' },
+    { key: 'flash_price_threshold', label: 'Flash threshold (฿)', type: 'number' },
+    { key: 'flash_owner_pct',  label: 'Flash owner %',        type: 'number' },
+    { key: 'flash_au_pct',     label: 'Flash Au %',           type: 'number' },
+  ];
+
+  body.innerHTML = configs.map(cfg => `
+    <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px dashed var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:600;font-size:13px">${cfg.channel_label || cfg.channel_id}</div>
+        <button onclick="saveAdvChannelConfig('${cfg.channel_id}',this)"
+          style="font-size:11px;padding:4px 12px;border:1px solid var(--teal);border-radius:7px;background:var(--teal);color:#fff;cursor:pointer;font-family:'DM Sans',sans-serif">
+          Save
+        </button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+        ${fields.map(f => `
+          <div>
+            <div class="field-label">${f.label}</div>
+            <input type="${f.type}" id="advcfg-${cfg.channel_id}-${f.key}"
+              value="${cfg[f.key] !== undefined && cfg[f.key] !== null ? cfg[f.key] : ''}"
+              style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid var(--border-strong);border-radius:7px;font-size:12px;font-family:'DM Sans',sans-serif">
+          </div>`).join('')}
+      </div>
+      <div id="advcfg-status-${cfg.channel_id}" style="font-size:11px;color:var(--text3);margin-top:6px"></div>
+    </div>
+  `).join('');
+}
+
+async function saveAdvChannelConfig(channelId, btn) {
+  const fields = ['owner_t1','owner_t2','au_t1','au_t2','coordinator',
+                  'influencer_mode','influencer_value','streamer_mode','streamer_value',
+                  'platform_fee_t1','platform_fee_t2','card_fee',
+                  'flash_price_threshold','flash_owner_pct','flash_au_pct'];
+  const updates = {};
+  fields.forEach(key => {
+    const el = document.getElementById(`advcfg-${channelId}-${key}`);
+    if (el) updates[key] = el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value;
+  });
+
+  const statusEl = document.getElementById(`advcfg-status-${channelId}`);
+  btn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Saving...';
+
+  try {
+    const res = await webAppWrite('updateVideoConfig', { channel_id: channelId, updates });
+    if (res.success) {
+      if (statusEl) statusEl.textContent = '✅ Saved';
+      // Update local DATA.videoConfig so calc picks up new rates immediately
+      const cfg = getVideoConfigByChannel(channelId);
+      if (cfg) Object.assign(cfg, updates);
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+    } else {
+      if (statusEl) statusEl.textContent = '❌ ' + (res.error || 'Save failed');
+    }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function saveAdvTierThreshold() {
+  const input    = document.getElementById('adv-tier-input');
+  const statusEl = document.getElementById('adv-tier-status');
+  const dispEl   = document.getElementById('adv-tier-display');
+  if (!input) return;
+  const val = parseInt(input.value);
+  if (isNaN(val) || val < 1) { if (statusEl) statusEl.textContent = 'Must be ≥ 1'; return; }
+  // Update in-memory constant (declared as const — workaround via reassignment to window)
+  window.VIDEO_TIER_THRESHOLD = val;
+  localStorage.setItem('poppadi_video_tier_threshold', val);
+  if (dispEl) dispEl.textContent = val;
+  if (statusEl) { statusEl.textContent = '✅ Saved for this session'; setTimeout(()=>{ statusEl.textContent=''; },3000); }
+}
+
 // ─── OTHER INCOME ─────────────────────────────────────────
 function renderOtherIncome() {
   // Populate month filter
@@ -9684,6 +9891,9 @@ function onAppReady() {
   // Restore selected month (overview, expenses, other income)
   const savedMonth = localStorage.getItem('poppadi_month');
   if (savedMonth) selectedMonth = savedMonth;
+  // Restore video tier threshold if saved by Advanced Settings
+  const savedTier = localStorage.getItem('poppadi_video_tier_threshold');
+  if (savedTier && parseInt(savedTier) > 0) window.VIDEO_TIER_THRESHOLD = parseInt(savedTier);
 
   // Restore schedule view mode (list vs calendar) and calendar state
   const savedSchedView = localStorage.getItem('poppadi_sched_view') || 'calendar';
@@ -9780,7 +9990,7 @@ function showApp() {
 function applyRoleUI() {
   const isTutor = currentRole === 'tutor';
   // Nav items: tutors see only Schedule and Makeup
-  const adminOnly = ['overview','tutors','students','expenses','otherincome','videosales','enroll','audit'];
+  const adminOnly = ['overview','tutors','students','expenses','otherincome','videosales','advsettings','enroll','audit'];
   adminOnly.forEach(id => {
     const navBtn = document.querySelector(`.nav-item[onclick*="'${id}'"]`);
     if (navBtn) navBtn.style.display = isTutor ? 'none' : '';
