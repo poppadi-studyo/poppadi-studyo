@@ -6258,8 +6258,10 @@ function _populateVideoMonthPicker() {
 
 function _populateVideoChannelDropdown() {
   const sel = document.getElementById('vs-channel');
-  if (!sel || sel.options.length > 1) return; // already populated
-  (DATA.videoConfig || []).filter(c => c.active === 'TRUE' || c.active === true).forEach(c => {
+  if (!sel) return;
+  // Rebuild every time — ensures active filter is applied with correct data types
+  while (sel.options.length > 1) sel.remove(sel.options.length - 1);
+  (DATA.videoConfig || []).filter(c => String(c.active).toUpperCase() === 'TRUE' || c.active === true || c.active === 1).forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.channel_id; opt.textContent = c.channel_label;
     sel.appendChild(opt);
