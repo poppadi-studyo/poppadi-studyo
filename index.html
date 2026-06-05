@@ -9953,7 +9953,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.8';
+  const cacheVersion = '3.9';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
@@ -10175,9 +10175,23 @@ async function renderAuditLog() {
     }
 
     body.innerHTML = all.map(e => {
+      const actionStyles = {
+        'enrollment_created':  { bg:'#E1F5EE', color:'#1D9E75', border:'#a7dfc9', label:'enrolled' },
+        'enrollment_deleted':  { bg:'#FEE2E2', color:'#E24B4A', border:'#fca5a5', label:'deleted' },
+        'expense_added':       { bg:'#FFF7E6', color:'#BA7517', border:'#fcd34d', label:'expense' },
+        'video_sale_added':    { bg:'#EEF2FF', color:'#4F46E5', border:'#a5b4fc', label:'video sale' },
+        'video_sale_voided':   { bg:'#F3F4F6', color:'#6B7280', border:'#d1d5db', label:'voided' },
+        'video_sale_updated':  { bg:'#EEF2FF', color:'#4F46E5', border:'#a5b4fc', label:'updated' },
+        'session_time_edited': { bg:'#FFF7E6', color:'#BA7517', border:'#fcd34d', label:'time edit' },
+      };
+      const isActionType = actionStyles[e.oldStatus];
       let oldBadge, newBadge;
       if (e.type === 'enroll') {
         oldBadge = `<span class="badge" style="background:#E1F5EE;color:#1D9E75;border:1px solid #a7dfc9">${e.oldStatus}</span>`;
+        newBadge = `<span style="font-size:11px;color:var(--text2)">${e.newStatus}</span>`;
+      } else if (isActionType) {
+        const st = isActionType;
+        oldBadge = `<span class="badge" style="background:${st.bg};color:${st.color};border:1px solid ${st.border}">${st.label}</span>`;
         newBadge = `<span style="font-size:11px;color:var(--text2)">${e.newStatus}</span>`;
       } else {
         oldBadge = e.oldStatus ? `<span class="badge ${badgeClass(e.oldStatus)}">${e.oldStatus}</span>` : '—';
