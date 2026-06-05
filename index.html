@@ -8514,8 +8514,22 @@ function downloadMonthlySummaryExcel() {
     otherIncomeMonthXL.length ? toCSVRow(['TOTAL','', totalOtherIncomeXL]) : '',
     '',
     toCSVRow(['FIXED EXPENSES']),
-    toCSVRow(['Item','Amount']),
-    ...DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).map(e => toCSVRow([e.item_name||e.item||'', Number(e.amount||0)])),
+    toCSVRow(['Item','Amount','WHT 3%','Net Transfer','Note']),
+    ...DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).map(e => {
+      const isRentXL = /rent/i.test(e.item_name||'');
+      const isAcctXL = /accountant/i.test(e.item_name||'');
+      const baseAmt  = Number(e.amount||0);
+      const amt      = isAcctXL && csvAccShare > 0 ? baseAmt + csvAccShare : baseAmt;
+      const wht      = isRentXL ? 0 : Math.round(amt*0.03*100)/100;
+      const net      = amt - wht;
+      const note     = isAcctXL && csvAccShare > 0 ? `฿${baseAmt} school + ฿${csvAccShare} AJ. Steven` : (isRentXL ? 'WHT exempt' : '');
+      return toCSVRow([e.item_name||e.item||'', amt, wht||'', net, note]);
+    }),
+    toCSVRow(['TOTAL',
+      +(DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isAcctXL=/accountant/i.test(e.item_name||''); return s+Number(e.amount||0)+(isAcctXL&&csvAccShare>0?csvAccShare:0); },0)).toFixed(2),
+      +(DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isRentXL=/rent/i.test(e.item_name||''); const isAcctXL=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctXL&&csvAccShare>0?base+csvAccShare:base; return isRentXL?s:s+Math.round(amt*0.03*100)/100; },0)).toFixed(2),
+      +(DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isRentXL=/rent/i.test(e.item_name||''); const isAcctXL=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctXL&&csvAccShare>0?base+csvAccShare:base; const wht=isRentXL?0:Math.round(amt*0.03*100)/100; return s+amt-wht; },0)).toFixed(2),
+      '',]),
   ];
 
   const csv = [
@@ -8602,8 +8616,21 @@ function copyMonthlySummaryTable() {
   }
   lines.push('');
   lines.push('FIXED EXPENSES');
-  lines.push(tab('Item','Amount'));
-  DATA.expenses.filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; }).forEach(function(e) { lines.push(tab(e.item_name||e.item||'', '\u0e3f'+fmt(e.amount))); });
+  lines.push(tab('Item','Amount','WHT 3%','Net Transfer','Note'));
+  var xlExpenses = DATA.expenses.filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; });
+  var xlExpTotal=0, xlExpWHT=0, xlExpNet=0;
+  xlExpenses.forEach(function(e) {
+    var isRentCP = /rent/i.test(e.item_name||'');
+    var isAcctCP = /accountant/i.test(e.item_name||'');
+    var baseAmt  = Number(e.amount||0);
+    var amt      = isAcctCP && txtAccShare > 0 ? baseAmt + txtAccShare : baseAmt;
+    var wht      = isRentCP ? 0 : Math.round(amt*0.03*100)/100;
+    var net      = amt - wht;
+    var note     = isAcctCP && txtAccShare > 0 ? '\u0e3f'+fmt(baseAmt)+' school + \u0e3f'+fmt(txtAccShare)+' AJ. Steven' : (isRentCP ? 'WHT exempt' : '');
+    xlExpTotal += amt; xlExpWHT += wht; xlExpNet += net;
+    lines.push(tab(e.item_name||e.item||'', '\u0e3f'+fmt(amt), wht?'\u0e3f'+fmt(wht):'—', '\u0e3f'+fmt(net), note));
+  });
+  lines.push(tab('TOTAL', '\u0e3f'+fmt(xlExpTotal), '\u0e3f'+fmt(xlExpWHT), '\u0e3f'+fmt(xlExpNet), ''));
 
   // Other Income
   var otherIncomeMonthCP = (DATA.otherIncome||[]).filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; });
