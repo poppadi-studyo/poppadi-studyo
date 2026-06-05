@@ -8092,8 +8092,10 @@ function showMonthlySummary() {
   ).join('');
 
   // ── Total WHT ────────────────────────────────────────────
+  const whtOnExpenses = monthExpenses.reduce((s,e)=>{ const isRentMS=/rent/i.test(e.item_name||''); const isAcctMS=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctMS&&msAccShare>0?base+msAccShare:base; return isRentMS?s:s+Math.round(amt*0.03*100)/100; },0);
   const totalWHT    = tutorBreakdown.reduce((s,x)=>s+x.wht,0)
-                    + Object.values(commBreakdown).reduce((s,x)=>s+x*0.03,0);
+                    + Object.values(commBreakdown).reduce((s,x)=>s+x*0.03,0)
+                    + whtOnExpenses;
   const totalNetPay = tutorBreakdown.reduce((s,x)=>s+x.net,0);
   const totalNetComm= Object.values(commBreakdown).reduce((s,x)=>s+x*0.97,0);
 
@@ -8276,7 +8278,7 @@ function showMonthlySummary() {
 
       <!-- Footer note -->
       <div style="font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px">
-        WHT = Withholding Tax 3% deducted from all tutor payouts and commission transfers. Generated ${new Date().toLocaleString()}.
+        WHT = Withholding Tax 3% deducted from tutor payouts, commission, and eligible fixed expenses (salaries/fees — rent excluded). Generated ${new Date().toLocaleString()}.
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -8484,7 +8486,7 @@ function downloadMonthlySummaryExcel() {
     ...(csvAccShare>0?[toCSVRow(['Accountant Share (from AJ. Steven)', csvAccShare])]:[]),
     toCSVRow(['School Remainder', schoolRemainder]),
     toCSVRow(["AJ. Pop 20% Share", profitShare]),
-    toCSVRow(['Total WHT 3%', +(totalTutorPay*0.03 + totalCommission*0.03).toFixed(2)]),
+    toCSVRow(['Total WHT 3%', +(totalTutorPay*0.03 + totalCommission*0.03 + DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isRentXL=/rent/i.test(e.item_name||''); const isAcctXL=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctXL&&csvAccShare>0?base+csvAccShare:base; return isRentXL?s:s+Math.round(amt*0.03*100)/100; },0)).toFixed(2)]),
     toCSVRow(['Net to School', netSchool]),
     toCSVRow(['Sessions Taught', monthSessions.length]),
     '',
@@ -8579,7 +8581,8 @@ function copyMonthlySummaryTable() {
   if (txtAccShare>0) lines.push(tab('Accountant Share (from AJ. Steven)', '\u0e3f'+fmt(txtAccShare)));
   lines.push(tab('School Remainder', '\u0e3f'+fmt(schoolRemainder)));
   lines.push(tab("AJ. Pop 20% Share",  '\u0e3f'+fmt(profitShare)));
-  lines.push(tab('Total WHT 3%',     '\u0e3f'+fmt(totalTutorPay*0.03 + totalCommission*0.03)));
+  var expWHTforTotal = DATA.expenses.filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; }).reduce(function(s,e){ var isRentCP=/rent/i.test(e.item_name||''); var isAcctCP=/accountant/i.test(e.item_name||''); var base=Number(e.amount||0); var amt=isAcctCP&&txtAccShare>0?base+txtAccShare:base; return isRentCP?s:s+Math.round(amt*0.03*100)/100; },0);
+  lines.push(tab('Total WHT 3%',     '\u0e3f'+fmt(totalTutorPay*0.03 + totalCommission*0.03 + expWHTforTotal)));
   lines.push(tab('Net to School',    '\u0e3f'+fmt(netSchool)));
   lines.push(tab('Sessions Taught',  String(monthSessions.length)));
   lines.push('');
