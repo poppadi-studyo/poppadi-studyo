@@ -7811,6 +7811,30 @@ function showMonthlySummary() {
     </tr>`
   ).join('') || `<tr><td colspan="3" style="padding:8px 10px;color:#aaa;text-align:center">${lang==='th'?'ไม่มีรายได้อื่นเดือนนี้':'No other income this month'}</td></tr>`;
 
+  // ── Video sales this month ───────────────────────────────
+  const monthVideoSales = (DATA.videoSales||[]).filter(s=>
+    s.status!=='Voided' && (s.month||'').startsWith(selectedMonth)
+  );
+  const videoGross    = monthVideoSales.reduce((s,x)=>s+Number(x.gross||0),0);
+  const videoNet      = monthVideoSales.reduce((s,x)=>s+Number(x.net_to_school||0),0);
+
+  // Build video payout map (name → { amount, role })
+  const videoPayMap = {};
+  function _addVP(name, amount, role) {
+    if (!name || !Number(amount)) return;
+    if (!videoPayMap[name]) videoPayMap[name] = { amount:0, role };
+    videoPayMap[name].amount += Number(amount||0);
+  }
+  monthVideoSales.forEach(s => {
+    _addVP('Au',              s.payout_au,          'developer');
+    _addVP(s.project_owner,   s.payout_owner,       'owner');
+    _addVP(s.coordinator,     s.payout_coordinator, 'coordinator');
+    _addVP(s.influencer_name, s.payout_influencer,  'influencer');
+    _addVP(s.streamer_name,   s.payout_streamer,    'streamer');
+  });
+  const videoPlatformFees = monthVideoSales.reduce((s,x)=>s+Number(x.platform_fee||0)+Number(x.card_fee||0),0);
+  const totalVideoPayouts = Object.values(videoPayMap).reduce((s,v)=>s+v.amount,0);
+
   // ── Per-tutor breakdown ──────────────────────────────────
   const tutorBreakdown = DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
     const sessions = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
@@ -7896,6 +7920,7 @@ function showMonthlySummary() {
           ['Total WHT 3%','ภาษีหัก ณ ที่จ่าย 3%', totalWHT, '#E24B4A'],
           ['Net to school','รายได้สุทธิ', netSchool, netSchool >= 0 ? '#1D9E75' : '#E24B4A'],
           ['Sessions taught','คาบที่สอน', monthSessions.length, '#333'],
+          ...(videoGross>0?[['Video gross sales','ยอดขายวิดีโอรวม', videoGross, '#1D9E75'],['Video net to school','วิดีโอสุทธิโรงเรียน', videoNet, videoNet>=0?'#1D9E75':'#E24B4A']]:[]),
         ].map(([en,th,val,color])=>`
           <div style="background:#f7f6f3;border-radius:10px;padding:12px 14px">
             <div style="font-size:10px;color:#888;text-transform:uppercase">${lang==='th'?th:en}</div>
@@ -7941,6 +7966,43 @@ function showMonthlySummary() {
         </tr></tfoot>
       </table>
 
+      <!-- Video course payouts section (only shown if there are video sales) -->
+      ${monthVideoSales.length ? `
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">Video course payouts (${monthVideoSales.length} sale${monthVideoSales.length!==1?'s':''})</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
+        <thead><tr style="border-bottom:2px solid #eee">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">RECIPIENT</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">ROLE</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">GROSS</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">WHT 3%</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">NET</th>
+        </tr></thead>
+        <tbody>
+          ${Object.entries(videoPayMap).map(([name,{amount,role}])=>{
+            const wht=Math.round(amount*0.03*100)/100;
+            const net=amount-wht;
+            return `<tr style="border-bottom:1px solid #eee">
+              <td style="padding:8px 10px;font-weight:500">${name}</td>
+              <td style="padding:8px 10px;font-size:11px;color:#888">${role}</td>
+              <td style="padding:8px 10px;text-align:right">฿${fmt(amount)}</td>
+              <td style="padding:8px 10px;text-align:right;color:#E24B4A">฿${fmt(wht)}</td>
+              <td style="padding:8px 10px;text-align:right;color:#1D9E75;font-weight:500">฿${fmt(net)}</td>
+            </tr>`;
+          }).join('')}
+          ${videoPlatformFees>0?`<tr style="border-bottom:1px solid #eee">
+            <td style="padding:8px 10px;color:#888" colspan="2">Platform / card fees (to TikTok)</td>
+            <td style="padding:8px 10px;text-align:right;color:#888">฿${fmt(videoPlatformFees)}</td>
+            <td colspan="2"></td>
+          </tr>`:''}
+        </tbody>
+        <tfoot><tr style="border-top:2px solid #eee;font-weight:600;background:#f7f6f3">
+          <td style="padding:8px 10px" colspan="2">Total payouts + fees</td>
+          <td style="padding:8px 10px;text-align:right">฿${fmt(totalVideoPayouts+videoPlatformFees)}</td>
+          <td style="padding:8px 10px;text-align:right;color:#E24B4A">฿${fmt(Object.values(videoPayMap).reduce((s,v)=>s+Math.round(v.amount*0.03*100)/100,0))}</td>
+          <td style="padding:8px 10px;text-align:right;color:#1D9E75">฿${fmt(videoNet)}</td>
+        </tr></tfoot>
+      </table>` : ''}
+
       <!-- Other Income breakdown -->
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">${lang==='th'?'รายได้อื่น':'Other income'}</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
@@ -7964,7 +8026,8 @@ function showMonthlySummary() {
   document.body.appendChild(modal);
   modal._summaryData = { monthStr, totalRevenue, totalTutorPay, totalCommission,
     totalExpenses, schoolRemainder, profitShare, totalWHT, netSchool,
-    tutorBreakdown, commBreakdown, monthSessions, otherIncomeMonth, totalOtherIncome };
+    tutorBreakdown, commBreakdown, monthSessions, otherIncomeMonth, totalOtherIncome,
+    videoGross, videoNet, videoPayMap, monthVideoSales, videoPlatformFees };
 }
 
 function downloadMonthlySummaryPDF() {
