@@ -6259,11 +6259,13 @@ function renderExpenses() {
   const schoolRem    = schoolRemRaw + accShare;   // ฿1,000 contribution from AJ. Steven (Jun 2026+)
   const gap          = totalMonth - schoolRem;
   const ppopShare    = Math.max(0, schoolRem - totalMonth) * 0.2;
+  const whtOnExp     = monthExpenses.reduce((s,e)=>{ return /rent/i.test(e.item_name||'')?s:s+Math.round(Number(e.amount||0)*0.03*100)/100; }, 0);
 
   document.getElementById('expenses-metrics').innerHTML = `
     <div class="metric"><div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่รวม':'Total fixed expenses'}</div><div class="metric-value">฿${fmt(totalMonth)}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'คงเหลือโรงเรียน (จริง)':'School remainder (realized)'}</div><div class="metric-value">฿${fmt(schoolRem)}</div>${accShare>0?`<div style="font-size:10px;color:var(--text3);margin-top:3px">+ ฿${fmt(accShare)} ${lang==='th'?'จาก AJ. Steven':'from AJ. Steven'}</div>`:''}</div>
     <div class="metric ${gap>0?'gap-bad':'gap-good'}"><div class="metric-label">${gap>0?(lang==='th'?'ยอดที่ยังขาด':'Gap remaining'):(lang==='th'?'ครอบคลุมแล้ว':'Fully covered')}</div><div class="metric-value">${gap>0?'฿'+fmt(gap):'฿'+fmt(Math.abs(gap))}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'WHT 3% (เงินเดือน/ค่าบริการ)':'WHT 3% (salaries / fees)'}</div><div class="metric-value" style="color:var(--red)">฿${fmt(whtOnExp)}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${lang==='th'?'ไม่รวมค่าเช่า':'Rent excluded'}</div></div>
     <div class="metric"><div class="metric-label">${lang==='th'?'แบ่งกำไร 20% (AJ. Pop)':'20% profit share (AJ. Pop)'}</div><div class="metric-value">฿${fmt(ppopShare)}</div></div>
   `;
 }
@@ -8210,6 +8212,49 @@ function showMonthlySummary() {
         </tr></tfoot>
       </table>` : ''}
 
+      <!-- Fixed Expenses breakdown with WHT 3% -->
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">${lang==='th'?'ค่าใช้จ่ายคงที่':'Fixed expenses'}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:6px">
+        <thead><tr style="border-bottom:2px solid #eee">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">${lang==='th'?'รายการ':'ITEM'}</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">${lang==='th'?'จำนวน':'AMOUNT'}</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">WHT 3%</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">${lang==='th'?'โอนสุทธิ':'NET TRANSFER'}</th>
+        </tr></thead>
+        <tbody>${(()=>{
+          const isRent = n => /rent/i.test(n||'');
+          const isAcct = n => /accountant/i.test(n||'');
+          return monthExpenses.map(e => {
+            const amt  = Number(e.amount||0);
+            const rent = isRent(e.item_name);
+            const wht  = rent ? 0 : Math.round(amt*0.03*100)/100;
+            const net  = amt - wht;
+            const acct = isAcct(e.item_name) && msAccShare > 0;
+            const nameCell = acct
+              ? `${e.item_name||'—'} <span style="font-size:10px;color:#888">(฿${fmt(amt)} + ฿${fmt(msAccShare)} AJ. Steven = ฿${fmt(amt+msAccShare)})</span>`
+              : (e.item_name||'—');
+            return `<tr style="border-bottom:1px solid #eee">
+              <td style="padding:8px 10px;font-weight:500">${nameCell}</td>
+              <td style="padding:8px 10px;text-align:right">฿${fmt(amt)}</td>
+              <td style="padding:8px 10px;text-align:right;color:${rent?'#aaa':'#E24B4A'}">${rent?'—':'฿'+fmt(wht)}</td>
+              <td style="padding:8px 10px;text-align:right;font-weight:500">฿${fmt(net)}</td>
+            </tr>`;
+          }).join('');
+        })()}</tbody>
+        <tfoot><tr style="border-top:2px solid #eee;font-weight:600;background:#f7f6f3">
+          ${(()=>{
+            const isRent = n => /rent/i.test(n||'');
+            const totalWHTExp = monthExpenses.reduce((s,e)=>{ return isRent(e.item_name)?s:s+Math.round(Number(e.amount||0)*0.03*100)/100; },0);
+            const totalNetExp = monthExpenses.reduce((s,e)=>{ const amt=Number(e.amount||0); return s+(isRent(e.item_name)?amt:amt-Math.round(amt*0.03*100)/100); },0);
+            return `<td style="padding:8px 10px">Total</td>
+              <td style="padding:8px 10px;text-align:right">฿${fmt(totalExpenses)}</td>
+              <td style="padding:8px 10px;text-align:right;color:#E24B4A">฿${fmt(totalWHTExp)}</td>
+              <td style="padding:8px 10px;text-align:right">฿${fmt(totalNetExp)}</td>`;
+          })()}
+        </tr></tfoot>
+      </table>
+      <div style="font-size:10px;color:#aaa;margin-bottom:20px">WHT 3% applies to salaries and professional fees only — rent excluded.</div>
+
       <!-- Other Income breakdown -->
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">${lang==='th'?'รายได้อื่น':'Other income'}</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
@@ -8466,7 +8511,7 @@ function downloadMonthlySummaryExcel() {
     '',
     toCSVRow(['FIXED EXPENSES']),
     toCSVRow(['Item','Amount']),
-    ...DATA.expenses.map(e => toCSVRow([e.item_name||e.item||'', Number(e.amount||0)])),
+    ...DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).map(e => toCSVRow([e.item_name||e.item||'', Number(e.amount||0)])),
   ];
 
   const csv = [
@@ -8554,7 +8599,7 @@ function copyMonthlySummaryTable() {
   lines.push('');
   lines.push('FIXED EXPENSES');
   lines.push(tab('Item','Amount'));
-  DATA.expenses.forEach(function(e) { lines.push(tab(e.item_name||e.item||'', '\u0e3f'+fmt(e.amount))); });
+  DATA.expenses.filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; }).forEach(function(e) { lines.push(tab(e.item_name||e.item||'', '\u0e3f'+fmt(e.amount))); });
 
   // Other Income
   var otherIncomeMonthCP = (DATA.otherIncome||[]).filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; });
@@ -9874,7 +9919,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.7';
+  const cacheVersion = '3.8';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
