@@ -1629,6 +1629,115 @@ function getAccountantShare(monthStr) {
   return (monthStr && monthStr >= ACCOUNTANT_SHARE_FROM_MO) ? ACCOUNTANT_SHARE_AMOUNT : 0;
 }
 
+// ─── VIDEO COURSE SALES — TIER COUNTER & PAYOUT CALCULATOR (Phase 15) ───
+// Tier 1 = first 20 active sales per project_owner per month; tier 2 = 21+.
+// Counters reset every month and are tracked separately per person.
+// Voided sales do NOT count toward the tier threshold.
+const VIDEO_TIER_THRESHOLD = 20;
+
+// How many active sales has this project_owner closed in this month so far?
+function getVideoSalesCount(projectOwner, monthStr) {
+  if (!projectOwner || !monthStr) return 0;
+  return (DATA.videoSales || []).filter(s =>
+    s.project_owner === projectOwner &&
+    s.status === 'Active' &&
+    (s.month || '').startsWith(monthStr)
+  ).length;
+}
+
+// What tier will the NEXT sale fall into for this owner in this month?
+// (Used when entering a new sale — tier_used gets locked in at entry time.)
+function getVideoTierForNextSale(projectOwner, monthStr) {
+  const count = getVideoSalesCount(projectOwner, monthStr);
+  return (count + 1 <= VIDEO_TIER_THRESHOLD) ? 1 : 2;
+}
+
+// Look up a channel config row by channel_id (e.g. 'TIKTOK_STD')
+function getVideoConfigByChannel(channelId) {
+  return (DATA.videoConfig || []).find(c => c.channel_id === channelId);
+}
+
+// Calculate every payout figure for a single sale.
+// Input:  { channel_id, price_per_unit, quantity, tier }
+// Output: { gross, payout_owner, payout_au, payout_coordinator,
+//           payout_influencer, payout_streamer, platform_fee, card_fee,
+//           net_to_school }   — all rounded to 2 decimals
+//
+// Rules:
+//   - Flat baht amounts (owner/au/coordinator/platform_fee/card_fee/flat-influencer/flat-streamer)
+//     are PER UNIT and multiplied by quantity.
+//   - Percentage amounts (influencer/streamer with mode='pct') are % of GROSS,
+//     so they naturally scale with quantity.
+//   - Returns { error: ... } if the channel_id is unknown.
+function calculateVideoPayout(input) {
+  const { channel_id, price_per_unit, quantity, tier } = input || {};
+  const config = getVideoConfigByChannel(channel_id);
+  if (!config) return { error: 'Unknown channel: ' + channel_id };
+
+  const qty   = Number(quantity || 1);
+  const price = Number(price_per_unit !== undefined && price_per_unit !== '' && price_per_unit !== null
+                        ? price_per_unit
+                        : (config.price_default || 0));
+  const gross = price * qty;
+  const t     = (Number(tier) === 2) ? 2 : 1;   // sanity-clamp to 1 or 2
+
+  // Flash price rule — if this channel has a flash_price_threshold AND
+  // the sale price is strictly below it, switch owner + au to % of gross.
+  // Platform fee, influencer %, and all other fields still apply normally.
+  const flashThreshold = Number(config.flash_price_threshold) || 0;
+  const isFlash        = flashThreshold > 0 && price < flashThreshold;
+
+  // Tier-dependent flat per-unit amounts (overridden to % if flash)
+  const owner_unit = Number(t === 1 ? config.owner_t1 : config.owner_t2) || 0;
+  const au_unit    = Number(t === 1 ? config.au_t1    : config.au_t2)    || 0;
+  const platFee_u  = Number(t === 1 ? config.platform_fee_t1 : config.platform_fee_t2) || 0;
+
+  const payout_owner = isFlash
+    ? gross * ((Number(config.flash_owner_pct) || 0) / 100)
+    : owner_unit * qty;
+  const payout_au = isFlash
+    ? gross * ((Number(config.flash_au_pct) || 0) / 100)
+    : au_unit * qty;
+  const platform_fee       = platFee_u  * qty;
+  const payout_coordinator = (Number(config.coordinator) || 0) * qty;
+
+  // Influencer payout — pct of gross OR flat per unit
+  let payout_influencer = 0;
+  const infMode  = String(config.influencer_mode || '').toLowerCase();
+  const infValue = Number(config.influencer_value) || 0;
+  if      (infMode === 'pct')  payout_influencer = gross * (infValue / 100);
+  else if (infMode === 'flat') payout_influencer = infValue * qty;
+
+  // Streamer payout — same rules as influencer
+  let payout_streamer = 0;
+  const strMode  = String(config.streamer_mode || '').toLowerCase();
+  const strValue = Number(config.streamer_value) || 0;
+  if      (strMode === 'pct')  payout_streamer = gross * (strValue / 100);
+  else if (strMode === 'flat') payout_streamer = strValue * qty;
+
+  // Card fee — flat per unit (Direct Influencer + Walk-In = 105)
+  const card_fee = (Number(config.card_fee) || 0) * qty;
+
+  // Net to school
+  const net_to_school = gross
+    - payout_owner - payout_au - payout_coordinator
+    - payout_influencer - payout_streamer
+    - platform_fee - card_fee;
+
+  const r2 = v => Math.round(v * 100) / 100;
+  return {
+    gross:              r2(gross),
+    payout_owner:       r2(payout_owner),
+    payout_au:          r2(payout_au),
+    payout_coordinator: r2(payout_coordinator),
+    payout_influencer:  r2(payout_influencer),
+    payout_streamer:    r2(payout_streamer),
+    platform_fee:       r2(platform_fee),
+    card_fee:           r2(card_fee),
+    net_to_school:      r2(net_to_school),
+  };
+}
+
 // ─── MONTH HELPERS ────────────────────────────────────────
 function getCurrentMonthStr() {
   const now = new Date();
