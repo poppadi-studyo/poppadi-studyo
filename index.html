@@ -290,6 +290,11 @@
     align-items: center;
     justify-content: space-between;
   }
+  .field-label {
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 4px;
+  }
 
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
@@ -734,6 +739,11 @@
       <button class="nav-item" onclick="showPage('otherincome', this)">
         <span class="nav-icon">◑</span>
         <span data-en="Other income" data-th="รายได้อื่น">Other income</span>
+      </button>
+      <button class="nav-item" onclick="showPage('videosales', this)">
+        <span class="nav-icon">▶</span>
+        <span data-en="Video sales" data-th="ยอดขายวิดีโอ">Video sales</span>
+        <span id="nav-video-badge" style="display:none;margin-left:auto;background:var(--teal);color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center"></span>
       </button>
       <button class="nav-item" onclick="showPage('enroll', this)">
         <span class="nav-icon">+</span>
@@ -1252,6 +1262,132 @@
 
         <div>
           <div class="metrics" style="grid-template-columns:1fr;gap:12px" id="otherincome-metrics"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- VIDEO SALES -->
+    <div class="page" id="page-videosales">
+      <div class="page-header">
+        <div>
+          <div class="page-title" data-en="Video sales" data-th="ยอดขายวิดีโอ">Video sales</div>
+          <div class="page-sub" data-en="Record and track video course sales across all channels" data-th="บันทึกและติดตามยอดขายวิดีโอคอร์สทุกช่องทาง">Record and track video course sales across all channels</div>
+        </div>
+      </div>
+      <div class="two-col">
+
+        <!-- LEFT: entry form + recent sales -->
+        <div>
+          <div class="card">
+            <div class="card-title" data-en="New sale" data-th="บันทึกยอดขายใหม่">New sale</div>
+
+            <!-- Row 1: Channel + Date -->
+            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+              <div style="flex:2;min-width:160px">
+                <div class="field-label" data-en="Channel" data-th="ช่องทาง">Channel</div>
+                <select id="vs-channel" onchange="onVideoChannelChange()" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;background:var(--surface);font-family:'DM Sans',sans-serif">
+                  <option value="">— select channel —</option>
+                </select>
+              </div>
+              <div style="flex:1;min-width:130px">
+                <div class="field-label" data-en="Date" data-th="วันที่">Date</div>
+                <input type="date" id="vs-date" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+              </div>
+            </div>
+
+            <!-- Row 2: Price + Quantity -->
+            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+              <div style="flex:1;min-width:130px" id="vs-price-wrap">
+                <div class="field-label" data-en="Sale price (฿)" data-th="ราคาขาย (฿)">Sale price (฿)</div>
+                <input type="number" id="vs-price" oninput="updateVideoPreview()" placeholder="฿" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+                <div id="vs-price-hint" style="font-size:10px;color:var(--text3);margin-top:3px"></div>
+              </div>
+              <div style="width:90px">
+                <div class="field-label" data-en="Qty" data-th="จำนวน">Qty</div>
+                <input type="number" id="vs-qty" value="1" min="1" oninput="updateVideoPreview()" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+              </div>
+            </div>
+
+            <!-- Row 3: Project Owner -->
+            <div style="margin-bottom:10px">
+              <div class="field-label" data-en="Project owner" data-th="เจ้าของโปรเจกต์">Project owner</div>
+              <div style="display:flex;gap:10px">
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                  <input type="radio" name="vs-owner" value="Jane" onchange="updateVideoPreview()"> Jane
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                  <input type="radio" name="vs-owner" value="Eye" onchange="updateVideoPreview()"> Eye
+                </label>
+              </div>
+              <div id="vs-tier-badge" style="margin-top:5px;font-size:11px;color:var(--text3)"></div>
+            </div>
+
+            <!-- Row 4: Influencer (TIKTOK_STD, DIRECT_INF only) -->
+            <div style="margin-bottom:10px;display:none" id="vs-influencer-wrap">
+              <div class="field-label" data-en="Influencer name" data-th="ชื่ออินฟลูเอนเซอร์">Influencer name</div>
+              <input type="text" id="vs-influencer" list="vs-influencer-list" oninput="updateVideoPreview()" placeholder="e.g. @username" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+              <datalist id="vs-influencer-list"></datalist>
+            </div>
+
+            <!-- Row 5: Streamer (TT+Live only) -->
+            <div style="margin-bottom:10px;display:none" id="vs-streamer-wrap">
+              <div class="field-label" data-en="Streamer name" data-th="ชื่อสตรีมเมอร์">Streamer name</div>
+              <input type="text" id="vs-streamer" list="vs-streamer-list" oninput="updateVideoPreview()" placeholder="e.g. @username" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+              <datalist id="vs-streamer-list"></datalist>
+            </div>
+
+            <!-- Row 6: Coordinator (TEAM_REF — auto Jane, read-only) -->
+            <div style="margin-bottom:10px;display:none" id="vs-coord-wrap">
+              <div class="field-label" data-en="Coordinator" data-th="ผู้ประสานงาน">Coordinator</div>
+              <input type="text" value="Jane" readonly style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;background:var(--surface2);color:var(--text2);font-family:'DM Sans',sans-serif">
+            </div>
+
+            <!-- Row 7: Notes -->
+            <div style="margin-bottom:14px">
+              <div class="field-label" data-en="Notes (optional)" data-th="หมายเหตุ (ถ้ามี)">Notes (optional)</div>
+              <input type="text" id="vs-notes" placeholder="e.g. student name, promo code..." style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif">
+            </div>
+
+            <!-- Live payout preview -->
+            <div id="vs-preview" style="display:none;margin-bottom:14px;background:var(--surface2);border-radius:10px;padding:12px 14px;font-size:12px">
+              <div style="font-weight:600;margin-bottom:8px;font-size:13px" data-en="Payout preview" data-th="ตัวอย่างค่าตอบแทน">Payout preview</div>
+              <div id="vs-preview-body"></div>
+            </div>
+
+            <!-- Save button + status -->
+            <div style="display:flex;align-items:center;gap:10px">
+              <button class="btn btn-primary" id="vs-save-btn" onclick="saveVideoSale(this)" data-en="Save sale" data-th="บันทึกยอดขาย">Save sale</button>
+              <div id="vs-save-status" style="font-size:12px;color:var(--text3)"></div>
+            </div>
+          </div>
+
+          <!-- Recent sales list -->
+          <div class="card" style="margin-top:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div class="card-title" style="margin:0" data-en="Recent sales" data-th="ยอดขายล่าสุด">Recent sales</div>
+              <select id="vs-month" onchange="renderVideoSales()" style="font-size:12px;padding:5px 8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);font-family:'DM Sans',sans-serif"></select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr>
+                  <th data-en="Date" data-th="วันที่">Date</th>
+                  <th data-en="Channel" data-th="ช่องทาง">Channel</th>
+                  <th data-en="Price" data-th="ราคา">Price</th>
+                  <th data-en="Owner" data-th="เจ้าของ">Owner</th>
+                  <th data-en="Net" data-th="สุทธิ">Net</th>
+                  <th data-en="Status" data-th="สถานะ">Status</th>
+                  <th></th>
+                </tr></thead>
+                <tbody id="vs-list-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: metrics -->
+        <div>
+          <div class="metrics" style="grid-template-columns:1fr;gap:12px" id="vs-metrics"></div>
         </div>
       </div>
     </div>
@@ -1937,7 +2073,7 @@ function renderAll() {
   // Each renderer is isolated — one failure won't block the others or freeze the spinner
   const renderers = [
     renderOverview, renderSchedule, renderMakeupQueue,
-    renderTutors, renderStudents, renderExpenses, renderOtherIncome
+    renderTutors, renderStudents, renderExpenses, renderOtherIncome, renderVideoSales
   ];
   renderers.forEach(fn => {
     try { fn(); } catch(e) { console.warn('renderAll: ' + fn.name + ' failed —', e.message); }
@@ -6043,6 +6179,302 @@ function renderExpensesHistory() {
 
 // (Dead sync addExpense removed — async version below is the real handler)
 
+
+// ─── VIDEO SALES (Phase 15) ──────────────────────────────
+function renderVideoSales() {
+  _populateVideoMonthPicker();
+  _populateVideoChannelDropdown();
+  _populateVideoDataLists();
+
+  const monthSel = document.getElementById('vs-month');
+  const month    = monthSel ? monthSel.value : selectedMonth;
+  const sales    = (DATA.videoSales || []).filter(s => (s.month || '').startsWith(month));
+  const active   = sales.filter(s => s.status !== 'Voided');
+
+  // Metrics
+  const grossTotal  = active.reduce((s,r) => s + Number(r.gross          || 0), 0);
+  const netTotal    = active.reduce((s,r) => s + Number(r.net_to_school  || 0), 0);
+  const janeCount   = getVideoSalesCount('Jane', month);
+  const eyeCount    = getVideoSalesCount('Eye',  month);
+  const janeNextT   = getVideoTierForNextSale('Jane', month);
+  const eyeNextT    = getVideoTierForNextSale('Eye',  month);
+
+  const mLabel = (getMonthOptions().find(o => o.val === month) || {});
+  const mText  = lang === 'th' ? (mLabel.labelTh || month) : (mLabel.label || month);
+
+  document.getElementById('vs-metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">${lang==='th'?'ยอดขายรวมเดือนนี้':'Gross sales — '+mText}</div><div class="metric-value">฿${fmt(grossTotal)}</div><div class="metric-sub">${active.length} ${lang==='th'?'รายการ':'sales'}</div></div>
+    <div class="metric"><div class="metric-label">${lang==='th'?'สุทธิโรงเรียน':'Net to school'}</div><div class="metric-value ${netTotal<0?'val-neg':''}" style="${netTotal<0?'color:var(--red)':''}">฿${fmt(netTotal)}</div></div>
+    <div class="metric"><div class="metric-label">Jane — ${lang==='th'?'เทียร์ปัจจุบัน':'tier this month'}</div><div class="metric-value" style="font-size:22px">T${janeNextT>1&&janeCount>=VIDEO_TIER_THRESHOLD?2:1}</div><div class="metric-sub">${janeCount}/${VIDEO_TIER_THRESHOLD} ${lang==='th'?'รายการ':'sales'}</div></div>
+    <div class="metric"><div class="metric-label">Eye — ${lang==='th'?'เทียร์ปัจจุบัน':'tier this month'}</div><div class="metric-value" style="font-size:22px">T${eyeNextT>1&&eyeCount>=VIDEO_TIER_THRESHOLD?2:1}</div><div class="metric-sub">${eyeCount}/${VIDEO_TIER_THRESHOLD} ${lang==='th'?'รายการ':'sales'}</div></div>
+  `;
+
+  // Update nav badge
+  const badge = document.getElementById('nav-video-badge');
+  if (badge) { badge.textContent = active.length; badge.style.display = active.length ? '' : 'none'; }
+
+  // Default today's date
+  const dateEl = document.getElementById('vs-date');
+  if (dateEl && !dateEl.value) {
+    const now = new Date();
+    dateEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  }
+
+  // Sales list
+  const body = document.getElementById('vs-list-body');
+  if (!body) return;
+  if (!sales.length) {
+    body.innerHTML = `<tr><td colspan="7" class="empty">${lang==='th'?'ยังไม่มีรายการ':'No sales this month'}</td></tr>`;
+    return;
+  }
+  const sorted = [...sales].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  body.innerHTML = sorted.map(s => {
+    const cfg    = getVideoConfigByChannel(s.channel);
+    const label  = cfg ? cfg.channel_label : (s.channel || '—');
+    const isVoid = s.status === 'Voided';
+    const canVoid = !isVoid && _videoSaleEditable(s);
+    return `<tr style="${isVoid?'opacity:.45;text-decoration:line-through':''}">
+      <td>${s.date || '—'}</td>
+      <td style="font-size:11px">${label}</td>
+      <td>฿${fmt(s.gross)}</td>
+      <td style="font-size:11px">${s.project_owner||'—'}</td>
+      <td style="color:${Number(s.net_to_school)<0?'var(--red)':'inherit'}">฿${fmt(s.net_to_school)}</td>
+      <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${isVoid?'var(--surface2)':'var(--teal-light, #e6f7f5)'};color:${isVoid?'var(--text3)':'var(--teal)'}">${isVoid?(lang==='th'?'ยกเลิก':'Voided'):(lang==='th'?'ใช้งาน':'Active')}</span></td>
+      <td>${canVoid?`<button onclick="voidVideoSale('${s.sale_id}',this)" style="font-size:11px;padding:2px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text2)">${lang==='th'?'ยกเลิก':'Void'}</button>`:'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function _populateVideoMonthPicker() {
+  const sel = document.getElementById('vs-month');
+  if (!sel || sel.options.length) return;
+  getMonthOptions().forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.val; opt.textContent = lang === 'th' ? o.labelTh : o.label;
+    if (o.val === selectedMonth) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function _populateVideoChannelDropdown() {
+  const sel = document.getElementById('vs-channel');
+  if (!sel || sel.options.length > 1) return; // already populated
+  (DATA.videoConfig || []).filter(c => c.active === 'TRUE' || c.active === true).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.channel_id; opt.textContent = c.channel_label;
+    sel.appendChild(opt);
+  });
+}
+
+function _populateVideoDataLists() {
+  const infNames = [...new Set((DATA.videoSales||[]).map(s=>s.influencer_name).filter(Boolean))];
+  const strNames = [...new Set((DATA.videoSales||[]).map(s=>s.streamer_name).filter(Boolean))];
+  const infList  = document.getElementById('vs-influencer-list');
+  const strList  = document.getElementById('vs-streamer-list');
+  if (infList) infList.innerHTML = infNames.map(n=>`<option value="${n}">`).join('');
+  if (strList) strList.innerHTML = strNames.map(n=>`<option value="${n}">`).join('');
+}
+
+function _videoSaleEditable(sale) {
+  // Editable until 11th of next month (mirrors Sessions month-lock)
+  if (!sale.month) return true;
+  const saleMonth = (sale.month||'').slice(0,7); // YYYY-MM
+  const [y,m]     = saleMonth.split('-').map(Number);
+  const cutoff    = new Date(y, m, 11); // 11th of NEXT month (month index m = next month since 0-indexed)
+  return Date.now() < cutoff.getTime();
+}
+
+function onVideoChannelChange() {
+  const chId  = (document.getElementById('vs-channel') || {}).value || '';
+  const cfg   = getVideoConfigByChannel(chId);
+
+  // Show/hide influencer
+  const infWrap = document.getElementById('vs-influencer-wrap');
+  if (infWrap) infWrap.style.display = (chId==='TIKTOK_STD'||chId==='DIRECT_INF') ? '' : 'none';
+
+  // Show/hide streamer
+  const strWrap = document.getElementById('vs-streamer-wrap');
+  if (strWrap) strWrap.style.display = (chId==='TT_LIVE_3500'||chId==='TT_LIVE_2500'||chId==='TT_LIVE_2000') ? '' : 'none';
+
+  // Show/hide coordinator (Team Referral only)
+  const coordWrap = document.getElementById('vs-coord-wrap');
+  if (coordWrap) coordWrap.style.display = chId === 'TEAM_REF' ? '' : 'none';
+
+  // Price field: fixed for TT+Live, variable for others
+  const priceWrap = document.getElementById('vs-price-wrap');
+  const priceEl   = document.getElementById('vs-price');
+  const priceHint = document.getElementById('vs-price-hint');
+  const hasDefault = cfg && cfg.price_default && Number(cfg.price_default) > 0;
+  if (priceEl) {
+    if (hasDefault) {
+      priceEl.value    = cfg.price_default;
+      priceEl.readOnly = true;
+      priceEl.style.background = 'var(--surface2)';
+      priceEl.style.color      = 'var(--text2)';
+      if (priceHint) priceHint.textContent = lang==='th'?'ราคาคงที่สำหรับช่องทางนี้':'Fixed price for this channel';
+    } else {
+      priceEl.readOnly = false;
+      priceEl.style.background = '';
+      priceEl.style.color      = '';
+      if (priceHint) priceHint.textContent = cfg && Number(cfg.flash_price_threshold)>0
+        ? `฿${fmt(cfg.flash_price_threshold)}+ = flat pay · below = % of gross`
+        : '';
+    }
+  }
+  updateVideoPreview();
+}
+
+function updateVideoPreview() {
+  const chId    = (document.getElementById('vs-channel')  || {}).value || '';
+  const price   = (document.getElementById('vs-price')    || {}).value;
+  const qty     = (document.getElementById('vs-qty')      || {}).value || 1;
+  const owner   = document.querySelector('input[name="vs-owner"]:checked');
+  const preview = document.getElementById('vs-preview');
+  const body    = document.getElementById('vs-preview-body');
+  const tierBadge = document.getElementById('vs-tier-badge');
+
+  if (!chId || !price || !owner) {
+    if (preview) preview.style.display = 'none';
+    if (tierBadge) tierBadge.textContent = '';
+    return;
+  }
+
+  const ownerName = owner.value;
+  const tier      = getVideoTierForNextSale(ownerName, selectedMonth);
+  const count     = getVideoSalesCount(ownerName, selectedMonth);
+  if (tierBadge) tierBadge.textContent = `${ownerName}: T${tier} (${count}/${VIDEO_TIER_THRESHOLD} this month)`;
+
+  const result = calculateVideoPayout({ channel_id:chId, price_per_unit:price, quantity:qty, tier });
+  if (result.error) { if (preview) preview.style.display='none'; return; }
+
+  const rows = [
+    ['Gross', result.gross, false],
+    result.payout_owner       ? [`Owner (${ownerName})`,   result.payout_owner,       true] : null,
+    result.payout_au          ? ['Au',                      result.payout_au,          true] : null,
+    result.payout_coordinator ? ['Coordinator (Jane)',      result.payout_coordinator, true] : null,
+    result.payout_influencer  ? ['Influencer',              result.payout_influencer,  true] : null,
+    result.payout_streamer    ? ['Streamer',                result.payout_streamer,    true] : null,
+    result.platform_fee       ? ['Platform fee',            result.platform_fee,       true] : null,
+    result.card_fee           ? ['Card fee',                result.card_fee,           true] : null,
+    ['Net to school', result.net_to_school, false],
+  ].filter(Boolean);
+
+  const isFlash = result.isFlash;
+  body.innerHTML = rows.map(([label, val, isDeduction]) => `
+    <div style="display:flex;justify-content:space-between;padding:3px 0;${label==='Net to school'?'border-top:1px solid var(--border);margin-top:4px;padding-top:6px;font-weight:600':''}">
+      <div style="color:${isDeduction?'var(--text2)':'inherit'}">${label}${label.startsWith('Owner')&&isFlash?' <span style="font-size:10px;color:var(--text3)">(flash %)</span>':''}${label==='Au'&&isFlash?' <span style="font-size:10px;color:var(--text3)">(flash %)</span>':''}</div>
+      <div style="color:${isDeduction?'var(--text3)':val<0?'var(--red)':'inherit'}">${isDeduction?'−':''}฿${fmt(Math.abs(val))}</div>
+    </div>
+  `).join('');
+
+  preview.style.display = '';
+}
+
+async function saveVideoSale(btn) {
+  const chId    = (document.getElementById('vs-channel')  || {}).value || '';
+  const price   = (document.getElementById('vs-price')    || {}).value;
+  const qty     = Number((document.getElementById('vs-qty') || {}).value || 1);
+  const dateVal = (document.getElementById('vs-date')     || {}).value || '';
+  const owner   = document.querySelector('input[name="vs-owner"]:checked');
+  const notes   = (document.getElementById('vs-notes')    || {}).value || '';
+  const infName = (document.getElementById('vs-influencer')|| {}).value || '';
+  const strName = (document.getElementById('vs-streamer') || {}).value || '';
+  const status  = document.getElementById('vs-save-status');
+
+  if (!chId)    { if(status) status.textContent = lang==='th'?'กรุณาเลือกช่องทาง':'Please select a channel'; return; }
+  if (!price)   { if(status) status.textContent = lang==='th'?'กรุณากรอกราคา':'Please enter a price'; return; }
+  if (!owner)   { if(status) status.textContent = lang==='th'?'กรุณาเลือกเจ้าของโปรเจกต์':'Please select a project owner'; return; }
+  if (!dateVal) { if(status) status.textContent = lang==='th'?'กรุณาเลือกวันที่':'Please select a date'; return; }
+
+  const tier   = getVideoTierForNextSale(owner.value, selectedMonth);
+  const result = calculateVideoPayout({ channel_id:chId, price_per_unit:price, quantity:qty, tier });
+  if (result.error) { if(status) status.textContent = result.error; return; }
+
+  const cfg        = getVideoConfigByChannel(chId);
+  const enteredBy  = currentUser?.name || currentUser?.email || 'Unknown';
+  const monthStr   = dateVal.slice(0, 7);
+  const coordinator = chId === 'TEAM_REF' ? 'Jane' : '';
+
+  const payload = {
+    date:                dateVal,
+    channel:             chId,
+    price_per_unit:      Number(price),
+    quantity:            qty,
+    gross:               result.gross,
+    project_owner:       owner.value,
+    coordinator,
+    influencer_name:     infName,
+    streamer_name:       strName,
+    platform_fee:        result.platform_fee,
+    card_fee:            result.card_fee,
+    payout_owner:        result.payout_owner,
+    payout_coordinator:  result.payout_coordinator,
+    payout_au:           result.payout_au,
+    payout_influencer:   result.payout_influencer,
+    payout_streamer:     result.payout_streamer,
+    net_to_school:       result.net_to_school,
+    tier_used:           tier,
+    entered_by:          enteredBy,
+    month:               monthStr,
+    notes,
+  };
+
+  btn.disabled = true;
+  if (status) status.textContent = lang==='th'?'กำลังบันทึก...':'Saving...';
+
+  try {
+    const res = await webAppWrite('addVideoSale', payload);
+    if (res.success) {
+      if (status) status.textContent = `✅ ${lang==='th'?'บันทึกแล้ว':'Saved'} — ${res.sale_id}`;
+      _resetVideoForm();
+      await refreshData();
+      renderVideoSales();
+    } else {
+      if (status) status.textContent = '❌ ' + (res.error || 'Save failed');
+    }
+  } catch(e) {
+    if (status) status.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function _resetVideoForm() {
+  const chSel = document.getElementById('vs-channel');
+  if (chSel) chSel.value = '';
+  ['vs-price','vs-qty','vs-notes','vs-influencer','vs-streamer'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = id==='vs-qty'?'1':'';
+  });
+  document.querySelectorAll('input[name="vs-owner"]').forEach(r => r.checked = false);
+  ['vs-influencer-wrap','vs-streamer-wrap','vs-coord-wrap','vs-preview'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.style.display='none';
+  });
+  const priceEl = document.getElementById('vs-price');
+  if (priceEl) { priceEl.readOnly=false; priceEl.style.background=''; priceEl.style.color=''; }
+  const tierBadge = document.getElementById('vs-tier-badge');
+  if (tierBadge) tierBadge.textContent='';
+  const hint = document.getElementById('vs-price-hint');
+  if (hint) hint.textContent='';
+}
+
+async function voidVideoSale(saleId, btn) {
+  if (!confirm(lang==='th'?`ยืนยันการยกเลิก ${saleId}?`:`Void sale ${saleId}?`)) return;
+  btn.disabled = true;
+  try {
+    const res = await webAppWrite('voidVideoSale', { sale_id: saleId });
+    if (res.success) {
+      await refreshData();
+      renderVideoSales();
+    } else {
+      alert('Error: ' + (res.error || 'Void failed'));
+      btn.disabled = false;
+    }
+  } catch(e) {
+    alert('Error: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
 // ─── OTHER INCOME ─────────────────────────────────────────
 function renderOtherIncome() {
   // Populate month filter
@@ -8896,7 +9328,7 @@ function showApp() {
 function applyRoleUI() {
   const isTutor = currentRole === 'tutor';
   // Nav items: tutors see only Schedule and Makeup
-  const adminOnly = ['overview','tutors','students','expenses','otherincome','enroll','audit'];
+  const adminOnly = ['overview','tutors','students','expenses','otherincome','videosales','enroll','audit'];
   adminOnly.forEach(id => {
     const navBtn = document.querySelector(`.nav-item[onclick*="'${id}'"]`);
     if (navBtn) navBtn.style.display = isTutor ? 'none' : '';
