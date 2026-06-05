@@ -1310,7 +1310,7 @@
             </div>
 
             <!-- Row 3: Project Owner -->
-            <div style="margin-bottom:10px">
+            <div style="margin-bottom:10px" id="vs-owner-wrap">
               <div class="field-label" data-en="Project owner" data-th="เจ้าของโปรเจกต์">Project owner</div>
               <div style="display:flex;gap:10px">
                 <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
@@ -6296,9 +6296,19 @@ function onVideoChannelChange() {
   const strWrap = document.getElementById('vs-streamer-wrap');
   if (strWrap) strWrap.style.display = (chId==='TT_LIVE_3500'||chId==='TT_LIVE_2500'||chId==='TT_LIVE_2000') ? '' : 'none';
 
-  // Show/hide coordinator (Team Referral only)
+  // Show/hide Project owner vs Coordinator — mutually exclusive
+  // Team Referral: owner is locked to ฿0, show Coordinator (Jane) instead
+  const ownerWrap = document.getElementById('vs-owner-wrap');
   const coordWrap = document.getElementById('vs-coord-wrap');
-  if (coordWrap) coordWrap.style.display = chId === 'TEAM_REF' ? '' : 'none';
+  const isTeamRef = chId === 'TEAM_REF';
+  if (ownerWrap) ownerWrap.style.display = isTeamRef ? 'none' : '';
+  if (coordWrap) coordWrap.style.display = isTeamRef ? '' : 'none';
+  // On Team Referral: clear any owner selection so it doesn't affect payout calc
+  if (isTeamRef) {
+    document.querySelectorAll('input[name="vs-owner"]').forEach(r => r.checked = false);
+    const tierBadge = document.getElementById('vs-tier-badge');
+    if (tierBadge) tierBadge.textContent = '';
+  }
 
   // Price field: fixed for TT+Live, variable for others
   const priceWrap = document.getElementById('vs-price-wrap');
@@ -6333,16 +6343,17 @@ function updateVideoPreview() {
   const body    = document.getElementById('vs-preview-body');
   const tierBadge = document.getElementById('vs-tier-badge');
 
-  if (!chId || !price || !owner) {
+  const isTeamRef = chId === 'TEAM_REF';
+  if (!chId || !price || (!owner && !isTeamRef)) {
     if (preview) preview.style.display = 'none';
     if (tierBadge) tierBadge.textContent = '';
     return;
   }
 
-  const ownerName = owner.value;
-  const tier      = getVideoTierForNextSale(ownerName, selectedMonth);
-  const count     = getVideoSalesCount(ownerName, selectedMonth);
-  if (tierBadge) tierBadge.textContent = `${ownerName}: T${tier} (${count}/${VIDEO_TIER_THRESHOLD} this month)`;
+  const ownerName = isTeamRef ? '' : (owner ? owner.value : '');
+  const tier      = (isTeamRef || !ownerName) ? 1 : getVideoTierForNextSale(ownerName, selectedMonth);
+  const count     = ownerName ? getVideoSalesCount(ownerName, selectedMonth) : 0;
+  if (tierBadge) tierBadge.textContent = ownerName ? `${ownerName}: T${tier} (${count}/${VIDEO_TIER_THRESHOLD} this month)` : '';
 
   const result = calculateVideoPayout({ channel_id:chId, price_per_unit:price, quantity:qty, tier });
   if (result.error) { if (preview) preview.style.display='none'; return; }
@@ -6383,10 +6394,13 @@ async function saveVideoSale(btn) {
 
   if (!chId)    { if(status) status.textContent = lang==='th'?'กรุณาเลือกช่องทาง':'Please select a channel'; return; }
   if (!price)   { if(status) status.textContent = lang==='th'?'กรุณากรอกราคา':'Please enter a price'; return; }
-  if (!owner)   { if(status) status.textContent = lang==='th'?'กรุณาเลือกเจ้าของโปรเจกต์':'Please select a project owner'; return; }
   if (!dateVal) { if(status) status.textContent = lang==='th'?'กรุณาเลือกวันที่':'Please select a date'; return; }
+  // Team Referral has no project owner — coordinator (Jane) handles it
+  const isTeamRef = chId === 'TEAM_REF';
+  if (!isTeamRef && !owner) { if(status) status.textContent = lang==='th'?'กรุณาเลือกเจ้าของโปรเจกต์':'Please select a project owner'; return; }
 
-  const tier   = getVideoTierForNextSale(owner.value, selectedMonth);
+  const ownerName = isTeamRef ? '' : owner.value;
+  const tier      = isTeamRef ? 1 : getVideoTierForNextSale(ownerName, selectedMonth);
   const result = calculateVideoPayout({ channel_id:chId, price_per_unit:price, quantity:qty, tier });
   if (result.error) { if(status) status.textContent = result.error; return; }
 
@@ -6401,7 +6415,7 @@ async function saveVideoSale(btn) {
     price_per_unit:      Number(price),
     quantity:            qty,
     gross:               result.gross,
-    project_owner:       owner.value,
+    project_owner:       ownerName,
     coordinator,
     influencer_name:     infName,
     streamer_name:       strName,
@@ -6449,6 +6463,8 @@ function _resetVideoForm() {
   ['vs-influencer-wrap','vs-streamer-wrap','vs-coord-wrap','vs-preview'].forEach(id => {
     const el = document.getElementById(id); if(el) el.style.display='none';
   });
+  const ownerWrapR = document.getElementById('vs-owner-wrap');
+  if (ownerWrapR) ownerWrapR.style.display = '';  // always restore owner row on reset
   const priceEl = document.getElementById('vs-price');
   if (priceEl) { priceEl.readOnly=false; priceEl.style.background=''; priceEl.style.color=''; }
   const tierBadge = document.getElementById('vs-tier-badge');
