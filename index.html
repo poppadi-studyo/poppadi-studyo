@@ -6561,20 +6561,21 @@ function switchVideoTab(tab) {
   if (!onSales) renderVideoHistory();
 }
 
-// Build the list of people who appear in DATA.videoSales
+// Build the list of people for the history tab.
+// Au, Jane, Eye are always shown. Influencers/streamers appear once they have a sale.
 function _getVideoPeople() {
   const sales = DATA.videoSales || [];
-  const owners      = [...new Set(sales.map(s => s.project_owner).filter(Boolean))];
-  const coords      = [...new Set(sales.map(s => s.coordinator).filter(Boolean))];
+  const people = [];
+  // Fixed staff — always present
+  people.push({ name: 'Au',   role: 'developer',   field: 'payout_au' });
+  people.push({ name: 'Jane', role: 'owner',        field: 'payout_owner' });
+  people.push({ name: 'Eye',  role: 'owner',        field: 'payout_owner' });
+  // Jane also appears as coordinator on Team Referral sales — already covered above
+  // Dynamic: influencers + streamers from actual sales
   const influencers = [...new Set(sales.map(s => s.influencer_name).filter(Boolean))];
   const streamers   = [...new Set(sales.map(s => s.streamer_name).filter(Boolean))];
-  // Au is always present as a role
-  const people = [];
-  people.push({ name: 'Au', role: 'developer', field: 'payout_au' });
-  owners.forEach(n => { if (!people.find(p=>p.name===n)) people.push({ name: n, role: 'owner', field: 'payout_owner' }); });
-  coords.forEach(n => { if (!people.find(p=>p.name===n)) people.push({ name: n, role: 'coordinator', field: 'payout_coordinator' }); });
-  influencers.forEach(n => people.push({ name: n, role: 'influencer', field: 'payout_influencer' }));
-  streamers.forEach(n => people.push({ name: n, role: 'streamer', field: 'payout_streamer' }));
+  influencers.forEach(n => { if (!people.find(p=>p.name===n)) people.push({ name: n, role: 'influencer', field: 'payout_influencer' }); });
+  streamers.forEach(n =>   { if (!people.find(p=>p.name===n)) people.push({ name: n, role: 'streamer',   field: 'payout_streamer'   }); });
   return people;
 }
 
@@ -6633,9 +6634,14 @@ function _renderVideoHistoryTable(personName, people) {
   function getEarnings(sale, p) {
     if (p.role === 'influencer') return sale.influencer_name === p.name ? Number(sale.payout_influencer || 0) : 0;
     if (p.role === 'streamer')   return sale.streamer_name   === p.name ? Number(sale.payout_streamer   || 0) : 0;
-    if (p.role === 'owner')      return sale.project_owner   === p.name ? Number(sale.payout_owner      || 0) : 0;
-    if (p.role === 'coordinator')return sale.coordinator     === p.name ? Number(sale.payout_coordinator|| 0) : 0;
-    if (p.role === 'developer')  return Number(sale.payout_au || 0); // Au gets payout_au on every sale
+    if (p.role === 'developer')  return Number(sale.payout_au || 0);
+    // owner role: earn as project_owner OR as coordinator (Jane on Team Referral)
+    if (p.role === 'owner') {
+      let total = 0;
+      if (sale.project_owner === p.name) total += Number(sale.payout_owner       || 0);
+      if (sale.coordinator   === p.name) total += Number(sale.payout_coordinator || 0);
+      return total;
+    }
     return 0;
   }
 
@@ -6740,9 +6746,13 @@ function exportVideoHistoryPDF() {
   function getEarnings(sale, p) {
     if (p.role==='influencer') return sale.influencer_name===p.name?Number(sale.payout_influencer||0):0;
     if (p.role==='streamer')   return sale.streamer_name===p.name?Number(sale.payout_streamer||0):0;
-    if (p.role==='owner')      return sale.project_owner===p.name?Number(sale.payout_owner||0):0;
-    if (p.role==='coordinator')return sale.coordinator===p.name?Number(sale.payout_coordinator||0):0;
     if (p.role==='developer')  return Number(sale.payout_au||0);
+    if (p.role==='owner') {
+      let t = 0;
+      if (sale.project_owner===p.name) t += Number(sale.payout_owner||0);
+      if (sale.coordinator===p.name)   t += Number(sale.payout_coordinator||0);
+      return t;
+    }
     return 0;
   }
 
@@ -6787,9 +6797,13 @@ function exportVideoHistoryExcel() {
   function getEarnings(sale, p) {
     if (p.role==='influencer') return sale.influencer_name===p.name?Number(sale.payout_influencer||0):0;
     if (p.role==='streamer')   return sale.streamer_name===p.name?Number(sale.payout_streamer||0):0;
-    if (p.role==='owner')      return sale.project_owner===p.name?Number(sale.payout_owner||0):0;
-    if (p.role==='coordinator')return sale.coordinator===p.name?Number(sale.payout_coordinator||0):0;
     if (p.role==='developer')  return Number(sale.payout_au||0);
+    if (p.role==='owner') {
+      let t = 0;
+      if (sale.project_owner===p.name) t += Number(sale.payout_owner||0);
+      if (sale.coordinator===p.name)   t += Number(sale.payout_coordinator||0);
+      return t;
+    }
     return 0;
   }
 
