@@ -1976,7 +1976,7 @@ async function loadAllData() {
       fetchSheet('Invoices!A:G'),
       fetchSheet('OtherIncome!A:F'),
       fetchSheet('VideoCourseSales!A:W'),    // Phase 15 — 23 columns A..W
-      fetchSheet('VideoCourseConfig!A:Q'),   // Phase 15 — 17 columns A..Q
+      fetchSheet('VideoCourseConfig!A:T'),   // Phase 15 — 20 columns A..T (incl. flash cols)
     ]);
 
     DATA.tutors      = parseSheet(tutorRows);
@@ -6261,7 +6261,7 @@ function _populateVideoChannelDropdown() {
   if (!sel) return;
   // Rebuild every time — ensures active filter is applied with correct data types
   while (sel.options.length > 1) sel.remove(sel.options.length - 1);
-  (DATA.videoConfig || []).filter(c => String(c.active).toUpperCase() === 'TRUE' || c.active === true || c.active === 1).forEach(c => {
+  (DATA.videoConfig || []).filter(c => c.channel_id).forEach(c => {  // show all configured channels
     const opt = document.createElement('option');
     opt.value = c.channel_id; opt.textContent = c.channel_label;
     sel.appendChild(opt);
@@ -9233,7 +9233,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.6';
+  const cacheVersion = '3.7';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
