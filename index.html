@@ -1275,6 +1275,15 @@
           <div class="page-sub" data-en="Record and track video course sales across all channels" data-th="บันทึกและติดตามยอดขายวิดีโอคอร์สทุกช่องทาง">Record and track video course sales across all channels</div>
         </div>
       </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border)">
+        <button id="vs-tab-sales" onclick="switchVideoTab('sales')" style="padding:8px 20px;font-size:13px;font-family:'DM Sans',sans-serif;border:none;border-bottom:2px solid var(--teal);margin-bottom:-2px;background:none;cursor:pointer;font-weight:500;color:var(--text)">Sales</button>
+        <button id="vs-tab-history" onclick="switchVideoTab('history')" style="padding:8px 20px;font-size:13px;font-family:'DM Sans',sans-serif;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;background:none;cursor:pointer;color:var(--text3)">Earnings history</button>
+      </div>
+
+      <!-- TAB: Sales (entry form + list) -->
+      <div id="vs-panel-sales">
       <div class="two-col">
 
         <!-- LEFT: entry form + recent sales -->
@@ -1390,6 +1399,45 @@
           <div class="metrics" style="grid-template-columns:1fr;gap:12px" id="vs-metrics"></div>
         </div>
       </div>
+      </div><!-- end vs-panel-sales -->
+
+      <!-- TAB: Earnings history -->
+      <div id="vs-panel-history" style="display:none">
+
+        <!-- Person selector -->
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center">
+          <div style="font-size:12px;color:var(--text3);margin-right:4px">View earnings for:</div>
+          <div id="vs-history-people" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+
+        <!-- 12-month table -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <div class="card-title" style="margin:0" id="vs-history-title">Earnings — last 12 months</div>
+            <div style="display:flex;gap:8px">
+              <button onclick="exportVideoHistoryExcel()" style="font-size:11px;padding:5px 12px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);cursor:pointer;font-family:'DM Sans',sans-serif">Excel</button>
+              <button onclick="exportVideoHistoryPDF()" style="font-size:11px;padding:5px 12px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);cursor:pointer;font-family:'DM Sans',sans-serif">PDF</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr id="vs-history-thead"></tr></thead>
+              <tbody id="vs-history-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Breakdown by channel (collapsible) -->
+        <div class="card" style="margin-top:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleVideoChannelBreakdown()">
+            <div class="card-title" style="margin:0">Breakdown by channel</div>
+            <div id="vs-breakdown-toggle" style="font-size:18px;color:var(--text3);user-select:none">▸</div>
+          </div>
+          <div id="vs-breakdown-wrap" style="display:none;margin-top:12px" id="vs-breakdown-body"></div>
+        </div>
+
+      </div><!-- end vs-panel-history -->
+
     </div>
 
     <!-- NEW ENROLLMENT -->
@@ -6491,6 +6539,279 @@ async function voidVideoSale(saleId, btn) {
     alert('Error: ' + e.message);
     btn.disabled = false;
   }
+}
+
+
+// ─── VIDEO SALES — HISTORY TAB (Phase 15 Step 8) ─────────
+
+function switchVideoTab(tab) {
+  const salesPanel   = document.getElementById('vs-panel-sales');
+  const histPanel    = document.getElementById('vs-panel-history');
+  const salesBtn     = document.getElementById('vs-tab-sales');
+  const histBtn      = document.getElementById('vs-tab-history');
+  if (!salesPanel || !histPanel) return;
+
+  const onSales = tab === 'sales';
+  salesPanel.style.display = onSales ? '' : 'none';
+  histPanel.style.display  = onSales ? 'none' : '';
+
+  if (salesBtn) { salesBtn.style.borderBottomColor = onSales ? 'var(--teal)' : 'transparent'; salesBtn.style.color = onSales ? 'var(--text)' : 'var(--text3)'; salesBtn.style.fontWeight = onSales ? '500' : '400'; }
+  if (histBtn)  { histBtn.style.borderBottomColor  = onSales ? 'transparent' : 'var(--teal)'; histBtn.style.color  = onSales ? 'var(--text3)' : 'var(--text)'; histBtn.style.fontWeight  = onSales ? '400' : '500'; }
+
+  if (!onSales) renderVideoHistory();
+}
+
+// Build the list of people who appear in DATA.videoSales
+function _getVideoPeople() {
+  const sales = DATA.videoSales || [];
+  const owners      = [...new Set(sales.map(s => s.project_owner).filter(Boolean))];
+  const coords      = [...new Set(sales.map(s => s.coordinator).filter(Boolean))];
+  const influencers = [...new Set(sales.map(s => s.influencer_name).filter(Boolean))];
+  const streamers   = [...new Set(sales.map(s => s.streamer_name).filter(Boolean))];
+  // Au is always present as a role
+  const people = [];
+  people.push({ name: 'Au', role: 'developer', field: 'payout_au' });
+  owners.forEach(n => { if (!people.find(p=>p.name===n)) people.push({ name: n, role: 'owner', field: 'payout_owner' }); });
+  coords.forEach(n => { if (!people.find(p=>p.name===n)) people.push({ name: n, role: 'coordinator', field: 'payout_coordinator' }); });
+  influencers.forEach(n => people.push({ name: n, role: 'influencer', field: 'payout_influencer' }));
+  streamers.forEach(n => people.push({ name: n, role: 'streamer', field: 'payout_streamer' }));
+  return people;
+}
+
+let _vsHistoryPerson = null; // currently selected person
+
+function renderVideoHistory() {
+  const people  = _getVideoPeople();
+  const wrap    = document.getElementById('vs-history-people');
+  if (!wrap) return;
+
+  // Default to first person
+  if (!_vsHistoryPerson || !people.find(p => p.name === _vsHistoryPerson)) {
+    _vsHistoryPerson = people.length ? people[0].name : null;
+  }
+
+  // Render person pills
+  wrap.innerHTML = people.map(p => {
+    const active = p.name === _vsHistoryPerson;
+    return `<button onclick="selectVideoHistoryPerson('${p.name}')" style="padding:5px 14px;border-radius:20px;border:1px solid ${active?'var(--teal)':'var(--border-strong)'};background:${active?'var(--teal)':'var(--surface)'};color:${active?'#fff':'var(--text2)'};font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer">${p.name} <span style="opacity:.7;font-size:10px">${p.role}</span></button>`;
+  }).join('');
+
+  if (!_vsHistoryPerson) {
+    document.getElementById('vs-history-body').innerHTML = '<tr><td class="empty">No sales data yet</td></tr>';
+    return;
+  }
+
+  _renderVideoHistoryTable(_vsHistoryPerson, people);
+}
+
+function selectVideoHistoryPerson(name) {
+  _vsHistoryPerson = name;
+  renderVideoHistory();
+}
+
+function _renderVideoHistoryTable(personName, people) {
+  const person = people.find(p => p.name === personName);
+  if (!person) return;
+
+  const titleEl = document.getElementById('vs-history-title');
+  if (titleEl) titleEl.textContent = `${personName} — earnings last 12 months`;
+
+  // Build 12 months (current + 11 prior), newest first
+  const months = [];
+  const now    = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const lbl = d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+    months.push({ val, lbl });
+  }
+
+  // Get active sales only
+  const sales = (DATA.videoSales || []).filter(s => s.status !== 'Voided');
+
+  // For influencer/streamer: match by name field; for owner/coord/au: match by role field
+  function getEarnings(sale, p) {
+    if (p.role === 'influencer') return sale.influencer_name === p.name ? Number(sale.payout_influencer || 0) : 0;
+    if (p.role === 'streamer')   return sale.streamer_name   === p.name ? Number(sale.payout_streamer   || 0) : 0;
+    if (p.role === 'owner')      return sale.project_owner   === p.name ? Number(sale.payout_owner      || 0) : 0;
+    if (p.role === 'coordinator')return sale.coordinator     === p.name ? Number(sale.payout_coordinator|| 0) : 0;
+    if (p.role === 'developer')  return Number(sale.payout_au || 0); // Au gets payout_au on every sale
+    return 0;
+  }
+
+  // Build rows: month | sales count | total earnings | channel breakdown
+  const thead = document.getElementById('vs-history-thead');
+  const tbody = document.getElementById('vs-history-body');
+  if (thead) thead.innerHTML = '<th>Month</th><th>Sales</th><th>Earnings (฿)</th><th>Avg / sale</th>';
+
+  let grandTotal = 0;
+  const rows = months.map(m => {
+    const monthSales = sales.filter(s => (s.month||'').startsWith(m.val));
+    const earned     = monthSales.reduce((sum, s) => sum + getEarnings(s, person), 0);
+    const count      = monthSales.filter(s => getEarnings(s, person) > 0).length;
+    const avg        = count > 0 ? earned / count : 0;
+    grandTotal      += earned;
+    const isCurrent  = m.val === selectedMonth;
+    return `<tr style="${isCurrent?'background:var(--surface2)':''}">
+      <td>${m.lbl}${isCurrent?' <span style="font-size:10px;color:var(--text3)">(current)</span>':''}</td>
+      <td>${count || '—'}</td>
+      <td style="font-weight:${earned>0?'600':'400'};color:${earned>0?'inherit':'var(--text3)'}">฿${fmt(earned)}</td>
+      <td style="color:var(--text3)">฿${fmt(avg)}</td>
+    </tr>`;
+  });
+
+  // Total row
+  rows.push(`<tr style="border-top:2px solid var(--border-strong);background:var(--surface2)">
+    <td><strong>12-month total</strong></td>
+    <td></td>
+    <td><strong>฿${fmt(grandTotal)}</strong></td>
+    <td></td>
+  </tr>`);
+
+  if (tbody) tbody.innerHTML = rows.join('');
+}
+
+function toggleVideoChannelBreakdown() {
+  const wrap   = document.getElementById('vs-breakdown-wrap');
+  const toggle = document.getElementById('vs-breakdown-toggle');
+  if (!wrap || !toggle) return;
+  const willOpen = wrap.style.display === 'none';
+  wrap.style.display = willOpen ? 'block' : 'none';
+  toggle.textContent = willOpen ? '▾' : '▸';
+  if (willOpen) _renderVideoChannelBreakdown();
+}
+
+function _renderVideoChannelBreakdown() {
+  const wrap   = document.getElementById('vs-breakdown-wrap');
+  if (!wrap || !_vsHistoryPerson) return;
+  const people = _getVideoPeople();
+  const person = people.find(p => p.name === _vsHistoryPerson);
+  if (!person) return;
+
+  const sales = (DATA.videoSales || []).filter(s => s.status !== 'Voided');
+
+  function getEarnings(sale, p) {
+    if (p.role === 'influencer') return sale.influencer_name === p.name ? Number(sale.payout_influencer||0) : 0;
+    if (p.role === 'streamer')   return sale.streamer_name   === p.name ? Number(sale.payout_streamer  ||0) : 0;
+    if (p.role === 'owner')      return sale.project_owner   === p.name ? Number(sale.payout_owner     ||0) : 0;
+    if (p.role === 'coordinator')return sale.coordinator     === p.name ? Number(sale.payout_coordinator||0):0;
+    if (p.role === 'developer')  return Number(sale.payout_au||0);
+    return 0;
+  }
+
+  // Group by channel
+  const byChannel = {};
+  sales.forEach(s => {
+    const earned = getEarnings(s, person);
+    if (!earned) return;
+    const cfg   = getVideoConfigByChannel(s.channel);
+    const label = cfg ? cfg.channel_label : (s.channel || 'Unknown');
+    if (!byChannel[label]) byChannel[label] = { count: 0, total: 0 };
+    byChannel[label].count++;
+    byChannel[label].total += earned;
+  });
+
+  const entries = Object.entries(byChannel).sort((a,b) => b[1].total - a[1].total);
+  if (!entries.length) { wrap.innerHTML = '<div style="color:var(--text3);font-size:12px">No earnings data</div>'; return; }
+
+  wrap.innerHTML = entries.map(([label, d]) => `
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12px">
+      <div>${label} <span style="color:var(--text3)">(${d.count} sale${d.count!==1?'s':''})</span></div>
+      <div style="font-weight:600">฿${fmt(d.total)}</div>
+    </div>
+  `).join('');
+}
+
+// ─── VIDEO HISTORY EXPORTS ────────────────────────────────
+function exportVideoHistoryPDF() {
+  if (!_vsHistoryPerson) return;
+  const people = _getVideoPeople();
+  const person = people.find(p => p.name === _vsHistoryPerson);
+  if (!person) return;
+
+  const sales  = (DATA.videoSales || []).filter(s => s.status !== 'Voided');
+  const months = [];
+  const now    = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ val: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, lbl: d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) });
+  }
+
+  function getEarnings(sale, p) {
+    if (p.role==='influencer') return sale.influencer_name===p.name?Number(sale.payout_influencer||0):0;
+    if (p.role==='streamer')   return sale.streamer_name===p.name?Number(sale.payout_streamer||0):0;
+    if (p.role==='owner')      return sale.project_owner===p.name?Number(sale.payout_owner||0):0;
+    if (p.role==='coordinator')return sale.coordinator===p.name?Number(sale.payout_coordinator||0):0;
+    if (p.role==='developer')  return Number(sale.payout_au||0);
+    return 0;
+  }
+
+  let grandTotal = 0;
+  const rows = months.map(m => {
+    const ms = sales.filter(s=>(s.month||'').startsWith(m.val));
+    const earned = ms.reduce((sum,s)=>sum+getEarnings(s,person),0);
+    const count  = ms.filter(s=>getEarnings(s,person)>0).length;
+    grandTotal  += earned;
+    return `<tr><td>${m.lbl}</td><td>${count||'—'}</td><td>฿${earned.toLocaleString('th-TH')}</td></tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <style>body{font-family:sans-serif;padding:32px;font-size:13px}h2{margin-bottom:4px}p{color:#666;margin-top:0}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#f5f5f5;padding:8px 12px;text-align:left;font-size:12px}td{padding:8px 12px;border-bottom:1px solid #eee}.total td{font-weight:700;border-top:2px solid #333}</style>
+  </head><body>
+  <h2>Earnings Report — ${_vsHistoryPerson}</h2>
+  <p>Role: ${person.role} · Generated: ${new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}</p>
+  <table><thead><tr><th>Month</th><th>Sales</th><th>Earnings (฿)</th></tr></thead>
+  <tbody>${rows}<tr class="total"><td>12-month total</td><td></td><td>฿${grandTotal.toLocaleString('th-TH')}</td></tr></tbody>
+  </table></body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 500);
+}
+
+function exportVideoHistoryExcel() {
+  if (!_vsHistoryPerson) return;
+  const people = _getVideoPeople();
+  const person = people.find(p => p.name === _vsHistoryPerson);
+  if (!person) return;
+
+  const sales  = (DATA.videoSales || []).filter(s => s.status !== 'Voided');
+  const months = [];
+  const now    = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ val: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, lbl: d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) });
+  }
+
+  function getEarnings(sale, p) {
+    if (p.role==='influencer') return sale.influencer_name===p.name?Number(sale.payout_influencer||0):0;
+    if (p.role==='streamer')   return sale.streamer_name===p.name?Number(sale.payout_streamer||0):0;
+    if (p.role==='owner')      return sale.project_owner===p.name?Number(sale.payout_owner||0):0;
+    if (p.role==='coordinator')return sale.coordinator===p.name?Number(sale.payout_coordinator||0):0;
+    if (p.role==='developer')  return Number(sale.payout_au||0);
+    return 0;
+  }
+
+  let csv = `Earnings Report — ${_vsHistoryPerson} (${person.role})\n`;
+  csv += `Generated: ${new Date().toLocaleDateString('en-GB')}\n\n`;
+  csv += `Month,Sales,Earnings (THB)\n`;
+  let grandTotal = 0;
+  months.forEach(m => {
+    const ms = sales.filter(s=>(s.month||'').startsWith(m.val));
+    const earned = ms.reduce((sum,s)=>sum+getEarnings(s,person),0);
+    const count  = ms.filter(s=>getEarnings(s,person)>0).length;
+    grandTotal  += earned;
+    csv += `${m.lbl},${count||0},${earned}\n`;
+  });
+  csv += `12-month total,,${grandTotal}\n`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `earnings_${_vsHistoryPerson.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,7)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── OTHER INCOME ─────────────────────────────────────────
