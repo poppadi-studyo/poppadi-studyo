@@ -7997,7 +7997,8 @@ function showMonthlySummary() {
   const totalRevenue    = monthSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
   const totalTutorPay   = monthSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
-  const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
+  const monthExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth));
+  const totalExpenses   = monthExpenses.reduce((s,x)=>s+Number(x.amount||0),0);
   const msAccShare      = getAccountantShare(selectedMonth);
   const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + msAccShare;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
