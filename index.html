@@ -3681,6 +3681,29 @@ async function confirmMakeup() {
   if (!d || !s) { alert(lang==='th'?'กรุณาระบุวันที่และเวลา':'Please fill in date and time'); return; }
   if (!selectedMakeup) { alert('No session selected'); return; }
 
+  // ── Hard block: check for schedule conflict before proceeding ──
+  const normD2 = v => { const dt = parseSessionDate(String(v||'').trim()); if(!dt||isNaN(dt.getTime())) return ''; return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); };
+  const normT2 = t => String(t||'').trim().substring(0,5);
+  const tutorId2 = selectedMakeup.tutor_id;
+  const mkConflicts = DATA.sessions.filter(x =>
+    x.session_id !== selectedMakeup.session_id &&
+    x.tutor_id === tutorId2 &&
+    normD2(x.date) === d &&
+    normT2(x.start_time) === normT2(s) &&
+    x.status !== 'Cancelled'
+  );
+  if (mkConflicts.length) {
+    const tutor2 = getTutor(tutorId2);
+    const details = mkConflicts.map(x => {
+      const nick = getStudentNickname(x.student_id, x.course_id);
+      const subj = getSubjectForSession(x);
+      const time = formatTimeRange(x.start_time, x.end_time);
+      return `${fmtDate(x.date)} ${time} — ${nick} · ${subj}`;
+    }).join('\n');
+    alert(`⛔ ${lang==='th'?'ไม่สามารถบันทึกได้ — ':'Cannot save — '}${tutor2.name||tutorId2} ${lang==='th'?'มีคาบเรียนอยู่แล้วเวลานี้:':'already has a class at this time:'}\n\n${details}\n\n${lang==='th'?'กรุณาเลือกวันและเวลาอื่น':'Please choose a different date or time.'}`);
+    return;
+  }
+
   isMakeupSaving = true;
 
   // Progress modal
@@ -8477,21 +8500,21 @@ function downloadMonthlySummaryExcel() {
     toCSVRow(["Poppadi's Studyo — Monthly Summary", monthStr]),
     toCSVRow(['Generated', new Date().toLocaleString()]),
     '',
-    toCSVRow(['TOTALS']),
-    toCSVRow(['Total Revenue (tuition)', totalRevenue]),
-    toCSVRow(['Other Income', totalOtherIncomeXL]),
-    toCSVRow(['Total Tutor Pay', totalTutorPay]),
-    toCSVRow(['Total Commission', totalCommission]),
-    toCSVRow(['Fixed Expenses', totalExpenses]),
-    ...(csvAccShare>0?[toCSVRow(['Accountant Share (from AJ. Steven)', csvAccShare])]:[]),
-    toCSVRow(['School Remainder', schoolRemainder]),
-    toCSVRow(["AJ. Pop 20% Share", profitShare]),
-    toCSVRow(['Total WHT 3%', +(totalTutorPay*0.03 + totalCommission*0.03 + DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isRentXL=/rent/i.test(e.item_name||''); const isAcctXL=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctXL&&csvAccShare>0?base+csvAccShare:base; return isRentXL?s:s+Math.round(amt*0.03*100)/100; },0)).toFixed(2)]),
-    toCSVRow(['Net to School', netSchool]),
-    toCSVRow(['Sessions Taught', monthSessions.length]),
+    toCSVRow(['TOTALS / ยอดรวม']),
+    toCSVRow(['Total Revenue (tuition) / รายได้รวม (ค่าเรียน)', totalRevenue]),
+    toCSVRow(['Other Income / รายได้อื่น', totalOtherIncomeXL]),
+    toCSVRow(['Total Tutor Pay / ค่าสอนรวม', totalTutorPay]),
+    toCSVRow(['Total Commission / คอมมิชชั่นรวม', totalCommission]),
+    toCSVRow(['Fixed Expenses / ค่าใช้จ่ายคงที่', totalExpenses]),
+    ...(csvAccShare>0?[toCSVRow(['Accountant Share (AJ. Steven) / ส่วนแบ่งนักบัญชี (AJ. Steven)', csvAccShare])]:[]),
+    toCSVRow(['School Remainder / ส่วนที่เหลือของโรงเรียน', schoolRemainder]),
+    toCSVRow(["AJ. Pop 20% Share / ส่วนแบ่งกำไร AJ. Pop 20%", profitShare]),
+    toCSVRow(['Total WHT 3% / ภาษีหัก ณ ที่จ่าย 3% รวม', +(totalTutorPay*0.03 + totalCommission*0.03 + DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isRentXL=/rent/i.test(e.item_name||''); const isAcctXL=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctXL&&csvAccShare>0?base+csvAccShare:base; return isRentXL?s:s+Math.round(amt*0.03*100)/100; },0)).toFixed(2)]),
+    toCSVRow(['Net to School / สุทธิที่โรงเรียนได้รับ', netSchool]),
+    toCSVRow(['Sessions Taught / จำนวนคาบที่สอน', monthSessions.length]),
     '',
-    toCSVRow(['TUTOR PAYOUTS']),
-    toCSVRow(['Tutor','Full Name (EN)','Full Name (TH)','Hours','Gross Pay','WHT 3%','Accountant Share','Net Transfer']),
+    toCSVRow(['TUTOR PAYOUTS / การจ่ายเงินครู']),
+    toCSVRow(['Tutor / ครู','Full Name (EN)','Full Name (TH)','Hours / ชั่วโมง','Gross Pay / ค่าสอนรวม','WHT 3% / ภาษีหัก','Accountant Share / ส่วนแบ่งนักบัญชี','Net Transfer / โอนสุทธิ']),
     ...DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
       const sess = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
       if (!sess.length) return null;
@@ -8503,20 +8526,20 @@ function downloadMonthlySummaryExcel() {
       return toCSVRow([tutor.name, tutor.full_name_en||'', tutor.full_name_th||'', hrs, pay, wht, accDeduct, net]);
     }).filter(Boolean),
     '',
-    toCSVRow(['COMMISSION']),
-    toCSVRow(['Recipient','Gross','WHT 3%','Net Transfer']),
+    toCSVRow(['COMMISSION / คอมมิชชั่น']),
+    toCSVRow(['Recipient / ผู้รับ','Gross / รวม','WHT 3% / ภาษีหัก','Net Transfer / โอนสุทธิ']),
     ...Object.entries(commMap).map(([who,gross]) => {
       const whoLabel = who==='ppop'?'AJ. Pop':who==='eye'?'Eye':who==='jane'?'Jane':who;
       return toCSVRow([whoLabel, gross, +(gross*0.03).toFixed(2), +(gross*0.97).toFixed(2)]);
     }),
     '',
-    toCSVRow(['OTHER INCOME']),
-    toCSVRow(['Item','Category','Amount']),
+    toCSVRow(['OTHER INCOME / รายได้อื่น']),
+    toCSVRow(['Item / รายการ','Category / ประเภท','Amount / จำนวน']),
     ...otherIncomeMonthXL.map(e => toCSVRow([e.item_name||'', e.category||'', Number(e.amount||0)])),
-    otherIncomeMonthXL.length ? toCSVRow(['TOTAL','', totalOtherIncomeXL]) : '',
+    otherIncomeMonthXL.length ? toCSVRow(['TOTAL / รวม','', totalOtherIncomeXL]) : '',
     '',
-    toCSVRow(['FIXED EXPENSES']),
-    toCSVRow(['Item','Amount','WHT 3%','Net Transfer','Note']),
+    toCSVRow(['FIXED EXPENSES / ค่าใช้จ่ายคงที่']),
+    toCSVRow(['Item / รายการ','Amount / จำนวน','WHT 3% / ภาษีหัก','Net Transfer / โอนสุทธิ','Note / หมายเหตุ']),
     ...DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).map(e => {
       const isRentXL = /rent/i.test(e.item_name||'');
       const isAcctXL = /accountant/i.test(e.item_name||'');
@@ -8524,7 +8547,7 @@ function downloadMonthlySummaryExcel() {
       const amt      = isAcctXL && csvAccShare > 0 ? baseAmt + csvAccShare : baseAmt;
       const wht      = isRentXL ? 0 : Math.round(amt*0.03*100)/100;
       const net      = amt - wht;
-      const note     = isAcctXL && csvAccShare > 0 ? `฿${baseAmt} school + ฿${csvAccShare} AJ. Steven` : (isRentXL ? 'WHT exempt' : '');
+      const note     = isAcctXL && csvAccShare > 0 ? `฿${baseAmt} school + ฿${csvAccShare} AJ. Steven` : (isRentXL ? 'WHT exempt / ยกเว้นภาษี' : '');
       return toCSVRow([e.item_name||e.item||'', amt, wht||'', net, note]);
     }),
     toCSVRow(['TOTAL',
@@ -8573,21 +8596,21 @@ function copyMonthlySummaryTable() {
   lines.push("Poppadi's Studyo \u2014 " + monthStr);
   lines.push('Generated: ' + new Date().toLocaleString());
   lines.push('');
-  lines.push('TOTALS');
-  lines.push(tab('Total Revenue',    '\u0e3f'+fmt(totalRevenue)));
-  lines.push(tab('Total Tutor Pay',  '\u0e3f'+fmt(totalTutorPay)));
-  lines.push(tab('Total Commission', '\u0e3f'+fmt(totalCommission)));
-  lines.push(tab('Fixed Expenses',   '\u0e3f'+fmt(totalExpenses)));
-  if (txtAccShare>0) lines.push(tab('Accountant Share (from AJ. Steven)', '\u0e3f'+fmt(txtAccShare)));
-  lines.push(tab('School Remainder', '\u0e3f'+fmt(schoolRemainder)));
-  lines.push(tab("AJ. Pop 20% Share",  '\u0e3f'+fmt(profitShare)));
+  lines.push('TOTALS / ยอดรวม');
+  lines.push(tab('Total Revenue / รายได้รวม',                '\u0e3f'+fmt(totalRevenue)));
+  lines.push(tab('Total Tutor Pay / ค่าสอนรวม',             '\u0e3f'+fmt(totalTutorPay)));
+  lines.push(tab('Total Commission / คอมมิชชั่นรวม',        '\u0e3f'+fmt(totalCommission)));
+  lines.push(tab('Fixed Expenses / ค่าใช้จ่ายคงที่',        '\u0e3f'+fmt(totalExpenses)));
+  if (txtAccShare>0) lines.push(tab('Accountant Share (AJ. Steven) / ส่วนแบ่งนักบัญชี (AJ. Steven)', '\u0e3f'+fmt(txtAccShare)));
+  lines.push(tab('School Remainder / ส่วนที่เหลือของโรงเรียน', '\u0e3f'+fmt(schoolRemainder)));
+  lines.push(tab('AJ. Pop 20% Share / ส่วนแบ่งกำไร AJ. Pop 20%', '\u0e3f'+fmt(profitShare)));
   var expWHTforTotal = DATA.expenses.filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; }).reduce(function(s,e){ var isRentCP=/rent/i.test(e.item_name||''); var isAcctCP=/accountant/i.test(e.item_name||''); var base=Number(e.amount||0); var amt=isAcctCP&&txtAccShare>0?base+txtAccShare:base; return isRentCP?s:s+Math.round(amt*0.03*100)/100; },0);
-  lines.push(tab('Total WHT 3%',     '\u0e3f'+fmt(totalTutorPay*0.03 + totalCommission*0.03 + expWHTforTotal)));
-  lines.push(tab('Net to School',    '\u0e3f'+fmt(netSchool)));
-  lines.push(tab('Sessions Taught',  String(monthSessions.length)));
+  lines.push(tab('Total WHT 3% / ภาษีหัก ณ ที่จ่าย 3% รวม', '\u0e3f'+fmt(totalTutorPay*0.03 + totalCommission*0.03 + expWHTforTotal)));
+  lines.push(tab('Net to School / สุทธิที่โรงเรียนได้รับ',   '\u0e3f'+fmt(netSchool)));
+  lines.push(tab('Sessions Taught / จำนวนคาบที่สอน',         String(monthSessions.length)));
   lines.push('');
-  lines.push('TUTOR PAYOUTS');
-  lines.push(tab('Tutor','Full Name (EN)','Full Name (TH)','Hours','Gross Pay','WHT 3%','Acct Share','Net Transfer'));
+  lines.push('TUTOR PAYOUTS / การจ่ายเงินครู');
+  lines.push(tab('Tutor / ครู','Full Name (EN) / ชื่อ (EN)','Full Name (TH) / ชื่อ (TH)','Hours / ชั่วโมง','Gross Pay / ค่าสอนรวม','WHT 3% / ภาษีหัก','Acct Share / ส่วนแบ่งนักบัญชี','Net Transfer / โอนสุทธิ'));
   DATA.tutors.filter(t=>t.active==='TRUE').forEach(function(tutor) {
     var sess = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id);
     if (!sess.length) return;
@@ -8600,8 +8623,8 @@ function copyMonthlySummaryTable() {
       String(hrs), '\u0e3f'+fmt(pay), '\u0e3f'+fmt(wht), accDeduct>0?'\u0e3f'+fmt(accDeduct):'—', '\u0e3f'+fmt(net)));
   });
   lines.push('');
-  lines.push('COMMISSION');
-  lines.push(tab('Recipient','Gross','WHT 3%','Net Transfer'));
+  lines.push('COMMISSION / คอมมิชชั่น');
+  lines.push(tab('Recipient / ผู้รับ','Gross / รวม','WHT 3% / ภาษีหัก','Net Transfer / โอนสุทธิ'));
   var commMap2 = {};
   monthSessions.forEach(function(s) {
     var who = s.commission_who || s.commission_to || 'none';
@@ -8615,11 +8638,11 @@ function copyMonthlySummaryTable() {
       lines.push(tab(whoLabel, '\u0e3f'+fmt(gross), '\u0e3f'+fmt(gross*0.03), '\u0e3f'+fmt(gross*0.97)));
     });
   } else {
-    lines.push('(No commission this month)');
+    lines.push('(No commission this month / ไม่มีคอมมิชชั่นเดือนนี้)');
   }
   lines.push('');
-  lines.push('FIXED EXPENSES');
-  lines.push(tab('Item','Amount','WHT 3%','Net Transfer','Note'));
+  lines.push('FIXED EXPENSES / ค่าใช้จ่ายคงที่');
+  lines.push(tab('Item / รายการ','Amount / จำนวน','WHT 3% / ภาษีหัก','Net Transfer / โอนสุทธิ','Note / หมายเหตุ'));
   var xlExpenses = DATA.expenses.filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; });
   var xlExpTotal=0, xlExpWHT=0, xlExpNet=0;
   xlExpenses.forEach(function(e) {
@@ -8629,11 +8652,11 @@ function copyMonthlySummaryTable() {
     var amt      = isAcctCP && txtAccShare > 0 ? baseAmt + txtAccShare : baseAmt;
     var wht      = isRentCP ? 0 : Math.round(amt*0.03*100)/100;
     var net      = amt - wht;
-    var note     = isAcctCP && txtAccShare > 0 ? '\u0e3f'+fmt(baseAmt)+' school + \u0e3f'+fmt(txtAccShare)+' AJ. Steven' : (isRentCP ? 'WHT exempt' : '');
+    var note     = isAcctCP && txtAccShare > 0 ? '\u0e3f'+fmt(baseAmt)+' school + \u0e3f'+fmt(txtAccShare)+' AJ. Steven' : (isRentCP ? 'WHT exempt / ยกเว้นภาษี' : '');
     xlExpTotal += amt; xlExpWHT += wht; xlExpNet += net;
     lines.push(tab(e.item_name||e.item||'', '\u0e3f'+fmt(amt), wht?'\u0e3f'+fmt(wht):'—', '\u0e3f'+fmt(net), note));
   });
-  lines.push(tab('TOTAL', '\u0e3f'+fmt(xlExpTotal), '\u0e3f'+fmt(xlExpWHT), '\u0e3f'+fmt(xlExpNet), ''));
+  lines.push(tab('TOTAL / รวม', '\u0e3f'+fmt(xlExpTotal), '\u0e3f'+fmt(xlExpWHT), '\u0e3f'+fmt(xlExpNet), ''));
 
   // Other Income
   var otherIncomeMonthCP = (DATA.otherIncome||[]).filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; });
@@ -9410,6 +9433,31 @@ async function submitEnrollment() {
 
   setSaveProgress(10, lang==='th'?'กำลังตรวจสอบ...':'Validating...');
 
+  // ── Tutor schedule overlap check ─────────────────────────
+  // Hard block: if any new session overlaps with an existing non-Cancelled session for the same tutor
+  const normD = v => { const dt = parseSessionDate(String(v||'').trim()); if(!dt||isNaN(dt.getTime())) return ''; return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); };
+  const normT = t => String(t||'').trim().substring(0,5);
+  const conflicts = [];
+  sessions.forEach(newSess => {
+    const nd = normD(newSess.date);
+    const nt = normT(newSess.start_time);
+    if (!nd || !nt) return;
+    DATA.sessions.forEach(ex => {
+      if (ex.tutor_id !== tutorId) return;
+      if (ex.status === 'Cancelled') return;
+      if (normD(ex.date) !== nd || normT(ex.start_time) !== nt) return;
+      const nick = getStudentNickname(ex.student_id, ex.course_id);
+      const subj = getSubjectForSession(ex);
+      const time = formatTimeRange(ex.start_time, ex.end_time);
+      conflicts.push(`${fmtDate(ex.date)} ${time} — ${nick} · ${subj} (${ex.session_id})`);
+    });
+  });
+  if (conflicts.length) {
+    const tutor = getTutor(tutorId);
+    alert(`⛔ ${lang==='th'?'ไม่สามารถบันทึกได้ — ':'Cannot save — '}${tutor.name||tutorId} ${lang==='th'?'มีคาบเรียนซ้อนทับอยู่แล้ว:':'already has a class scheduled at that time:'}\n\n${conflicts.join('\n')}\n\n${lang==='th'?'กรุณาเลือกวันและเวลาอื่น':'Please choose a different date or time.'}`);
+    resetSaveBtn(); isSaving = false; return;
+  }
+
   try {
     const tutor = getTutor(tutorId);
 
@@ -9953,7 +10001,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '3.9';
+  const cacheVersion = '4.0';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
