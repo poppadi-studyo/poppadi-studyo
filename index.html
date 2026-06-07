@@ -514,10 +514,11 @@
     .sidebar { display: none; }
 
     /* Main takes full width, bottom padding for tab bar */
-    .main {
-      margin-left: 0;
+    .main,
+    .app.sidebar-collapsed .main {
+      margin-left: 0 !important;
       padding: 16px 14px 90px;
-      width: 100vw;
+      width: 100vw !important;
     }
 
     /* Page header stacks vertically */
