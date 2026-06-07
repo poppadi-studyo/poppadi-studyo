@@ -4715,22 +4715,20 @@ function updateEnrollPreview() {
   const hrs     = parseFloat(document.getElementById('enroll-hours')?.value) || 2;
   const rate    = parseFloat(document.getElementById('enroll-rate')?.value)  || 0;
   const commTo  = document.getElementById('enroll-jane')?.value || 'none';
-  const commRate= commTo !== 'none' ? 0.05 : 0;
+  // Jane uses tiered rate (5% up to 250hrs, 7% above); others flat 5%
+  const janeHrsSoFar = commTo === 'jane' ? getJaneHoursForMonth(selectedMonth) : 0;
 
   if (enrollType === 'group') {
     const rows = document.getElementById('group-students-body').children;
     if (!rows.length) { preview.style.display='none'; return; }
     const numStudents  = rows.length;
-    // Fee comes from global enroll-fee field (per student)
     const feePerHr     = parseFloat(document.getElementById('enroll-fee')?.value) || 0;
     if (!feePerHr) { preview.style.display='none'; return; }
-    // rate here is the total tutor rate (written by updateGroupRateHint as totalRate)
-    // splitRate = totalRate / numStudents (per record)
     const splitRate    = rate / numStudents;
-    const revPerStu    = feePerHr * hrs;           // per student per session
-    const totalRev     = revPerStu * numStudents;  // combined revenue
-    const tutorPay     = rate * hrs;               // total tutor pay per session
-    const comm         = totalRev * commRate;
+    const revPerStu    = feePerHr * hrs;
+    const totalRev     = revPerStu * numStudents;
+    const tutorPay     = rate * hrs;
+    const comm         = commTo === 'jane' ? getJaneCommissionAmt(totalRev, hrs, janeHrsSoFar) : (commTo !== 'none' ? Math.round(totalRev*0.05*100)/100 : 0);
     const school       = totalRev - tutorPay - comm;
     const perStuSchool = school / numStudents;
     preview.style.display = 'block';
@@ -4742,10 +4740,10 @@ function updateEnrollPreview() {
   } else {
     const fee = parseFloat(document.getElementById('enroll-fee')?.value) || 0;
     if (!fee || !hrs) { preview.style.display='none'; return; }
-    const rev    = fee * hrs;
+    const rev      = fee * hrs;
     const tutorPay = rate * hrs;
-    const comm   = rev * commRate;
-    const school = rev - tutorPay - comm;
+    const comm     = commTo === 'jane' ? getJaneCommissionAmt(rev, hrs, janeHrsSoFar) : (commTo !== 'none' ? Math.round(rev*0.05*100)/100 : 0);
+    const school   = rev - tutorPay - comm;
     preview.style.display = 'block';
     body.innerHTML = `
       <div><div style="font-size:10px;color:var(--text3)">${lang==='th'?'รายได้':'Revenue'}</div><div style="font-weight:600;color:var(--teal)">฿${fmt(rev)}</div></div>
@@ -8946,14 +8944,34 @@ function getEnrollStudentCount() {
 }
 
 // ─── JANE COMMISSION TIER ─────────────────────────────────
-function getJaneCommissionRate() {
+// Returns blended commission AMOUNT for a Jane session given cumulative hours before it
+function getJaneCommissionAmt(totalRevenue, sessionHours, hoursBeforeThisSession) {
+  const THRESHOLD = 250;
+  const LOW  = 0.05;
+  const HIGH = 0.07;
+  const hrsAfter = hoursBeforeThisSession + sessionHours;
+  if (hoursBeforeThisSession >= THRESHOLD) {
+    return Math.round(totalRevenue * HIGH * 100) / 100;
+  } else if (hrsAfter <= THRESHOLD) {
+    return Math.round(totalRevenue * LOW * 100) / 100;
+  } else {
+    const hrsAtLow  = THRESHOLD - hoursBeforeThisSession;
+    const hrsAtHigh = sessionHours - hrsAtLow;
+    const revPerHr  = sessionHours > 0 ? totalRevenue / sessionHours : 0;
+    return Math.round((revPerHr * hrsAtLow * LOW + revPerHr * hrsAtHigh * HIGH) * 100) / 100;
+  }
+}
+
+// Returns cumulative Jane-commissioned hours (Completed + Makeup) for a given month
+function getJaneHoursForMonth(monthStr) {
   const janeCourseIds = DATA.courses
-    .filter(c => c.commission_to === 'jane')
+    .filter(c => (c.commission_to||'').toLowerCase() === 'jane')
     .map(c => c.course_id);
-  const janeHours = DATA.sessions
-    .filter(s => janeCourseIds.includes(s.course_id) && (s.status==='Completed'||s.status==='Makeup'))
-    .reduce((sum, s) => sum + Number(s.hours||0), 0);
-  return janeHours > 250 ? 0.07 : 0.05;
+  return DATA.sessions
+    .filter(s => janeCourseIds.includes(s.course_id)
+              && (s.status==='Completed'||s.status==='Makeup')
+              && String(s.date||'').substring(0,7) === monthStr)
+    .reduce((sum,s) => sum + Number(s.hours||0), 0);
 }
 
 // ─── SCHEDULE ROW HELPER ─────────────────────────────────
