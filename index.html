@@ -513,7 +513,7 @@
     /* Hide desktop sidebar entirely */
     .sidebar { display: none; }
 
-    /* Main takes full width, bottom padding for tab bar */
+    /* Main takes full width, bottom padding clears fixed tab bar */
     .main,
     .app.sidebar-collapsed .main {
       margin-left: 0 !important;
@@ -574,9 +574,7 @@
       height: 64px;
       background: var(--surface);
       border-top: 1px solid var(--border);
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.10);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
       display: flex;
       align-items: center;
       justify-content: space-around;
