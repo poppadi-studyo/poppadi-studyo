@@ -2252,10 +2252,15 @@ function renderOverview() {
   const realizedIncome     = completedSessions.reduce((sum,s)=>sum+Number(s.total_revenue||0),0);
   const schoolRemainderRaw = completedSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
   const predictedSchoolRemRaw = activeSessions.reduce((sum,s)=>sum+Number(s.school_remainder||0),0);
+  // Video course sales: net_to_school contributes to school remainder
+  const monthVideoSalesOv  = (DATA.videoSales || []).filter(s =>
+    s.status !== 'Voided' && (s.month || '').startsWith(selectedMonth)
+  );
+  const videoNetOv         = monthVideoSalesOv.reduce((sum,s)=>sum+Number(s.net_to_school||0),0);
   // Accountant share: ฿1,000 from Steven flows to school pool from Jun 2026 onward
   const accountantShare    = getAccountantShare(selectedMonth);
-  const schoolRemainder    = schoolRemainderRaw + accountantShare;
-  const predictedSchoolRem = predictedSchoolRemRaw + accountantShare;
+  const schoolRemainder    = schoolRemainderRaw + accountantShare + videoNetOv;
+  const predictedSchoolRem = predictedSchoolRemRaw + accountantShare + videoNetOv;
   const totalExpenses      = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0)
                            || DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
 
@@ -6604,14 +6609,29 @@ async function saveVideoSale(btn) {
   };
 
   btn.disabled = true;
-  if (status) status.textContent = lang==='th'?'กำลังบันทึก...':'Saving...';
+  const origLabel = btn.textContent;
+  const setProgress = (pct, msg) => {
+    btn.textContent = `⏳ ${pct}% — ${msg}`;
+    btn.style.opacity = '0.7';
+    if (status) status.textContent = msg;
+  };
+  const resetBtn = () => {
+    btn.textContent = origLabel;
+    btn.style.opacity = '1';
+    btn.disabled = false;
+  };
+
+  setProgress(20, lang==='th'?'กำลังบันทึก...':'Saving...');
 
   try {
+    setProgress(40, lang==='th'?'กำลังส่งข้อมูล...':'Sending to sheet...');
     const res = await webAppWrite('addVideoSale', payload);
     if (res.success) {
+      setProgress(70, lang==='th'?'กำลังโหลดข้อมูลใหม่...':'Reloading data...');
+      await loadAllData();
+      setProgress(100, `✅ ${lang==='th'?'บันทึกแล้ว':'Saved'} — ${res.sale_id}`);
       if (status) status.textContent = `✅ ${lang==='th'?'บันทึกแล้ว':'Saved'} — ${res.sale_id}`;
       _resetVideoForm();
-      await refreshData();
       renderVideoSales();
     } else {
       if (status) status.textContent = '❌ ' + (res.error || 'Save failed');
@@ -6619,7 +6639,7 @@ async function saveVideoSale(btn) {
   } catch(e) {
     if (status) status.textContent = '❌ ' + e.message;
   } finally {
-    btn.disabled = false;
+    resetBtn();
   }
 }
 
@@ -10020,7 +10040,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.0';
+  const cacheVersion = '4.1';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
