@@ -517,7 +517,7 @@
     .main,
     .app.sidebar-collapsed .main {
       margin-left: 0 !important;
-      padding: 16px 14px 90px;
+      padding: 16px 14px calc(80px + env(safe-area-inset-bottom));
       width: 100vw !important;
     }
 
@@ -574,10 +574,13 @@
       height: 64px;
       background: var(--surface);
       border-top: 1px solid var(--border);
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.10);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       display: flex;
       align-items: center;
       justify-content: space-around;
-      z-index: 200;
+      z-index: 300;
       padding-bottom: env(safe-area-inset-bottom);
     }
     .mobile-tab {
