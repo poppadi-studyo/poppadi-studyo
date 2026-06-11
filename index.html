@@ -759,6 +759,10 @@
         <span class="nav-icon">⚙</span>
         <span data-en="Advanced settings" data-th="ตั้งค่าขั้นสูง">Advanced settings</span>
       </button>
+      <button class="nav-item" onclick="showPage('accounting', this)" id="nav-accounting">
+        <span class="nav-icon">📋</span>
+        <span data-en="Accounting guide" data-th="คู่มือบัญชี">Accounting guide</span>
+      </button>
     </nav>
     <div class="lang-switch">
       <button class="lang-btn active" onclick="setLang('en', this)">EN</button>
@@ -1742,6 +1746,242 @@
     </div>
 
     <!-- AUDIT LOG -->
+    <div class="page" id="page-accounting">
+      <div class="page-header">
+        <div>
+          <div class="page-title" data-en="Monthly accounting guide" data-th="คู่มือบัญชีรายเดือน">Monthly accounting guide</div>
+          <div class="page-sub" data-en="Prompt Language Studyo — Chanawat (คุณชนวัฒน์)" data-th="บริษัท พร้อม แลงเกวจ สตูดิโอ — คุณชนวัฒน์">Prompt Language Studyo — Chanawat (คุณชนวัฒน์)</div>
+        </div>
+        <span id="acct-deadline-badge" style="display:inline-flex;align-items:center;gap:6px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:500;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0">⚠ <span data-en="Submit by the 5th" data-th="ส่งภายในวันที่ 5">Submit by the 5th</span></span>
+      </div>
+
+      <!-- Context bar -->
+      <div style="background:var(--teal-bg);border:1px solid rgba(29,158,117,0.2);border-radius:var(--radius);padding:12px 16px;margin-bottom:24px;font-size:13px;color:#0F6E56;display:flex;align-items:center;gap:8px">
+        <span>📅</span>
+        <span data-en="You are currently preparing:" data-th="กำลังเตรียมเอกสารของ:">You are currently preparing:</span>
+        &nbsp;<strong id="acct-prep-month"></strong>&nbsp;—&nbsp;<span data-en="due" data-th="กำหนดส่ง">due</span>&nbsp;<strong id="acct-due-date"></strong>
+      </div>
+
+      <!-- Visual flow -->
+      <div style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px" data-en="Monthly flow" data-th="ขั้นตอนรายเดือน">Monthly flow</div>
+      <div class="card" style="padding:16px 18px;margin-bottom:24px;overflow-x:auto">
+        <div style="display:flex;align-items:center;gap:0;min-width:520px">
+          <div style="flex:1;text-align:center">
+            <div style="display:inline-block;background:var(--teal-bg);border:1px solid rgba(29,158,117,0.25);border-radius:var(--radius);padding:8px 10px;min-width:82px">
+              <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px;color:#0F6E56">Eye</div>
+              <div style="font-size:12px;font-weight:500;color:#0F6E56;line-height:1.3" data-en="Prepare docs" data-th="เตรียมเอกสาร">Prepare docs</div>
+              <div style="font-size:10px;color:var(--text3)" data-en="by 5th" data-th="ภายในวันที่ 5">by 5th</div>
+            </div>
+          </div>
+          <div style="color:var(--text3);font-size:14px;padding:0 2px;flex-shrink:0">→</div>
+          <div style="flex:1;text-align:center">
+            <div style="display:inline-block;background:var(--teal-bg);border:1px solid rgba(29,158,117,0.25);border-radius:var(--radius);padding:8px 10px;min-width:82px">
+              <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px;color:#0F6E56">Steven</div>
+              <div style="font-size:12px;font-weight:500;color:#0F6E56;line-height:1.3" data-en="Review + send" data-th="ตรวจและส่ง">Review + send</div>
+              <div style="font-size:10px;color:var(--text3)" data-en="by 5th" data-th="ภายในวันที่ 5">by 5th</div>
+            </div>
+          </div>
+          <div style="color:var(--text3);font-size:14px;padding:0 2px;flex-shrink:0">→</div>
+          <div style="flex:1;text-align:center">
+            <div style="display:inline-block;background:var(--surface2);border:1px solid var(--border-strong);border-radius:var(--radius);padding:8px 10px;min-width:82px">
+              <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px;color:var(--text3)">Chanawat</div>
+              <div style="font-size:12px;font-weight:500;color:var(--text);line-height:1.3" data-en="Sends forms + fee" data-th="ส่งแบบฟอร์ม + ค่าบริการ">Sends forms + fee</div>
+            </div>
+          </div>
+          <div style="color:var(--text3);font-size:14px;padding:0 2px;flex-shrink:0">→</div>
+          <div style="flex:1;text-align:center">
+            <div style="display:inline-block;background:var(--surface2);border:1px solid var(--border-strong);border-radius:var(--radius);padding:8px 10px;min-width:82px">
+              <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px;color:var(--text3)">Steven</div>
+              <div style="font-size:12px;font-weight:500;color:var(--text);line-height:1.3" data-en="Forward to Eye + Pop" data-th="ส่งต่อให้ Eye + Pop">Forward to Eye + Pop</div>
+            </div>
+          </div>
+          <div style="color:var(--text3);font-size:14px;padding:0 2px;flex-shrink:0">→</div>
+          <div style="flex:1;text-align:center">
+            <div style="display:inline-block;background:var(--amber-bg);border:1px solid rgba(186,117,23,0.25);border-radius:var(--radius);padding:8px 10px;min-width:82px">
+              <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px;color:var(--amber)">Pop</div>
+              <div style="font-size:12px;font-weight:500;color:var(--amber);line-height:1.3" data-en="Pay + send receipts" data-th="จ่ายและส่งใบเสร็จ">Pay + send receipts</div>
+              <div style="font-size:10px;color:var(--text3)" data-en="by 15th" data-th="ภายในวันที่ 15">by 15th</div>
+            </div>
+          </div>
+          <div style="color:var(--text3);font-size:14px;padding:0 2px;flex-shrink:0">→</div>
+          <div style="flex:1;text-align:center">
+            <div style="display:inline-block;background:var(--amber-bg);border:1px solid rgba(186,117,23,0.25);border-radius:var(--radius);padding:8px 10px;min-width:82px">
+              <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px;color:var(--amber)">Eye → Steven</div>
+              <div style="font-size:12px;font-weight:500;color:var(--amber);line-height:1.3" data-en="Draft + forward" data-th="ร่างและส่งต่อ">Draft + forward</div>
+              <div style="font-size:10px;color:var(--text3)" data-en="by 15th" data-th="ภายในวันที่ 15">by 15th</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Steps label -->
+      <div style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px" data-en="Steps" data-th="ขั้นตอน">Steps</div>
+
+      <!-- STEP 1 -->
+      <div class="card" style="padding:0;margin-bottom:10px">
+        <div onclick="acctToggle(1)" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;transition:background 0.15s;border-radius:var(--radius-lg)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--teal-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#0F6E56;flex-shrink:0">1</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:500" data-en="Submit monthly documents" data-th="ส่งเอกสารรายเดือน">Submit monthly documents</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px" data-en="Eye prepares · Steven reviews and sends · by the 5th" data-th="Eye เตรียม · Steven ตรวจและส่ง · ภายในวันที่ 5">Eye prepares · Steven reviews and sends · by the 5th</div>
+          </div>
+          <div id="acct-chev1" style="font-size:18px;color:var(--text3);transition:transform 0.2s;transform:rotate(180deg)">▾</div>
+        </div>
+        <div id="acct-body1" style="border-top:1px solid var(--border);padding:16px 18px">
+          <div style="font-size:13px;color:var(--text);margin-bottom:10px;font-weight:500" data-en="Attachments" data-th="เอกสารแนบ">Attachments</div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">📄</span><span data-en="ใบสำคัญรับ — income vouchers (all student payments received) · signed original" data-th="ใบสำคัญรับ — รายรับของเดือน (เงินนักเรียนทั้งหมดที่รับมา) · ต้นฉบับพร้อมลายเซ็น">ใบสำคัญรับ — income vouchers (all student payments received) · signed original</span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">📄</span><span data-en="ใบสำคัญจ่าย — expense vouchers (teacher/staff payments made on 10th) · signed original" data-th="ใบสำคัญจ่าย — รายจ่ายของเดือน (จ่ายครู/พนักงานวันที่ 10) · ต้นฉบับพร้อมลายเซ็น">ใบสำคัญจ่าย — expense vouchers (teacher/staff payments made on 10th) · signed original</span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🧾</span><span><span data-en="ใบหักภาษี ณ ที่จ่าย — teachers (" data-th="ใบหักภาษี ณ ที่จ่าย — ครู (">ใบหักภาษี ณ ที่จ่าย — teachers (</span><span class="acct-slip-mm">06</span>/01, <span class="acct-slip-mm">06</span>/02…) · <span data-en="signed copy" data-th="สำเนาพร้อมลายเซ็น">signed copy</span></span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🧾</span><span><span data-en="ใบหักภาษี ณ ที่จ่าย — staff (continuing sequence " data-th="ใบหักภาษี ณ ที่จ่าย — พนักงาน (ต่อเลขรัน ">ใบหักภาษี ณ ที่จ่าย — staff (continuing sequence </span><span class="acct-slip-mm">06</span>/03, <span class="acct-slip-mm">06</span>/04…) · <span data-en="signed copy" data-th="สำเนาพร้อมลายเซ็น">signed copy</span></span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🏦</span><span data-en="Bank statement — Account 1 · full month PDF · no signature needed" data-th="Statement ธนาคาร บัญชีที่ 1 · PDF เต็มเดือน · ไม่ต้องเซ็น">Bank statement — Account 1 · full month PDF · no signature needed</span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🏦</span><span data-en="Bank statement — Account 2 · full month PDF · no signature needed" data-th="Statement ธนาคาร บัญชีที่ 2 · PDF เต็มเดือน · ไม่ต้องเซ็น">Bank statement — Account 2 · full month PDF · no signature needed</span></div>
+          <!-- Email draft 1 -->
+          <div style="margin-top:16px;border:1px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
+            <div style="background:var(--surface2);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+              <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px" data-en="Email draft — Eye prepares, Steven sends" data-th="ร่างอีเมล — Eye เตรียม, Steven ส่ง">Email draft — Eye prepares, Steven sends</span>
+              <button onclick="acctCopy('acct-email1')" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:'DM Sans',sans-serif" data-en="Copy" data-th="คัดลอก">Copy</button>
+            </div>
+            <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="To" data-th="ถึง">To</span><span style="color:var(--text2);font-family:'DM Mono',monospace">chanawat2012@gmail.com</span></div>
+            <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="Subject" data-th="หัวข้อ">Subject</span><span id="acct-email-subject" style="color:var(--text2);font-family:'DM Mono',monospace"></span></div>
+            <div style="padding:12px 14px"><pre id="acct-email1" style="font-size:12px;color:var(--text);font-family:'DM Mono',monospace;line-height:1.8;white-space:pre-wrap;margin:0">เรียน คุณชนวัฒน์
+
+ทาง Prompt Language Studyo Co., Ltd. ขอส่งเอกสารประจำเดือน [MM/YYYY] ดังนี้ค่ะ
+
+ใบหักภาษี ณ ที่จ่าย ทั้งหมด [N] ใบ: ครู [N] คน, พนักงาน [N] คน
+
+เอกสารที่แนบมาด้วย:
+1. ใบสำคัญรับ — [N] ไฟล์
+2. ใบสำคัญจ่าย — [N] ไฟล์
+3. ใบหักภาษี ณ ที่จ่าย — ครู ([N] ไฟล์)
+4. ใบหักภาษี ณ ที่จ่าย — พนักงาน ([N] ไฟล์)
+5. Statement ธนาคาร บัญชีที่ 1 — [ชื่อธนาคาร]
+6. Statement ธนาคาร บัญชีที่ 2 — [ชื่อธนาคาร]
+
+หากมีข้อสงสัยหรือต้องการเอกสารเพิ่มเติม กรุณาแจ้งได้เลยค่ะ
+
+ขอบคุณค่ะ
+นภัค พุ่มไสว
+Prompt Language Studyo Co., Ltd.</pre></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text3);line-height:1.6;padding:10px 12px;background:var(--surface2);border-radius:var(--radius)" data-en="Chanawat records by payment date, not teaching date. The June 10 payroll may cover May teaching — do not back-date anything." data-th="คุณชนวัฒน์นับตามวันที่จ่ายจริง ไม่ใช่วันที่สอน การจ่ายวันที่ 10 มิถุนาอาจครอบคลุมการสอนเดือนพฤษภา — ไม่ต้องย้อนหลังอะไรทั้งนั้น">Chanawat records by payment date, not teaching date. The June 10 payroll may cover May teaching — do not back-date anything.</div>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="card" style="padding:0;margin-bottom:10px">
+        <div onclick="acctToggle(2)" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;transition:background 0.15s;border-radius:var(--radius-lg)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text2);flex-shrink:0">2</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:500" data-en="Chanawat sends back" data-th="คุณชนวัฒน์ส่งเอกสารกลับ">Chanawat sends back</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px" data-en="No action from team · Steven receives and forwards to Eye + Pop" data-th="ทีมงานไม่ต้องทำอะไร · Steven รับและส่งต่อให้ Eye + Pop">No action from team · Steven receives and forwards to Eye + Pop</div>
+          </div>
+          <div id="acct-chev2" style="font-size:18px;color:var(--text3);transition:transform 0.2s">▾</div>
+        </div>
+        <div id="acct-body2" style="display:none;border-top:1px solid var(--border);padding:16px 18px">
+          <div style="font-size:13px;color:var(--text);margin-bottom:10px;font-weight:500" data-en="Chanawat will send" data-th="คุณชนวัฒน์จะส่ง">Chanawat will send</div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">📋</span><span data-en="P03_form + P03_attach — ภ.ง.ด.3 (teacher withholding)" data-th="P03_form + P03_attach — แบบ ภ.ง.ด.3 (ภาษีหักครู)">P03_form + P03_attach — ภ.ง.ด.3 (teacher withholding)</span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">📋</span><span data-en="P53_form + P53_attach — ภ.ง.ด.53 (staff withholding)" data-th="P53_form + P53_attach — แบบ ภ.ง.ด.53 (ภาษีหักพนักงาน)">P53_form + P53_attach — ภ.ง.ด.53 (staff withholding)</span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">💳</span><span data-en="Payin P03 P53 — exact amount to pay Revenue Department" data-th="Payin P03 P53 — ยอดที่ต้องชำระให้กรมสรรพากร">Payin P03 P53 — exact amount to pay Revenue Department</span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🧾</span><span data-en="ค่าภาษีและบริการ YYYY MM — Chanawat's fee invoice" data-th="ค่าภาษีและบริการ YYYY MM — ใบแจ้งค่าบริการของคุณชนวัฒน์">ค่าภาษีและบริการ YYYY MM — Chanawat's fee invoice</span></div>
+          <!-- Email draft 2 -->
+          <div style="margin-top:16px;border:1px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
+            <div style="background:var(--surface2);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+              <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px" data-en="Steven forwards to Eye + Pop" data-th="Steven ส่งต่อให้ Eye + Pop">Steven forwards to Eye + Pop</span>
+              <button onclick="acctCopy('acct-email2')" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:'DM Sans',sans-serif" data-en="Copy" data-th="คัดลอก">Copy</button>
+            </div>
+            <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="To" data-th="ถึง">To</span><span style="color:var(--text2);font-family:'DM Mono',monospace" data-en="Eye, Pop" data-th="Eye, Pop">Eye, Pop</span></div>
+            <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="Subject" data-th="หัวข้อ">Subject</span><span style="color:var(--text2);font-family:'DM Mono',monospace" data-en="Forward Chanawat's email — same thread" data-th="ฟอร์เวิร์ดอีเมลคุณชนวัฒน์ — thread เดิม">Forward Chanawat's email — same thread</span></div>
+            <div style="padding:12px 14px"><pre id="acct-email2" style="font-size:12px;color:var(--text);font-family:'DM Mono',monospace;line-height:1.8;white-space:pre-wrap;margin:0">Eye — please print all attachments and save to Google Drive accounting folder.
+
+Pop — please make both payments by [date].
+Refer to Payin PDF for tax amount and fee PDF for Chanawat's amount.
+Send receipts to Eye when done.</pre></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="card" style="padding:0;margin-bottom:24px">
+        <div onclick="acctToggle(3)" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;transition:background 0.15s;border-radius:var(--radius-lg)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text2);flex-shrink:0">3</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:500" data-en="Send payment receipts to Chanawat" data-th="ส่งใบเสร็จให้คุณชนวัฒน์">Send payment receipts to Chanawat</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px" data-en="Pop pays · Eye drafts · Steven forwards · by the 15th" data-th="Pop จ่าย · Eye ร่าง · Steven ส่งต่อ · ภายในวันที่ 15">Pop pays · Eye drafts · Steven forwards · by the 15th</div>
+          </div>
+          <div id="acct-chev3" style="font-size:18px;color:var(--text3);transition:transform 0.2s">▾</div>
+        </div>
+        <div id="acct-body3" style="display:none;border-top:1px solid var(--border);padding:16px 18px">
+          <div style="font-size:13px;color:var(--text);margin-bottom:10px;font-weight:500" data-en="Attachments (from Pop)" data-th="เอกสารแนบ (จาก Pop)">Attachments (from Pop)</div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🧾</span><span data-en="Receipt of tax payment (Payin P03/P53) — photo or scan" data-th="ใบเสร็จชำระภาษี (Payin P03/P53) — รูปถ่ายหรือสแกน">Receipt of tax payment (Payin P03/P53) — photo or scan</span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🧾</span><span data-en="Receipt of Chanawat's fee payment — photo or scan" data-th="ใบเสร็จค่าบริการคุณชนวัฒน์ — รูปถ่ายหรือสแกน">Receipt of Chanawat's fee payment — photo or scan</span></div>
+          <!-- Email draft 3 -->
+          <div style="margin-top:16px;border:1px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
+            <div style="background:var(--surface2);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+              <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px" data-en="Email draft — Eye prepares, Steven forwards" data-th="ร่างอีเมล — Eye เตรียม, Steven ส่งต่อ">Email draft — Eye prepares, Steven forwards</span>
+              <button onclick="acctCopy('acct-email3')" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:'DM Sans',sans-serif" data-en="Copy" data-th="คัดลอก">Copy</button>
+            </div>
+            <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="To" data-th="ถึง">To</span><span style="color:var(--text2);font-family:'DM Mono',monospace">chanawat2012@gmail.com</span></div>
+            <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="Subject" data-th="หัวข้อ">Subject</span><span style="color:var(--text2);font-family:'DM Mono',monospace" data-en="Reply in same thread — do not start a new email" data-th="Reply ใน thread เดิม — ไม่ต้องตั้งหัวข้อใหม่">Reply in same thread — do not start a new email</span></div>
+            <div style="padding:12px 14px"><pre id="acct-email3" style="font-size:12px;color:var(--text);font-family:'DM Mono',monospace;line-height:1.8;white-space:pre-wrap;margin:0">ใบเสร็จชำระเงินทั้ง 2 รายการนะค่ะคุณชนวัฒน์
+
+1. ใบเสร็จภาษี (Payin P03/P53)
+2. ใบเสร็จค่าบริการ
+
+ขอบคุณค่ะ</pre></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WHT reference -->
+      <div style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px" data-en="WHT 3% reference" data-th="ข้อมูลอ้างอิงภาษีหัก ณ ที่จ่าย 3%">WHT 3% reference</div>
+      <div class="card" style="padding:16px 18px;margin-bottom:24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)" data-en="Teacher hourly pay" data-th="ค่าสอนครูรายชั่วโมง">Teacher hourly pay</span><span style="background:var(--green-bg);color:#0F6E56;font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px" data-en="3% withheld" data-th="หัก 3%">3% withheld</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)" data-en="Staff fixed salary" data-th="เงินเดือนพนักงาน">Staff fixed salary</span><span style="background:var(--green-bg);color:#0F6E56;font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px" data-en="3% withheld" data-th="หัก 3%">3% withheld</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)" data-en="Staff commission" data-th="คอมมิชชั่นพนักงาน">Staff commission</span><span style="background:var(--green-bg);color:#0F6E56;font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px" data-en="3% withheld" data-th="หัก 3%">3% withheld</span></div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text3);line-height:1.8;font-family:'DM Mono',monospace">
+          <span data-en="Gross × 3% = tax withheld  ·  Net transfer = Gross − 3%" data-th="รวมรายได้ × 3% = ภาษีที่หัก  ·  ยอดโอน = รวมรายได้ − 3%">Gross × 3% = tax withheld  ·  Net transfer = Gross − 3%</span><br>
+          <span data-en="Slip numbering: " data-th="เลขรันใบหัก: ">Slip numbering: </span><span class="acct-slip-mm">06</span>/01, <span class="acct-slip-mm">06</span>/02 <span data-en="teachers" data-th="ครู">teachers</span> → <span class="acct-slip-mm">06</span>/03, <span class="acct-slip-mm">06</span>/04 <span data-en="staff" data-th="พนักงาน">staff</span><br>
+          <span data-en="Each slip must show: gross / tax withheld / net transferred" data-th="ในใบหักทุกใบต้องแสดง: ยอดก่อนหัก / ภาษีที่หัก / ยอดโอนสุทธิ">Each slip must show: gross / tax withheld / net transferred</span>
+        </div>
+      </div>
+
+      <!-- Checklists -->
+      <div style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px" data-en="Monthly checklists" data-th="เช็คลิสต์รายเดือน">Monthly checklists</div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:4px" data-en="Eye — by the 5th" data-th="Eye — ภายในวันที่ 5">Eye — by the 5th</div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="ใบสำคัญรับ — income vouchers for the month" data-th="ใบสำคัญรับ — รายรับของเดือน">ใบสำคัญรับ — income vouchers for the month</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="ใบสำคัญจ่าย — expense vouchers for the month" data-th="ใบสำคัญจ่าย — รายจ่ายของเดือน">ใบสำคัญจ่าย — expense vouchers for the month</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="ใบหักภาษี ณ ที่จ่าย — teachers (starting 06/01)" data-th="ใบหักภาษี ณ ที่จ่าย — ครู (เริ่มจาก 06/01)">ใบหักภาษี ณ ที่จ่าย — teachers (starting 06/01)</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="ใบหักภาษี ณ ที่จ่าย — staff (continuing sequence)" data-th="ใบหักภาษี ณ ที่จ่าย — พนักงาน (ต่อเลขรัน)">ใบหักภาษี ณ ที่จ่าย — staff (continuing sequence)</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Bank statements — both accounts, full month PDF" data-th="Statement ธนาคาร — ทั้งสองบัญชี PDF เต็มเดือน">Bank statements — both accounts, full month PDF</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Draft submission email ready for Steven to forward" data-th="ร่างอีเมลพร้อมส่งให้ Steven ฟอร์เวิร์ด">Draft submission email ready for Steven to forward</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)" style="border-bottom:none"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Physical copies printed and prepared for delivery" data-th="ปริ้นท์เอกสารกระดาษและเตรียมพร้อมส่ง">Physical copies printed and prepared for delivery</div></div>
+        <div style="font-size:12px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;padding:12px 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px;margin-top:8px" data-en="Eye — after receiving receipts from Pop" data-th="Eye — หลังรับใบเสร็จจาก Pop">Eye — after receiving receipts from Pop</div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Save all Chanawat attachments to Google Drive" data-th="บันทึกไฟล์ทั้งหมดของคุณชนวัฒน์ลง Google Drive">Save all Chanawat attachments to Google Drive</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Draft receipt email with both receipts attached" data-th="ร่างอีเมลใบเสร็จพร้อมแนบไฟล์ทั้งสอง">Draft receipt email with both receipts attached</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)" style="border-bottom:none"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Send to Steven for review" data-th="ส่งให้ Steven ตรวจ">Send to Steven for review</div></div>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:4px" data-en="Steven — by the 5th" data-th="Steven — ภายในวันที่ 5">Steven — by the 5th</div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Review all documents" data-th="ตรวจเอกสารทั้งหมด">Review all documents</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)" style="border-bottom:none"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Forward submission email to Chanawat" data-th="ฟอร์เวิร์ดอีเมลถึงคุณชนวัฒน์">Forward submission email to Chanawat</div></div>
+        <div style="font-size:12px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;padding:12px 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px;margin-top:8px" data-en="Steven — after Chanawat replies" data-th="Steven — หลังคุณชนวัฒน์ส่งกลับ">Steven — after Chanawat replies</div>
+        <div class="acct-cl-item" onclick="acctTick(this)" style="border-bottom:none"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Forward Chanawat's email to Eye + Pop with payment instructions" data-th="ฟอร์เวิร์ดอีเมลคุณชนวัฒน์ให้ Eye + Pop พร้อมคำสั่ง">Forward Chanawat's email to Eye + Pop with payment instructions</div></div>
+        <div style="font-size:12px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;padding:12px 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px;margin-top:8px" data-en="Steven — by the 15th" data-th="Steven — ภายในวันที่ 15">Steven — by the 15th</div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Review receipt email drafted by Eye" data-th="ตรวจอีเมลใบเสร็จที่ Eye ร่างมา">Review receipt email drafted by Eye</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)" style="border-bottom:none"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Forward to Chanawat — reply in same thread, not a new email" data-th="ฟอร์เวิร์ดถึงคุณชนวัฒน์ — Reply ใน thread เดิม ไม่ต้องเริ่มใหม่">Forward to Chanawat — reply in same thread, not a new email</div></div>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:24px">
+        <div style="font-size:12px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:4px" data-en="Pop — by the 15th" data-th="Pop — ภายในวันที่ 15">Pop — by the 15th</div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Pay Revenue Department via Payin P03/P53" data-th="ชำระภาษีสรรพากรผ่านเปย์อิน P03/P53">Pay Revenue Department via Payin P03/P53</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Pay Chanawat's fee" data-th="ชำระค่าบริการคุณชนวัฒน์">Pay Chanawat's fee</div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)" style="border-bottom:none"><div class="acct-cl-box"><span class="acct-cl-check">✓</span></div><div class="acct-cl-text" data-en="Send both receipts to Eye" data-th="ส่งใบเสร็จทั้งสองใบให้ Eye">Send both receipts to Eye</div></div>
+      </div>
+    </div>
+
     <div class="page" id="page-audit">
       <div class="page-header">
         <div>
@@ -8878,6 +9118,46 @@ function setLang(l, btn) {
 }
 
 // ─── DARK / LIGHT MODE ──────────────────────────────────────
+// ─── ACCOUNTING GUIDE ────────────────────────────────────────
+function acctToggle(n) {
+  const body = document.getElementById('acct-body' + n);
+  const chev = document.getElementById('acct-chev' + n);
+  const hidden = body.style.display === 'none' || body.style.display === '';
+  body.style.display = hidden ? 'block' : 'none';
+  chev.style.transform = hidden ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+function acctTick(el) {
+  const box = el.querySelector('.acct-cl-box');
+  const txt = el.querySelector('.acct-cl-text');
+  const checked = box.classList.toggle('checked');
+  txt.classList.toggle('checked', checked);
+}
+function acctCopy(id) {
+  const text = document.getElementById(id).innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const prev = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = prev, 1500);
+  }).catch(() => {});
+}
+function acctSetDates() {
+  const now = new Date();
+  const submitMonth = new Date(now.getFullYear(), now.getMonth() + (now.getDate() <= 5 ? -1 : 0), 1);
+  const dueMonth = new Date(submitMonth.getFullYear(), submitMonth.getMonth() + 1, 5);
+  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const namesth = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const mm = String(submitMonth.getMonth() + 1).padStart(2, '0');
+  const yyyy = submitMonth.getFullYear();
+  const prepEl = document.getElementById('acct-prep-month');
+  const dueEl = document.getElementById('acct-due-date');
+  const subjEl = document.getElementById('acct-email-subject');
+  if (prepEl) prepEl.textContent = (lang==='th' ? namesth[submitMonth.getMonth()] : names[submitMonth.getMonth()]) + (lang==='th' ? '' : ' documents');
+  if (dueEl) dueEl.textContent = (lang==='th' ? namesth[dueMonth.getMonth()] : names[dueMonth.getMonth()]) + ' 5';
+  if (subjEl) subjEl.textContent = '[พร้อม แลงเกวจ สตูดิโอ] เอกสารภาษีเดือน ' + mm + '/' + yyyy;
+  document.querySelectorAll('.acct-slip-mm').forEach(el => el.textContent = mm);
+}
+
 function toggleTheme() {
   const isDark = document.body.getAttribute('data-theme') === 'dark';
   const newTheme = isDark ? 'light' : 'dark';
@@ -10406,6 +10686,7 @@ function showPage(id, btn) {
     setScheduleView(sv);
   }
   if (id === 'audit') renderAuditLog();
+  if (id === 'accounting') acctSetDates();
   if (id === 'tutors') {
     // Always re-render tutors when navigating to the page
     // renderTutors() handles all view mode restore, dropdown populate, and button states
@@ -10504,6 +10785,10 @@ initAuth();
       <button onclick="hideMobileMore();toggleTheme()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
         <span style="font-size:24px" id="mobile-theme-icon">⏾</span>
         <span style="font-size:12px;color:var(--text2)">Theme</span>
+      </button>
+      <button onclick="hideMobileMore();showPage('accounting')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <span style="font-size:24px">📋</span>
+        <span style="font-size:12px;color:var(--text2)" data-en="Accounting" data-th="บัญชี">Accounting</span>
       </button>
       <button onclick="hideMobileMore();logout()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
         <span style="font-size:24px">⎋</span>
