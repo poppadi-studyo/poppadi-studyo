@@ -10369,6 +10369,7 @@ function onAppReady() {
     if (savedPage && document.getElementById('page-'+savedPage)) {
       showPage(savedPage);
     }
+    acctSetDates();
     // Restore open student detail if user was inside one
     const savedCourse = localStorage.getItem('poppadi_detail_course');
     if (savedCourse && savedPage === 'students') {
