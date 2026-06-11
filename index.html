@@ -760,7 +760,7 @@
         <span data-en="Advanced settings" data-th="ตั้งค่าขั้นสูง">Advanced settings</span>
       </button>
       <button class="nav-item" onclick="showPage('accounting', this)" id="nav-accounting">
-        <span class="nav-icon">📋</span>
+        <span class="nav-icon">≡</span>
         <span data-en="Accounting guide" data-th="คู่มือบัญชี">Accounting guide</span>
       </button>
     </nav>
@@ -1839,7 +1839,7 @@
           <div style="margin-top:16px;border:1px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
             <div style="background:var(--surface2);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
               <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px" data-en="Email draft — Eye prepares, Steven sends" data-th="ร่างอีเมล — Eye เตรียม, Steven ส่ง">Email draft — Eye prepares, Steven sends</span>
-              <button onclick="acctCopy('acct-email1')" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:'DM Sans',sans-serif" data-en="Copy" data-th="คัดลอก">Copy</button>
+              <button onclick=\"acctCopy('acct-email1', this)\" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:'DM Sans',sans-serif" data-en="Copy" data-th="คัดลอก">Copy</button>
             </div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="To" data-th="ถึง">To</span><span style="color:var(--text2);font-family:'DM Mono',monospace">chanawat2012@gmail.com</span></div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="Subject" data-th="หัวข้อ">Subject</span><span id="acct-email-subject" style="color:var(--text2);font-family:'DM Mono',monospace"></span></div>
@@ -1861,7 +1861,7 @@
 
 ขอบคุณค่ะ
 นภัค พุ่มไสว
-Prompt Language Studyo Co., Ltd.</pre></div>
+บริษัท พร้อม แลงเกวจ สตูดิโอ จำกัด</pre></div>
           </div>
           <div style="margin-top:12px;font-size:12px;color:var(--text3);line-height:1.6;padding:10px 12px;background:var(--surface2);border-radius:var(--radius)" data-en="Chanawat records by payment date, not teaching date. The June 10 payroll may cover May teaching — do not back-date anything." data-th="คุณชนวัฒน์นับตามวันที่จ่ายจริง ไม่ใช่วันที่สอน การจ่ายวันที่ 10 มิถุนาอาจครอบคลุมการสอนเดือนพฤษภา — ไม่ต้องย้อนหลังอะไรทั้งนั้น">Chanawat records by payment date, not teaching date. The June 10 payroll may cover May teaching — do not back-date anything.</div>
         </div>
@@ -1887,7 +1887,7 @@ Prompt Language Studyo Co., Ltd.</pre></div>
           <div style="margin-top:16px;border:1px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
             <div style="background:var(--surface2);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
               <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px" data-en="Steven forwards to Eye + Pop" data-th="Steven ส่งต่อให้ Eye + Pop">Steven forwards to Eye + Pop</span>
-              <button onclick="acctCopy('acct-email2')" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:'DM Sans',sans-serif" data-en="Copy" data-th="คัดลอก">Copy</button>
+              <button onclick=\"acctCopy('acct-email2', this)\" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:'DM Sans',sans-serif" data-en="Copy" data-th="คัดลอก">Copy</button>
             </div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="To" data-th="ถึง">To</span><span style="color:var(--text2);font-family:'DM Mono',monospace" data-en="Eye, Pop" data-th="Eye, Pop">Eye, Pop</span></div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="Subject" data-th="หัวข้อ">Subject</span><span style="color:var(--text2);font-family:'DM Mono',monospace" data-en="Forward Chanawat's email — same thread" data-th="ฟอร์เวิร์ดอีเมลคุณชนวัฒน์ — thread เดิม">Forward Chanawat's email — same thread</span></div>
@@ -1918,7 +1918,7 @@ Send receipts to Eye when done.</pre></div>
           <div style="margin-top:16px;border:1px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
             <div style="background:var(--surface2);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
               <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px" data-en="Email draft — Eye prepares, Steven forwards" data-th="ร่างอีเมล — Eye เตรียม, Steven ส่งต่อ">Email draft — Eye prepares, Steven forwards</span>
-              <button onclick="acctCopy('acct-email3')" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:'DM Sans',sans-serif" data-en="Copy" data-th="คัดลอก">Copy</button>
+              <button onclick=\"acctCopy('acct-email3', this)\" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border-strong);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:'DM Sans',sans-serif" data-en="Copy" data-th="คัดลอก">Copy</button>
             </div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="To" data-th="ถึง">To</span><span style="color:var(--text2);font-family:'DM Mono',monospace">chanawat2012@gmail.com</span></div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="Subject" data-th="หัวข้อ">Subject</span><span style="color:var(--text2);font-family:'DM Mono',monospace" data-en="Reply in same thread — do not start a new email" data-th="Reply ใน thread เดิม — ไม่ต้องตั้งหัวข้อใหม่">Reply in same thread — do not start a new email</span></div>
@@ -9131,15 +9131,27 @@ function acctTick(el) {
   const txt = el.querySelector('.acct-cl-text');
   const checked = box.classList.toggle('checked');
   txt.classList.toggle('checked', checked);
+  const chk = box.querySelector('.acct-cl-check');
+  if (chk) chk.style.display = checked ? 'block' : 'none';
+  box.style.background = checked ? 'var(--teal)' : '';
+  box.style.borderColor = checked ? 'var(--teal)' : '';
 }
-function acctCopy(id) {
+function acctCopy(id, btn) {
   const text = document.getElementById(id).innerText;
+  const prev = btn.textContent;
   navigator.clipboard.writeText(text).then(() => {
-    const btn = event.target;
-    const prev = btn.textContent;
     btn.textContent = '✓ Copied!';
-    setTimeout(() => btn.textContent = prev, 1500);
-  }).catch(() => {});
+    btn.style.color = 'var(--teal)';
+    btn.style.borderColor = 'var(--teal)';
+    setTimeout(() => {
+      btn.textContent = prev;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 1500);
+  }).catch(() => {
+    btn.textContent = '✗ Failed';
+    setTimeout(() => { btn.textContent = prev; }, 1500);
+  });
 }
 function acctSetDates() {
   const now = new Date();
@@ -10787,7 +10799,7 @@ initAuth();
         <span style="font-size:12px;color:var(--text2)">Theme</span>
       </button>
       <button onclick="hideMobileMore();showPage('accounting')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
-        <span style="font-size:24px">📋</span>
+        <span style="font-size:24px">≡</span>
         <span style="font-size:12px;color:var(--text2)" data-en="Accounting" data-th="บัญชี">Accounting</span>
       </button>
       <button onclick="hideMobileMore();logout()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--surface2);border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
