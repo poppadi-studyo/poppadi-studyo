@@ -9115,6 +9115,7 @@ function setLang(l, btn) {
   renderAll();
   if (tutorViewMode==='all') renderTutorAll(); else renderTutorDetail();
   if (scheduleViewMode==='calendar') renderCalendar();
+  acctSetDates();
 }
 
 // ─── DARK / LIGHT MODE ──────────────────────────────────────
@@ -9154,21 +9155,25 @@ function acctCopy(id, btn) {
   });
 }
 function acctSetDates() {
+  // Read lang from localStorage directly — never rely on global which may not be set yet
+  const l = localStorage.getItem('poppadi_lang') || 'en';
   const now = new Date();
   const submitMonth = new Date(now.getFullYear(), now.getMonth() + (now.getDate() <= 5 ? -1 : 0), 1);
   const dueMonth = new Date(submitMonth.getFullYear(), submitMonth.getMonth() + 1, 5);
-  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const names   = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const namesth = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
-  const mm = String(submitMonth.getMonth() + 1).padStart(2, '0');
+  const mm   = String(submitMonth.getMonth() + 1).padStart(2, '0');
   const yyyy = submitMonth.getFullYear();
+  const submitName = l==='th' ? namesth[submitMonth.getMonth()] : names[submitMonth.getMonth()];
+  const dueName    = l==='th' ? namesth[dueMonth.getMonth()]    : names[dueMonth.getMonth()];
+  const monthLabel = l==='th' ? (submitName + ' ' + yyyy) : (submitName + ' ' + yyyy);
   const prepEl = document.getElementById('acct-prep-month');
-  const dueEl = document.getElementById('acct-due-date');
+  const dueEl  = document.getElementById('acct-due-date');
   const subjEl = document.getElementById('acct-email-subject');
-  if (prepEl) prepEl.textContent = (lang==='th' ? namesth[submitMonth.getMonth()] : names[submitMonth.getMonth()]) + (lang==='th' ? '' : ' documents');
-  if (dueEl) dueEl.textContent = (lang==='th' ? namesth[dueMonth.getMonth()] : names[dueMonth.getMonth()]) + ' 5';
+  if (prepEl) prepEl.textContent = l==='th' ? submitName : (submitName + ' documents');
+  if (dueEl)  dueEl.textContent  = dueName + ' 5';
   if (subjEl) subjEl.textContent = '[พร้อม แลงเกวจ สตูดิโอ] เอกสารภาษีเดือน ' + mm + '/' + yyyy;
   document.querySelectorAll('.acct-slip-mm').forEach(el => el.textContent = mm);
-  const monthLabel = lang==='th' ? namesth[submitMonth.getMonth()] + ' ' + yyyy : names[submitMonth.getMonth()] + ' ' + yyyy;
   document.querySelectorAll('.acct-month-name').forEach(el => el.textContent = monthLabel);
 }
 
