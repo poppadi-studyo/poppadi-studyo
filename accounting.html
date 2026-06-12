@@ -386,7 +386,7 @@ function acctCopy(id, btn) {
   });
 }
 function acctSetDates() {
-  var l = localStorage.getItem('poppadi_lang') || 'en';
+  var l = localStorage.getItem('poppadi_acct_lang') || localStorage.getItem('poppadi_lang') || 'en';
   var now = new Date();
   var today = now.getDate();
   var submitMonth = new Date(now.getFullYear(), now.getMonth() + (today <= 5 ? -1 : 0), 1);
