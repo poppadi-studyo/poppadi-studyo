@@ -3204,8 +3204,10 @@ function renderSchedule() {
     function normTime(t) {
       if (!t) return '';
       const str = String(t).trim();
-      if (/^\d{2}:\d{2}/.test(str)) return str.substring(0,5);
-      return str;
+      const parts = str.split(':');
+      const hh = String(parseInt(parts[0]||'0')).padStart(2,'0');
+      const mm = parts[1] ? parts[1].substring(0,2) : '00';
+      return hh + ':' + mm;
     }
 
     // Group sessions that share tutor + date + start_time + subject + enrollment type
@@ -7412,7 +7414,12 @@ function normDate(s) {
 }
 function normTime(t) {
   const str = String(t||'').trim();
-  return str.length >= 5 ? str.substring(0,5) : str;
+  if (!str) return '';
+  // Pad single-digit hours: "8:00:00" → "08:00", "17:00:00" → "17:00"
+  const parts = str.split(':');
+  const hh = String(parseInt(parts[0]||'0')).padStart(2,'0');
+  const mm = parts[1] ? parts[1].substring(0,2) : '00';
+  return hh + ':' + mm;
 }
 
 // Auto-capitalise first letter of student name inputs
@@ -10048,7 +10055,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.3';
+  const cacheVersion = '4.4';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
