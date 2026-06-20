@@ -7734,7 +7734,7 @@ function renderCalendar() {
       for (let i = 0; i < firstDay; i++) html += `<div></div>`;
       for (let day = 1; day <= daysInMonth; day++) {
         const d = new Date(y, m, day);
-        const daySessions = sessions.filter(s => isSameDay(parseSessionDate(s.date)||new Date(0), d)).sort((a,b) => (a.start_time||'').localeCompare(b.start_time||''));
+        const daySessions = sessions.filter(s => isSameDay(parseSessionDate(s.date)||new Date(0), d)).sort((a,b) => normTime(a.start_time).localeCompare(normTime(b.start_time)));
         const isToday = isSameDay(d, today);
         html += `<div style="min-height:52px;padding:2px;border-radius:6px;background:${isToday?'var(--teal-bg)':'transparent'}">
           <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--teal)':'var(--text)'};text-align:center;margin-bottom:2px">${day}</div>
@@ -7751,7 +7751,7 @@ function renderCalendar() {
       title.textContent = dayLabel;
       const daySessions = sessions
         .filter(s => isSameDay(parseSessionDate(s.date)||new Date(0), calDate))
-        .sort((a,b) => (a.start_time||'').localeCompare(b.start_time||''));
+        .sort((a,b) => normTime(a.start_time).localeCompare(normTime(b.start_time)));
       body.innerHTML = daySessions.length
         ? daySessions.map(s => {
             const subject = getSubjectForSession(s);
@@ -7783,7 +7783,7 @@ function renderCalendar() {
         const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
         const daySessions = sessions
           .filter(s => isSameDay(parseSessionDate(s.date)||new Date(0), d))
-          .sort((a,b) => (a.start_time||'').localeCompare(b.start_time||''));
+          .sort((a,b) => normTime(a.start_time).localeCompare(normTime(b.start_time)));
         const isToday = isSameDay(d, today);
         const dayLabel = `${wdays[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
         if (!daySessions.length && !isToday) continue; // skip empty days on mobile week
@@ -7993,7 +7993,7 @@ function renderCalendar() {
     for(let day=1;day<=daysInMonth;day++){
       const d=new Date(y,m,day);
       const isToday=isSameDay(d,new Date());
-        const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),d)).sort((a,b)=>(a.start_time||'').localeCompare(b.start_time||''));
+        const daySessions=sessions.filter(s=>isSameDay(parseSessionDate(s.date)||new Date(0),d)).sort((a,b)=>normTime(a.start_time).localeCompare(normTime(b.start_time)));
       html+=`<div style="min-height:80px;border:1px solid var(--border);border-radius:8px;padding:6px;background:${isToday?'var(--teal-bg)':'var(--surface)'}">
         <div style="font-size:12px;font-weight:${isToday?'600':'400'};color:${isToday?'var(--teal)':'var(--text)'};margin-bottom:4px">${day}</div>
         ${daySessions.map(s=>renderCalEventPill(s,true)).join('')}
@@ -10048,7 +10048,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.2';
+  const cacheVersion = '4.3';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
