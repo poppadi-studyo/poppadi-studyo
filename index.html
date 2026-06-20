@@ -4816,6 +4816,7 @@ function openPendingDetail(courseId) {
   const tutor    = getTutor(course.tutor_id);
   const sessions = getValidSessions(courseId)
     .sort((a,b) => (parseSessionDate(a.date)||new Date(0)) - (parseSessionDate(b.date)||new Date(0)));
+  const taughtCount = sessions.filter(s => s.status === 'Completed' || s.status === 'Makeup').length;
 
   const modal = document.createElement('div');
   modal.id = 'pending-detail-modal';
@@ -4905,14 +4906,16 @@ function openPendingDetail(courseId) {
           <button onclick="copyPendingForLine('${courseId}')" class="btn btn-sm">⎘ Copy for LINE</button>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button id="modal-cancel-btn" onclick="modalActionWithLoading('cancel','${courseId}',this)"
-            style="font-size:12px;padding:7px 14px;border:1px solid var(--red);color:var(--red);background:none;border-radius:8px;cursor:pointer">
-            ✕ ${lang==='th'?'ยกเลิกทั้งหมด':'Cancel enrollment'}
-          </button>
-          <button id="modal-delete-btn" onclick="modalActionWithLoading('delete','${courseId}',this)"
-            style="font-size:12px;padding:7px 14px;border:1px solid var(--red);color:#fff;background:var(--red);border-radius:8px;cursor:pointer">
-            🗑 ${lang==='th'?'ลบทั้งหมด (clean slate)':'Delete enrollment'}
-          </button>
+          ${taughtCount > 0
+            ? `<button id="modal-cancel-btn" onclick="modalActionWithLoading('cancel','${courseId}',this)"
+                style="font-size:12px;padding:7px 14px;border:1px solid var(--red);color:var(--red);background:none;border-radius:8px;cursor:pointer">
+                ✕ ${lang==='th'?'ยกเลิกคาบที่เหลือ':'Cancel remaining sessions'}
+              </button>`
+            : `<button id="modal-delete-btn" onclick="modalActionWithLoading('delete','${courseId}',this)"
+                style="font-size:12px;padding:7px 14px;border:1px solid var(--red);color:#fff;background:var(--red);border-radius:8px;cursor:pointer">
+                🗑 ${lang==='th'?'ลบการลงทะเบียน':'Delete enrollment'}
+              </button>`
+          }
           <button id="modal-confirm-btn" onclick="modalActionWithLoading('confirm','${courseId}',this)"
             style="font-size:12px;padding:7px 14px;border:none;background:var(--teal);color:#fff;border-radius:8px;cursor:pointer;font-weight:500">
             ✅ ${lang==='th'?'ยืนยันการชำระ':'Confirm paid'}
@@ -5395,12 +5398,12 @@ async function cancelPendingSession(sessionId, modalId) {
 
 async function cancelEntireEnrollment(courseId) {
   if (!confirm(lang==='th'
-    ? '⚠️ ยืนยันการยกเลิกทั้งหมด?\n\nคาบที่ยังไม่เริ่มทั้งหมดจะถูกยกเลิก'
-    : '⚠️ Cancel entire enrollment?\n\nAll scheduled sessions will be cancelled.')) return;
+    ? '⚠️ ยืนยันการยกเลิกคาบที่เหลือ?\n\nคาบที่ยังไม่เริ่มทั้งหมดจะถูกยกเลิก'
+    : '⚠️ Cancel remaining sessions?\n\nAll scheduled sessions will be cancelled. Taught sessions are kept.')) return;
 
   try {
     await webAppWrite('cancelEnrollment', { courseId, userEmail: currentUser?.email });
-    showToast(lang==='th' ? '✓ ยกเลิกการลงทะเบียนแล้ว' : '✓ Enrollment cancelled');
+    showToast(lang==='th' ? '✓ ยกเลิกคาบที่เหลือแล้ว' : '✓ Remaining sessions cancelled');
     await loadAllData();
     document.getElementById('pending-detail-modal')?.remove();
     renderPendingPayments();
@@ -10045,7 +10048,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.1';
+  const cacheVersion = '4.2';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
