@@ -8235,7 +8235,48 @@ function showMonthlySummary() {
         </tr></tfoot>
       </table>
 
-      <!-- Video course payouts section (only shown if there are video sales) -->
+      <!-- Staff total transfer section -->
+      ${(()=>{
+        const staffNames = ['jane','eye'];
+        const staffExpenses = monthExpenses.filter(e => staffNames.some(n => new RegExp(n,'i').test(e.item_name||'')));
+        if (!staffExpenses.length) return '';
+        const rows = staffExpenses.map(e => {
+          const name = /jane/i.test(e.item_name||'') ? 'Jane' : 'Eye';
+          const sg = Number(e.amount||0);
+          const sw = Math.round(sg*0.03*100)/100;
+          const sn = sg - sw;
+          const cg = commBreakdown[name.toLowerCase()]||0;
+          const cw = Math.round(cg*0.03*100)/100;
+          const cn = cg - cw;
+          const total = sn + cn;
+          return '<tr style="border-bottom:1px solid #eee">'
+            + '<td style="padding:8px 10px;font-weight:500">' + name + '</td>'
+            + '<td style="padding:8px 10px;text-align:right">฿' + fmt(sg) + '</td>'
+            + '<td style="padding:8px 10px;text-align:right;color:#E24B4A">฿' + fmt(sw) + '</td>'
+            + '<td style="padding:8px 10px;text-align:right">฿' + fmt(sn) + '</td>'
+            + '<td style="padding:8px 10px;text-align:right">฿' + fmt(cg) + '</td>'
+            + '<td style="padding:8px 10px;text-align:right;color:#E24B4A">฿' + fmt(cw) + '</td>'
+            + '<td style="padding:8px 10px;text-align:right">฿' + fmt(cn) + '</td>'
+            + '<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1D9E75">฿' + fmt(total) + '</td>'
+            + '</tr>';
+        }).join('');
+        return '<div style="font-size:13px;font-weight:600;margin-bottom:8px">Staff total transfer (salary + commission)</div>'
+          + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">'
+          + '<thead><tr style="border-bottom:2px solid #eee">'
+          + '<th style="padding:8px 10px;text-align:left;font-size:11px;color:#888">NAME</th>'
+          + '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">SALARY GROSS</th>'
+          + '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">WHT 3%</th>'
+          + '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">SALARY NET</th>'
+          + '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">COMM GROSS</th>'
+          + '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">WHT 3%</th>'
+          + '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">COMM NET</th>'
+          + '<th style="padding:8px 10px;text-align:right;font-size:11px;color:#888">TOTAL TRANSFER</th>'
+          + '</tr></thead>'
+          + '<tbody>' + rows + '</tbody>'
+          + '</table>';
+      })()}
+
+            <!-- Video course payouts section (only shown if there are video sales) -->
       ${monthVideoSales.length ? `
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">Video course payouts (${monthVideoSales.length} sale${monthVideoSales.length!==1?'s':''})</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
@@ -8264,12 +8305,19 @@ function showMonthlySummary() {
             <td colspan="2"></td>
           </tr>`:''}
         </tbody>
-        <tfoot><tr style="border-top:2px solid #eee;font-weight:600;background:#f7f6f3">
-          <td style="padding:8px 10px" colspan="2">Total payouts + fees</td>
-          <td style="padding:8px 10px;text-align:right">฿${fmt(totalVideoPayouts+videoPlatformFees)}</td>
-          <td style="padding:8px 10px;text-align:right;color:#E24B4A">฿${fmt(Object.values(videoPayMap).reduce((s,v)=>s+Math.round(v.amount*0.03*100)/100,0))}</td>
-          <td style="padding:8px 10px;text-align:right;color:#1D9E75">฿${fmt(videoNet)}</td>
-        </tr></tfoot>
+        <tfoot>
+          <tr style="border-top:2px solid #eee;font-weight:600;background:#f7f6f3">
+            <td style="padding:8px 10px" colspan="2">Total payouts + fees</td>
+            <td style="padding:8px 10px;text-align:right">฿${fmt(totalVideoPayouts+videoPlatformFees)}</td>
+            <td style="padding:8px 10px;text-align:right;color:#E24B4A">฿${fmt(Object.values(videoPayMap).reduce((s,v)=>s+Math.round(v.amount*0.03*100)/100,0))}</td>
+            <td style="padding:8px 10px;text-align:right;color:#888">—</td>
+          </tr>
+          <tr style="font-weight:600;background:#E1F5EE">
+            <td style="padding:8px 10px" colspan="2">Net to school (after payouts &amp; fees)</td>
+            <td colspan="2"></td>
+            <td style="padding:8px 10px;text-align:right;color:#1D9E75">฿${fmt(videoNet)}</td>
+          </tr>
+        </tfoot>
       </table>` : ''}
 
       <!-- Fixed Expenses breakdown with WHT 3% -->
@@ -8356,7 +8404,17 @@ function downloadMonthlySummaryPDF() {
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
   const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
   const pdfAccShare     = getAccountantShare(selectedMonth);
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + pdfAccShare;
+  const pdfVideoSales   = (DATA.videoSales||[]).filter(s=>s.status!=='Voided'&&(s.month||'').startsWith(selectedMonth));
+  const pdfVideoNet     = pdfVideoSales.reduce((s,x)=>s+Number(x.net_to_school||0),0);
+  const pdfVideoPayMap  = {};
+  pdfVideoSales.forEach(s=>{
+    const add=(n,a,r)=>{ if(!n||!Number(a)) return; if(!pdfVideoPayMap[n]) pdfVideoPayMap[n]={amount:0,role:r}; pdfVideoPayMap[n].amount+=Number(a||0); };
+    add('Au',s.payout_au,'developer'); add(s.project_owner,s.payout_owner,'owner');
+    add(s.coordinator,s.payout_coordinator,'coordinator');
+    add(s.influencer_name,s.payout_influencer,'influencer');
+    add(s.streamer_name,s.payout_streamer,'streamer');
+  });
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + pdfAccShare + pdfVideoNet;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -8451,6 +8509,33 @@ function downloadMonthlySummaryPDF() {
     <tbody>${commRows}</tbody>
   </table>
 
+  ${Object.keys(pdfVideoPayMap).length ? `
+  <h3>Video Course Payouts</h3>
+  <table>
+    <thead><tr><th>Recipient</th><th>Role</th><th style="text-align:right">Gross</th><th style="text-align:right">WHT 3%</th><th style="text-align:right">Net</th></tr></thead>
+    <tbody>${Object.entries(pdfVideoPayMap).map(([n,{amount,role}])=>{const wht=Math.round(amount*0.03*100)/100;const net=amount-wht;return '<tr><td>'+n+'</td><td style="color:#888">'+role+'</td><td style="text-align:right">฿'+fmt(amount)+'</td><td style="text-align:right;color:#E24B4A">฿'+fmt(wht)+'</td><td style="text-align:right;color:#1D9E75">฿'+fmt(net)+'</td></tr>';}).join('')}</tbody>
+    <tfoot><tr style="font-weight:600;background:#f7f6f3"><td colspan="2">Net to school</td><td colspan="2"></td><td style="text-align:right;color:#1D9E75">฿${fmt(pdfVideoNet)}</td></tr></tfoot>
+  </table>` : ''}
+
+  ${(()=>{
+    const staffNames = ['jane','eye'];
+    const staffRows = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)&&staffNames.some(n=>new RegExp(n,'i').test(e.item_name||'')));
+    if (!staffRows.length) return '';
+    const rows = staffRows.map(e=>{
+      const name = /jane/i.test(e.item_name||'') ? 'Jane' : 'Eye';
+      const salGross = Number(e.amount||0);
+      const salWHT   = Math.round(salGross*0.03*100)/100;
+      const salNet   = salGross - salWHT;
+      const commKey  = name.toLowerCase();
+      const commGross= commMap[commKey]||0;
+      const commWHT  = Math.round(commGross*0.03*100)/100;
+      const commNet  = commGross - commWHT;
+      const total    = salNet + commNet;
+      return '<tr><td style="font-weight:500">'+name+'</td><td style="text-align:right">฿'+fmt(salGross)+'</td><td style="text-align:right;color:#E24B4A">฿'+fmt(salWHT)+'</td><td style="text-align:right">฿'+fmt(salNet)+'</td><td style="text-align:right">฿'+fmt(commGross)+'</td><td style="text-align:right;color:#E24B4A">฿'+fmt(commWHT)+'</td><td style="text-align:right">฿'+fmt(commNet)+'</td><td style="text-align:right;font-weight:700;color:#1D9E75">฿'+fmt(total)+'</td></tr>';
+    }).join('');
+    return '<h3>Staff Total Transfer (Salary + Commission)</h3><table><thead><tr><th>Name</th><th style="text-align:right">Salary gross</th><th style="text-align:right">WHT 3%</th><th style="text-align:right">Salary net</th><th style="text-align:right">Comm gross</th><th style="text-align:right">WHT 3%</th><th style="text-align:right">Comm net</th><th style="text-align:right">Total transfer</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  })()}
+
   <h3>Other Income</h3>
   <table>
     <thead><tr><th>Item</th><th>Category</th><th style="text-align:right">Amount</th></tr></thead>
@@ -8487,7 +8572,15 @@ function downloadMonthlySummaryExcel() {
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
   const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
   const csvAccShare     = getAccountantShare(selectedMonth);
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + csvAccShare;
+  const csvVideoSales   = (DATA.videoSales||[]).filter(s=>s.status!=='Voided'&&(s.month||'').startsWith(selectedMonth));
+  const csvVideoNet     = csvVideoSales.reduce((s,x)=>s+Number(x.net_to_school||0),0);
+  const csvVideoPayMap  = {};
+  csvVideoSales.forEach(s=>{
+    const add=(n,a,r)=>{ if(!n||!Number(a)) return; if(!csvVideoPayMap[n]) csvVideoPayMap[n]={amount:0,role:r}; csvVideoPayMap[n].amount+=Number(a||0); };
+    add('Au',s.payout_au,'developer'); add(s.project_owner,s.payout_owner,'owner');
+    add(s.coordinator,s.payout_coordinator,'coordinator');
+  });
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + csvAccShare + csvVideoNet;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -8567,6 +8660,32 @@ function downloadMonthlySummaryExcel() {
       return toCSVRow([whoLabel, gross, +(gross*0.03).toFixed(2), +(gross*0.97).toFixed(2)]);
     }),
     '',
+    ...(Object.keys(csvVideoPayMap).length ? [
+      toCSVRow(['VIDEO COURSE PAYOUTS / การจ่ายเงินวิดีโอ']),
+      toCSVRow(['Recipient','Role','Gross','WHT 3%','Net']),
+      ...Object.entries(csvVideoPayMap).map(([n,{amount,role}])=>{
+        const wht=+(amount*0.03).toFixed(2);
+        return toCSVRow([n, role, amount, wht, +(amount-wht).toFixed(2)]);
+      }),
+      toCSVRow(['Net to school / สุทธิโรงเรียน','','','',+csvVideoNet.toFixed(2)]),
+      '',
+    ] : []),
+    ...(()=>{
+      const staffNames=['jane','eye'];
+      const staffExpenses=DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)&&staffNames.some(n=>new RegExp(n,'i').test(e.item_name||'')));
+      if(!staffExpenses.length) return [];
+      return [
+        toCSVRow(['STAFF TOTAL TRANSFER / ยอดโอนรวมพนักงาน']),
+        toCSVRow(['Name','Salary gross','Salary WHT 3%','Salary net','Comm gross','Comm WHT 3%','Comm net','Total transfer']),
+        ...staffExpenses.map(e=>{
+          const name=/jane/i.test(e.item_name||'')?'Jane':'Eye';
+          const sg=Number(e.amount||0); const sw=+(sg*0.03).toFixed(2); const sn=sg-sw;
+          const cg=commMap[name.toLowerCase()]||0; const cw=+(cg*0.03).toFixed(2); const cn=cg-cw;
+          return toCSVRow([name,sg,sw,sn,cg,cw,cn,+(sn+cn).toFixed(2)]);
+        }),
+        '',
+      ];
+    })(),
     toCSVRow(['OTHER INCOME / รายได้อื่น']),
     toCSVRow(['Item / รายการ','Category / ประเภท','Amount / จำนวน']),
     ...otherIncomeMonthXL.map(e => toCSVRow([e.item_name||'', e.category||'', Number(e.amount||0)])),
@@ -8620,7 +8739,15 @@ function copyMonthlySummaryTable() {
   const totalCommission = monthSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
   const totalExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,x)=>s+Number(x.amount||0),0);
   const txtAccShare     = getAccountantShare(selectedMonth);
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + txtAccShare;
+  const txtVideoSales   = (DATA.videoSales||[]).filter(s=>s.status!=='Voided'&&(s.month||'').startsWith(selectedMonth));
+  const txtVideoNet     = txtVideoSales.reduce((s,x)=>s+Number(x.net_to_school||0),0);
+  const txtVideoPayMap  = {};
+  txtVideoSales.forEach(s=>{
+    const add=(n,a,r)=>{ if(!n||!Number(a)) return; if(!txtVideoPayMap[n]) txtVideoPayMap[n]={amount:0,role:r}; txtVideoPayMap[n].amount+=Number(a||0); };
+    add('Au',s.payout_au,'developer'); add(s.project_owner,s.payout_owner,'owner');
+    add(s.coordinator,s.payout_coordinator,'coordinator');
+  });
+  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + txtAccShare + txtVideoNet;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -8675,6 +8802,29 @@ function copyMonthlySummaryTable() {
     lines.push('(No commission this month / ไม่มีคอมมิชชั่นเดือนนี้)');
   }
   lines.push('');
+  if (Object.keys(txtVideoPayMap).length) {
+    lines.push('VIDEO COURSE PAYOUTS / การจ่ายเงินวิดีโอ');
+    lines.push(tab('Recipient','Role','Gross','WHT 3%','Net'));
+    Object.entries(txtVideoPayMap).forEach(function(entry) {
+      var n=entry[0], amount=entry[1].amount, role=entry[1].role;
+      var wht=Math.round(amount*0.03*100)/100;
+      lines.push(tab(n, role, '฿'+fmt(amount), '฿'+fmt(wht), '฿'+fmt(amount-wht)));
+    });
+    lines.push(tab('Net to school / สุทธิโรงเรียน','','','','฿'+fmt(txtVideoNet)));
+    lines.push('');
+  }
+  var staffExpCP = DATA.expenses.filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0 && /jane|eye/i.test(e.item_name||''); });
+  if (staffExpCP.length) {
+    lines.push('STAFF TOTAL TRANSFER / ยอดโอนรวมพนักงาน');
+    lines.push(tab('Name','Salary gross','Salary WHT 3%','Salary net','Comm gross','Comm WHT 3%','Comm net','Total transfer'));
+    staffExpCP.forEach(function(e) {
+      var name = /jane/i.test(e.item_name||'') ? 'Jane' : 'Eye';
+      var sg=Number(e.amount||0); var sw=Math.round(sg*0.03*100)/100; var sn=sg-sw;
+      var cg=commMap2[name.toLowerCase()]||0; var cw=Math.round(cg*0.03*100)/100; var cn=cg-cw;
+      lines.push(tab(name,'฿'+fmt(sg),'฿'+fmt(sw),'฿'+fmt(sn),'฿'+fmt(cg),'฿'+fmt(cw),'฿'+fmt(cn),'฿'+fmt(sn+cn)));
+    });
+    lines.push('');
+  }
   lines.push('FIXED EXPENSES / ค่าใช้จ่ายคงที่');
   lines.push(tab('Item / รายการ','Amount / จำนวน','WHT 3% / ภาษีหัก','Net Transfer / โอนสุทธิ','Note / หมายเหตุ'));
   var xlExpenses = DATA.expenses.filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; });
@@ -10055,7 +10205,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.4';
+  const cacheVersion = '4.5';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
