@@ -2289,8 +2289,10 @@ function renderOverview() {
   const accountantShare    = getAccountantShare(selectedMonth);
   const schoolRemainder    = schoolRemainderRaw + accountantShare + videoNetOv;
   const predictedSchoolRem = predictedSchoolRemRaw + accountantShare + videoNetOv;
-  const totalExpenses      = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0)
-                           || DATA.expenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
+  const monthExpensesTotal = monthExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
+  // For future months with no expense rows yet, fall back to the known fixed monthly cost
+  const FIXED_MONTHLY_COST = 46000;
+  const totalExpenses      = monthExpensesTotal > 0 ? monthExpensesTotal : FIXED_MONTHLY_COST;
 
   const gap = totalExpenses - schoolRemainder;
   const gapCovered = gap <= 0;
@@ -10228,7 +10230,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.6';
+  const cacheVersion = '4.7';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
