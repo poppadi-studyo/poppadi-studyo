@@ -1997,13 +1997,25 @@ function getCurrentMonthStr() {
 function getMonthOptions() {
   const options = [];
   const now = new Date();
+  const curMonthVal = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  // Past 12 months (including current)
   for (let i = 0; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
     const label = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
     const labelTh = d.toLocaleString('th-TH', { month: 'long', year: 'numeric' });
-    options.push({ val, label, labelTh });
+    options.push({ val, label, labelTh, upcoming: false });
   }
+  // Next 4 upcoming months
+  for (let i = 1; i <= 4; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const label = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const labelTh = d.toLocaleString('th-TH', { month: 'long', year: 'numeric' });
+    options.push({ val, label, labelTh, upcoming: true });
+  }
+  // Sort descending (most recent first), upcoming at top
+  options.sort((a,b) => b.val.localeCompare(a.val));
   return options;
 }
 
@@ -2227,9 +2239,20 @@ function statusBadge(s) {
 function populateMonthPicker() {
   const sel = document.getElementById('month-picker');
   if (!sel) return;
-  sel.innerHTML = getMonthOptions().map(o =>
-    `<option value="${o.val}" ${o.val===selectedMonth?'selected':''}>${lang==='th'?o.labelTh:o.label}</option>`
-  ).join('');
+  const opts = getMonthOptions();
+  let html = '';
+  let dividerAdded = false;
+  for (const o of opts) {
+    // Add "Upcoming" optgroup divider before first upcoming month
+    if (o.upcoming && !dividerAdded) {
+      html += '<optgroup label="' + (lang==='th' ? '— เดือนข้างหน้า —' : '— Upcoming —') + '"></optgroup>';
+      dividerAdded = true;
+    }
+    html += '<option value="' + o.val + '"' + (o.val===selectedMonth?' selected':'') + '>'
+          + (lang==='th' ? o.labelTh : o.label)
+          + '</option>';
+  }
+  sel.innerHTML = html;
 }
 
 function changeMonth(val) {
@@ -10205,7 +10228,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.5';
+  const cacheVersion = '4.6';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
