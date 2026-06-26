@@ -8614,27 +8614,61 @@ function downloadMonthlySummaryExcel() {
   }
 
   const sessionHeader = toCSVRow([
-    'Month','Session ID','Date','Student',
-    'Tutor (Display)','Tutor (EN)','Tutor (TH)',
+    'Session ID','Date','Student',
     'Subject','Hours','Num Students',
     'Total Revenue','Tutor Pay','WHT on Tutor (3%)','Net Tutor Pay',
     'Commission To','Comm Gross','WHT on Comm (3%)','Net Commission',
     'School Remainder','Status'
   ]);
-  const sessionRows = monthSessions.map(s => {
-    const tutor     = getTutor(s.tutor_id);
-    const gross     = Number(s.tutor_pay||0);
-    const commGross = Number(s.commission_amt||0);
-    const commWho   = s.commission_who || s.commission_to || '';
-    return toCSVRow([
-      selectedMonth, s.session_id||'', s.date||'',
-      getStudentNickname(s.student_id, s.course_id),
-      tutor.name||s.tutor_id, tutor.full_name_en||'', tutor.full_name_th||'',
-      getSubjectForSession(s), s.hours||'', s.num_students||'',
-      Number(s.total_revenue||0), gross, +(gross*0.03).toFixed(2), +(gross*0.97).toFixed(2),
-      commWho, commGross, +(commGross*0.03).toFixed(2), +(commGross*0.97).toFixed(2),
-      Number(s.school_remainder||0), s.status||''
-    ]);
+
+  // Group sessions by tutor, ordered by tutor name
+  const sessionsByTutor = {};
+  monthSessions.forEach(s => {
+    const tutor = getTutor(s.tutor_id);
+    const key   = tutor.name || s.tutor_id;
+    if (!sessionsByTutor[key]) sessionsByTutor[key] = { tutor, sessions: [] };
+    sessionsByTutor[key].sessions.push(s);
+  });
+  // Sort tutors alphabetically
+  const sortedTutors = Object.keys(sessionsByTutor).sort();
+
+  const sessionRows = [];
+  sortedTutors.forEach(tutorName => {
+    const { tutor, sessions: tSessions } = sessionsByTutor[tutorName];
+    // Tutor header row
+    sessionRows.push(toCSVRow([
+      '>>> ' + tutorName + ' (' + (tutor.full_name_en||tutorName) + ')',
+      '','','','','','','','','','','','','','',''
+    ]));
+    sessionRows.push(sessionHeader);
+    // Session rows for this tutor
+    tSessions.forEach(s => {
+      const gross     = Number(s.tutor_pay||0);
+      const commGross = Number(s.commission_amt||0);
+      const commWho   = s.commission_who || s.commission_to || '';
+      sessionRows.push(toCSVRow([
+        s.session_id||'', s.date||'',
+        getStudentNickname(s.student_id, s.course_id),
+        getSubjectForSession(s), s.hours||'', s.num_students||'',
+        Number(s.total_revenue||0), gross, +(gross*0.03).toFixed(2), +(gross*0.97).toFixed(2),
+        commWho, commGross, +(commGross*0.03).toFixed(2), +(commGross*0.97).toFixed(2),
+        Number(s.school_remainder||0), s.status||''
+      ]));
+    });
+    // Subtotal row
+    const subHrs = tSessions.reduce((s,x)=>s+Number(x.hours||0),0);
+    const subRev = tSessions.reduce((s,x)=>s+Number(x.total_revenue||0),0);
+    const subPay = tSessions.reduce((s,x)=>s+Number(x.tutor_pay||0),0);
+    const subComm= tSessions.reduce((s,x)=>s+Number(x.commission_amt||0),0);
+    const subRem = tSessions.reduce((s,x)=>s+Number(x.school_remainder||0),0);
+    sessionRows.push(toCSVRow([
+      'SUBTOTAL','','',
+      '',+subHrs.toFixed(1),'',
+      +subRev.toFixed(2), +subPay.toFixed(2), +(subPay*0.03).toFixed(2), +(subPay*0.97).toFixed(2),
+      '', +subComm.toFixed(2), +(subComm*0.03).toFixed(2), +(subComm*0.97).toFixed(2),
+      +subRem.toFixed(2), ''
+    ]));
+    sessionRows.push(''); // blank row between tutors
   });
 
   const commMap = {};
@@ -8736,8 +8770,7 @@ function downloadMonthlySummaryExcel() {
   ];
 
   const csv = [
-    '=== SESSIONS (reconciliation) ===',
-    sessionHeader,
+    '=== SESSIONS BY TUTOR (reconciliation) ===',
     ...sessionRows,
     '','',
     '=== SUMMARY ===',
@@ -10230,7 +10263,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.7';
+  const cacheVersion = '4.8';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
