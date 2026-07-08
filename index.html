@@ -8082,7 +8082,8 @@ function showMonthlySummary() {
   const monthExpenses   = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth));
   const totalExpenses   = monthExpenses.reduce((s,x)=>s+Number(x.amount||0),0);
   const msAccShare      = getAccountantShare(selectedMonth);
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + msAccShare;
+  const tutoringRemainderMS = totalRevenue - totalTutorPay - totalCommission;
+  const schoolRemainder = tutoringRemainderMS + msAccShare;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses - msAccShare)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -8209,7 +8210,7 @@ function showMonthlySummary() {
           ['Commission','คอมมิชชั่นรวม', totalCommission, '#333'],
           ['Fixed expenses','ค่าใช้จ่ายคงที่', totalExpenses, '#E24B4A'],
           ...(msAccShare>0?[['Accountant share (Steven)','สมทบบัญชี (Steven)', msAccShare, '#1D9E75']]:[]),
-          ['School remainder (pre-Pop 20%)','คงเหลือโรงเรียน (ก่อนหักส่วนแบ่ง Pop)', schoolRemainder, schoolRemainder >= 0 ? '#333' : '#E24B4A'],
+          ['School remainder (pre-Pop 20%)','คงเหลือโรงเรียน (ก่อนหักส่วนแบ่ง Pop)', tutoringRemainderMS, tutoringRemainderMS >= 0 ? '#333' : '#E24B4A'],
           ["AJ. Pop 20% share","ส่วนแบ่ง 20%", profitShare, '#378ADD'],
           ['Total WHT 3%','ภาษีหัก ณ ที่จ่าย 3%', totalWHT, '#E24B4A'],
           ['Net to school','รายได้สุทธิ', netSchool, netSchool >= 0 ? '#1D9E75' : '#E24B4A', lang==='th'?'หลังหักส่วนแบ่ง AJ. Pop 20%':'after AJ. Pop 20% share'],
@@ -8440,7 +8441,8 @@ function downloadMonthlySummaryPDF() {
     add(s.influencer_name,s.payout_influencer,'influencer');
     add(s.streamer_name,s.payout_streamer,'streamer');
   });
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + pdfAccShare + pdfVideoNet;
+  const tutoringRemainderPDF = totalRevenue - totalTutorPay - totalCommission;
+  const schoolRemainder = tutoringRemainderPDF + pdfAccShare + pdfVideoNet;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses - pdfAccShare)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -8515,7 +8517,7 @@ function downloadMonthlySummaryPDF() {
     <div class="metric"><label>Commission</label><strong>฿${fmt(totalCommission)}</strong></div>
     <div class="metric"><label>Fixed Expenses</label><strong class="red">฿${fmt(totalExpenses)}</strong></div>
     ${pdfAccShare>0?`<div class="metric"><label>Accountant Share (Steven)</label><strong class="green">฿${fmt(pdfAccShare)}</strong></div>`:''}
-    <div class="metric"><label>School Remainder</label><strong class="${schoolRemainder >= 0 ? '' : 'red'}">฿${fmt(schoolRemainder)}</strong></div>
+    <div class="metric"><label>School Remainder</label><strong class="${tutoringRemainderPDF >= 0 ? '' : 'red'}">฿${fmt(tutoringRemainderPDF)}</strong></div>
     <div class="metric"><label>AJ. Pop 20% Share</label><strong style="color:#378ADD">฿${fmt(profitShare)}</strong></div>
     <div class="metric"><label>Total WHT 3%</label><strong class="red">฿${fmt(totalWHT)}</strong></div>
     <div class="metric"><label>Net to School</label><strong class="${netSchool >= 0 ? 'green' : 'red'}">฿${fmt(netSchool)}</strong></div>
@@ -8606,7 +8608,8 @@ function downloadMonthlySummaryExcel() {
     add('Au',s.payout_au,'developer'); add(s.project_owner,s.payout_owner,'owner');
     add(s.coordinator,s.payout_coordinator,'coordinator');
   });
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + csvAccShare + csvVideoNet;
+  const tutoringRemainderXL = totalRevenue - totalTutorPay - totalCommission;
+  const schoolRemainder = tutoringRemainderXL + csvAccShare + csvVideoNet;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses - csvAccShare)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -8694,7 +8697,7 @@ function downloadMonthlySummaryExcel() {
     toCSVRow(['Total Commission / คอมมิชชั่นรวม', totalCommission]),
     toCSVRow(['Fixed Expenses / ค่าใช้จ่ายคงที่', totalExpenses]),
     ...(csvAccShare>0?[toCSVRow(['Accountant Share (AJ. Steven) / ส่วนแบ่งนักบัญชี (AJ. Steven)', csvAccShare])]:[]),
-    toCSVRow(['School Remainder / ส่วนที่เหลือของโรงเรียน', schoolRemainder]),
+    toCSVRow(['School Remainder (tutoring) / ส่วนที่เหลือโรงเรียน (จากการสอน)', tutoringRemainderXL]),
     toCSVRow(["AJ. Pop 20% Share / ส่วนแบ่งกำไร AJ. Pop 20%", profitShare]),
     toCSVRow(['Total WHT 3% / ภาษีหัก ณ ที่จ่าย 3% รวม', +(totalTutorPay*0.03 + totalCommission*0.03 + DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isRentXL=/rent/i.test(e.item_name||''); const isAcctXL=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctXL&&csvAccShare>0?base+csvAccShare:base; return isRentXL?s:s+Math.round(amt*0.03*100)/100; },0)).toFixed(2)]),
     toCSVRow(['Net to School / สุทธิที่โรงเรียนได้รับ', netSchool]),
@@ -8806,7 +8809,8 @@ function copyMonthlySummaryTable() {
     add('Au',s.payout_au,'developer'); add(s.project_owner,s.payout_owner,'owner');
     add(s.coordinator,s.payout_coordinator,'coordinator');
   });
-  const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + txtAccShare + txtVideoNet;
+  const tutoringRemainderTXT = totalRevenue - totalTutorPay - totalCommission;
+  const schoolRemainder = tutoringRemainderTXT + txtAccShare + txtVideoNet;
   const profitShare     = Math.max(0,(schoolRemainder - totalExpenses - txtAccShare)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
@@ -8822,7 +8826,7 @@ function copyMonthlySummaryTable() {
   lines.push(tab('Total Commission / คอมมิชชั่นรวม',        '\u0e3f'+fmt(totalCommission)));
   lines.push(tab('Fixed Expenses / ค่าใช้จ่ายคงที่',        '\u0e3f'+fmt(totalExpenses)));
   if (txtAccShare>0) lines.push(tab('Accountant Share (AJ. Steven) / ส่วนแบ่งนักบัญชี (AJ. Steven)', '\u0e3f'+fmt(txtAccShare)));
-  lines.push(tab('School Remainder / ส่วนที่เหลือของโรงเรียน', '\u0e3f'+fmt(schoolRemainder)));
+  lines.push(tab('School Remainder (tutoring) / ส่วนที่เหลือโรงเรียน (จากการสอน)', '\u0e3f'+fmt(tutoringRemainderTXT)));
   lines.push(tab('AJ. Pop 20% Share / ส่วนแบ่งกำไร AJ. Pop 20%', '\u0e3f'+fmt(profitShare)));
   var expWHTforTotal = DATA.expenses.filter(function(e){ return (e.month||'').indexOf(selectedMonth)===0; }).reduce(function(s,e){ var isRentCP=/rent/i.test(e.item_name||''); var isAcctCP=/accountant/i.test(e.item_name||''); var base=Number(e.amount||0); var amt=isAcctCP&&txtAccShare>0?base+txtAccShare:base; return isRentCP?s:s+Math.round(amt*0.03*100)/100; },0);
   lines.push(tab('Total WHT 3% / ภาษีหัก ณ ที่จ่าย 3% รวม', '\u0e3f'+fmt(totalTutorPay*0.03 + totalCommission*0.03 + expWHTforTotal)));
