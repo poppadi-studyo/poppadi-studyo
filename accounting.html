@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Accounting Guide — Poppadi's Studyo</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono&display=swap" rel="stylesheet">
 <style>
@@ -67,7 +67,7 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; overflow-x: hidden; }
 
   /* ── Layout (mirrors dashboard) ── */
   .app { display: flex; min-height: 100vh; }
@@ -102,14 +102,36 @@
   /* ── Mobile ── */
   @media (max-width: 768px) {
     .sidebar { display: none; }
-    .main { margin-left: 0; width: 100vw; padding: 16px 14px 40px; }
+    .main {
+      margin-left: 0;
+      width: 100%;
+      max-width: 100vw;
+      padding: 16px 14px env(safe-area-inset-bottom, 40px);
+      padding-top: 16px;
+    }
     .mobile-header { display: flex !important; }
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    #acct-deadline-badge {
+      align-self: flex-start;
+    }
+    pre {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+      word-break: break-word;
+      white-space: pre-wrap !important;
+    }
   }
   .mobile-header {
     display: none;
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     position: sticky; top: 0; z-index: 50;
@@ -207,7 +229,7 @@
             </div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="To" data-th="ถึง">To</span><span style="color:var(--text2);font-family:'DM Mono',monospace">chanawat2012@gmail.com</span></div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="Subject" data-th="หัวข้อ">Subject</span><span id="acct-email-subject" style="color:var(--text2);font-family:'DM Mono',monospace"></span></div>
-            <div style="padding:12px 14px"><pre id="acct-email1" style="font-size:12px;color:var(--text);font-family:'DM Mono',monospace;line-height:1.8;white-space:pre-wrap;margin:0">เรียน คุณชนวัฒน์
+            <div style="padding:12px 14px"><pre id="acct-email1" style="font-size:12px;color:var(--text);font-family:'DM Mono',monospace;line-height:1.8;white-space:pre-wrap;margin:0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%">เรียน คุณชนวัฒน์
 
 ทาง บริษัท พร้อม แลงเกวจ สตูดิโอ จำกัด ขอส่งเอกสารประจำเดือน [MM/YYYY] ดังนี้ค่ะ
 
@@ -255,7 +277,7 @@
             </div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="To" data-th="ถึง">To</span><span style="color:var(--text2);font-family:'DM Mono',monospace" data-en="Eye, Pop" data-th="Eye, Pop">Eye, Pop</span></div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="Subject" data-th="หัวข้อ">Subject</span><span style="color:var(--text2);font-family:'DM Mono',monospace" data-en="Forward Chanawat's email — same thread" data-th="ฟอร์เวิร์ดอีเมลคุณชนวัฒน์ — thread เดิม">Forward Chanawat's email — same thread</span></div>
-            <div style="padding:12px 14px"><pre id="acct-email2" style="font-size:12px;color:var(--text);font-family:'DM Mono',monospace;line-height:1.8;white-space:pre-wrap;margin:0">Eye — please print all attachments and save to Google Drive accounting folder.
+            <div style="padding:12px 14px"><pre id="acct-email2" style="font-size:12px;color:var(--text);font-family:'DM Mono',monospace;line-height:1.8;white-space:pre-wrap;margin:0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%">Eye — please print all attachments and save to Google Drive accounting folder.
 
 Pop — please make both payments by [date].
 Refer to Payin PDF for tax amount and fee PDF for Chanawat's amount.
@@ -286,7 +308,7 @@ Send receipts to Eye when done.</pre></div>
             </div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="To" data-th="ถึง">To</span><span style="color:var(--text2);font-family:'DM Mono',monospace">chanawat2012@gmail.com</span></div>
             <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:12px"><span style="color:var(--text3);width:52px;flex-shrink:0" data-en="Subject" data-th="หัวข้อ">Subject</span><span style="color:var(--text2);font-family:'DM Mono',monospace" data-en="Reply in same thread — do not start a new email" data-th="Reply ใน thread เดิม — ไม่ต้องตั้งหัวข้อใหม่">Reply in same thread — do not start a new email</span></div>
-            <div style="padding:12px 14px"><pre id="acct-email3" style="font-size:12px;color:var(--text);font-family:'DM Mono',monospace;line-height:1.8;white-space:pre-wrap;margin:0">ใบเสร็จชำระเงินทั้ง 2 รายการนะค่ะคุณชนวัฒน์
+            <div style="padding:12px 14px"><pre id="acct-email3" style="font-size:12px;color:var(--text);font-family:'DM Mono',monospace;line-height:1.8;white-space:pre-wrap;margin:0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%">ใบเสร็จชำระเงินทั้ง 2 รายการนะค่ะคุณชนวัฒน์
 
 1. ใบเสร็จภาษี (Payin P03/P53)
 2. ใบเสร็จค่าบริการ
@@ -302,7 +324,7 @@ Send receipts to Eye when done.</pre></div>
         <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)" data-en="Teacher hourly pay" data-th="ค่าสอนครูรายชั่วโมง">Teacher hourly pay</span><span style="background:var(--green-bg);color:#0F6E56;font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px" data-en="3% withheld" data-th="หัก 3%">3% withheld</span></div>
         <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)" data-en="Staff fixed salary" data-th="เงินเดือนพนักงาน">Staff fixed salary</span><span style="background:var(--green-bg);color:#0F6E56;font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px" data-en="3% withheld" data-th="หัก 3%">3% withheld</span></div>
         <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)" data-en="Staff commission" data-th="คอมมิชชั่นพนักงาน">Staff commission</span><span style="background:var(--green-bg);color:#0F6E56;font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px" data-en="3% withheld" data-th="หัก 3%">3% withheld</span></div>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text3);line-height:1.8;font-family:'DM Mono',monospace">
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text3);line-height:1.8;font-family:'DM Mono',monospace;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%">
           <span data-en="Gross × 3% = tax withheld  ·  Net transfer = Gross − 3%" data-th="รวมรายได้ × 3% = ภาษีที่หัก  ·  ยอดโอน = รวมรายได้ − 3%">Gross × 3% = tax withheld  ·  Net transfer = Gross − 3%</span><br>
           <span data-en="Slip numbering: " data-th="เลขรันใบหัก: ">Slip numbering: </span><span class="acct-slip-mm">06</span>/01, <span class="acct-slip-mm">06</span>/02 <span data-en="teachers" data-th="ครู">teachers</span> → <span class="acct-slip-mm">06</span>/03, <span class="acct-slip-mm">06</span>/04 <span data-en="staff" data-th="พนักงาน">staff</span><br>
           <span data-en="Each slip must show: gross / tax withheld / net transferred" data-th="ในใบหักทุกใบต้องแสดง: ยอดก่อนหัก / ภาษีที่หัก / ยอดโอนสุทธิ">Each slip must show: gross / tax withheld / net transferred</span>
