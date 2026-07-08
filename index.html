@@ -8763,11 +8763,11 @@ function downloadMonthlySummaryExcel() {
       const amt      = isAcctXL && csvAccShare > 0 ? baseAmt + csvAccShare : baseAmt;
       const wht      = isRentXL ? 0 : Math.round(amt*0.03*100)/100;
       const net      = amt - wht;
-      const note     = isAcctXL && csvAccShare > 0 ? `฿${baseAmt} school + ฿${csvAccShare} AJ. Steven` : (isRentXL ? 'WHT exempt / ยกเว้นภาษี' : '');
+      const note     = isAcctXL && csvAccShare > 0 ? `฿${baseAmt} school + ฿${csvAccShare} AJ. Steven (not in school expenses total)` : (isRentXL ? 'WHT exempt / ยกเว้นภาษี' : '');
       return toCSVRow([e.item_name||e.item||'', amt, wht||'', net, note]);
     }),
-    toCSVRow(['TOTAL',
-      +(DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isAcctXL=/accountant/i.test(e.item_name||''); return s+Number(e.amount||0)+(isAcctXL&&csvAccShare>0?csvAccShare:0); },0)).toFixed(2),
+    toCSVRow(['TOTAL (school expenses only)',
+      +totalExpenses.toFixed(2),
       +(DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isRentXL=/rent/i.test(e.item_name||''); const isAcctXL=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctXL&&csvAccShare>0?base+csvAccShare:base; return isRentXL?s:s+Math.round(amt*0.03*100)/100; },0)).toFixed(2),
       +(DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isRentXL=/rent/i.test(e.item_name||''); const isAcctXL=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctXL&&csvAccShare>0?base+csvAccShare:base; const wht=isRentXL?0:Math.round(amt*0.03*100)/100; return s+amt-wht; },0)).toFixed(2),
       '',]),
