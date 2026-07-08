@@ -8083,7 +8083,7 @@ function showMonthlySummary() {
   const totalExpenses   = monthExpenses.reduce((s,x)=>s+Number(x.amount||0),0);
   const msAccShare      = getAccountantShare(selectedMonth);
   const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + msAccShare;
-  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses - msAccShare)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
   // ── Other Income ─────────────────────────────────────────
@@ -8209,16 +8209,17 @@ function showMonthlySummary() {
           ['Commission','คอมมิชชั่นรวม', totalCommission, '#333'],
           ['Fixed expenses','ค่าใช้จ่ายคงที่', totalExpenses, '#E24B4A'],
           ...(msAccShare>0?[['Accountant share (Steven)','สมทบบัญชี (Steven)', msAccShare, '#1D9E75']]:[]),
-          ['School remainder','คงเหลือโรงเรียน', schoolRemainder, schoolRemainder >= 0 ? '#333' : '#E24B4A'],
+          ['School remainder (pre-Pop 20%)','คงเหลือโรงเรียน (ก่อนหักส่วนแบ่ง Pop)', schoolRemainder, schoolRemainder >= 0 ? '#333' : '#E24B4A'],
           ["AJ. Pop 20% share","ส่วนแบ่ง 20%", profitShare, '#378ADD'],
           ['Total WHT 3%','ภาษีหัก ณ ที่จ่าย 3%', totalWHT, '#E24B4A'],
-          ['Net to school','รายได้สุทธิ', netSchool, netSchool >= 0 ? '#1D9E75' : '#E24B4A'],
+          ['Net to school','รายได้สุทธิ', netSchool, netSchool >= 0 ? '#1D9E75' : '#E24B4A', lang==='th'?'หลังหักส่วนแบ่ง AJ. Pop 20%':'after AJ. Pop 20% share'],
           ['Sessions taught','คาบที่สอน', monthSessions.length, '#333'],
           ...(videoGross>0?[['Video gross sales','ยอดขายวิดีโอรวม', videoGross, '#1D9E75'],['Video net to school','วิดีโอสุทธิโรงเรียน', videoNet, videoNet>=0?'#1D9E75':'#E24B4A']]:[]),
-        ].map(([en,th,val,color])=>`
+        ].map(([en,th,val,color,subnote])=>`
           <div style="background:#f7f6f3;border-radius:10px;padding:12px 14px">
             <div style="font-size:10px;color:#888;text-transform:uppercase">${lang==='th'?th:en}</div>
             <div style="font-size:18px;font-weight:600;color:${color};margin-top:3px">${typeof val==='number'&&val>99?'฿'+fmt(val):val}</div>
+            ${subnote?`<div style="font-size:10px;color:#aaa;margin-top:3px">${subnote}</div>`:''}
           </div>`).join('')}
       </div>
 
@@ -8440,7 +8441,7 @@ function downloadMonthlySummaryPDF() {
     add(s.streamer_name,s.payout_streamer,'streamer');
   });
   const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + pdfAccShare + pdfVideoNet;
-  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses - pdfAccShare)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
   // Per-tutor breakdown
@@ -8606,7 +8607,7 @@ function downloadMonthlySummaryExcel() {
     add(s.coordinator,s.payout_coordinator,'coordinator');
   });
   const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + csvAccShare + csvVideoNet;
-  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses - csvAccShare)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
   function toCSVRow(cells) {
@@ -8806,7 +8807,7 @@ function copyMonthlySummaryTable() {
     add(s.coordinator,s.payout_coordinator,'coordinator');
   });
   const schoolRemainder = totalRevenue - totalTutorPay - totalCommission + txtAccShare + txtVideoNet;
-  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses)*0.20);
+  const profitShare     = Math.max(0,(schoolRemainder - totalExpenses - txtAccShare)*0.20);
   const netSchool       = schoolRemainder - totalExpenses - profitShare;
 
   const tab = (...vals) => vals.join('\t');
