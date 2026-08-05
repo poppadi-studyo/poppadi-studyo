@@ -1137,6 +1137,7 @@
             <button onclick="downloadStudentExcel()" class="btn btn-sm">⬇ <span data-en="Download Excel" data-th="ดาวน์โหลด Excel">Download Excel</span></button>
             <button onclick="downloadStudentPDFForTutor()" class="btn btn-sm">⬇ <span data-en="PDF for tutor" data-th="PDF สำหรับครู">PDF for tutor</span></button>
             <button onclick="downloadStudentPDFForStudent()" class="btn btn-sm">⬇ <span data-en="PDF for student" data-th="PDF สำหรับนักเรียน">PDF for student</span></button>
+            <button onclick="downloadAllCoursesForStudent(currentDetailCourse?.student_id)" class="btn btn-sm" style="color:var(--teal);font-weight:600">⬇ <span data-en="All courses PDF" data-th="PDF ทุกคอร์ส">All courses PDF</span></button>
           </div>
         </div>
 
@@ -4929,11 +4930,16 @@ function openPendingDetail(courseId) {
       <td style="padding:8px 10px">${timeStr}</td>
       <td style="padding:8px 10px;text-align:center">${s.hours||'—'}</td>
       <td style="padding:8px 10px">${statusBadge(s.status)}</td>
-      <td style="padding:8px 10px">
-        ${!isLocked ? `<button onclick="cancelPendingSession('${s.session_id}','${modal.id}')"
-          style="font-size:11px;padding:3px 8px;border:1px solid var(--red);color:var(--red);background:none;border-radius:6px;cursor:pointer">
-          ✕ ${lang==='th'?'ยกเลิก':'Cancel'}
-        </button>` : '🔒'}
+      <td style="padding:8px 10px;white-space:nowrap">
+        ${!isLocked ? `
+          <button onclick="openEditSession('${s.session_id}')"
+            style="font-size:11px;padding:3px 8px;border:1px solid var(--border-strong);color:var(--text2);background:none;border-radius:6px;cursor:pointer;margin-right:4px">
+            ✏️ ${lang==='th'?'แก้ไข':'Edit'}
+          </button>
+          <button onclick="cancelPendingSession('${s.session_id}','${modal.id}')"
+            style="font-size:11px;padding:3px 8px;border:1px solid var(--red);color:var(--red);background:none;border-radius:6px;cursor:pointer">
+            ✕ ${lang==='th'?'ยกเลิก':'Cancel'}
+          </button>` : '🔒'}
       </td>
     </tr>`;
   }).join('');
@@ -5619,14 +5625,129 @@ function downloadPendingPDFStudent(courseId) {
   showToast(lang==='th'?'✓ PDF สำหรับนักเรียน':'✓ Student PDF — press Print to save');
 }
 
-// Opens each course's student PDF in sequence (one tab per course, small delay between)
+// ─── COMBINED MULTI-COURSE PDF (student-facing, one page per course) ──────────
+function buildCombinedSchedulePDF(courseIds, overrideStudentName) {
+  const statusTh = {Completed:'สอนแล้ว',Missed:'ขาดเรียน',Cancelled:'ยกเลิก',Makeup:'ชดเชย',Scheduled:'กำหนดการ'};
+  const normD = v => { const dt=parseSessionDate(String(v||'').trim()); if(!dt||isNaN(dt.getTime()))return''; return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); };
+  const normT = t => String(t||'').trim().substring(0,5);
+
+  const sections = courseIds.map((courseId, pageIdx) => {
+    const course   = DATA.courses.find(c => c.course_id === courseId);
+    if (!course) return '';
+    const student  = DATA.students.find(s => s.student_id === course.student_id);
+    const tutor    = getTutor(course.tutor_id);
+    const sessions = DATA.sessions.filter(s => s.course_id === courseId)
+      .sort((a,b) => (parseSessionDate(String(a.date||'').trim())||new Date(0)) - (parseSessionDate(String(b.date||'').trim())||new Date(0)));
+    const paid      = Number(course.total_paid_hrs||0);
+    const taught    = sessions.filter(s=>s.status==='Completed'||s.status==='Makeup').reduce((sum,s)=>sum+Number(s.hours||0),0);
+    const remaining = Math.max(0, paid - taught);
+    const studentName = overrideStudentName || student?.nickname || course.student_id;
+
+    // Group detection
+    const firstSess = sessions[0];
+    let groupBannerHtml = '';
+    if (firstSess) {
+      const sibIds = [...new Set(DATA.sessions.filter(x =>
+        x.course_id !== courseId && x.tutor_id === course.tutor_id && x.status !== 'Cancelled' &&
+        normD(x.date) === normD(firstSess.date) && normT(x.start_time) === normT(firstSess.start_time) &&
+        getSubjectForSession(x) === (course.subject||'')
+      ).map(x => x.course_id))];
+      if (sibIds.length) {
+        const allNames = [studentName];
+        sibIds.forEach(cid => { const sc=DATA.courses.find(c=>c.course_id===cid); allNames.push(getStudentNickname(sc?.student_id,cid)); });
+        groupBannerHtml = `<div style="margin-bottom:14px;padding:9px 13px;background:#e8f4f0;border-radius:7px;font-size:12px;color:#1D9E75;font-weight:500">👥 ${lang==='th'?'คอร์สกลุ่ม':'Group class'}: <strong>${allNames.join(', ')}</strong></div>`;
+      }
+    }
+
+    const rows = sessions.map((s, i) => {
+      const timeStr  = formatTimeRange(s.start_time, s.end_time);
+      const dateDisp = fmtDate(s.date);
+      const statusLabel = lang==='th' ? (statusTh[s.status]||s.status) : s.status;
+      const hrsStudied = (s.status==='Completed'||s.status==='Makeup') ? s.hours : (s.status==='Missed'||s.status==='Cancelled') ? '0' : '—';
+      const rowColor = s.status==='Cancelled'?'color:#C0392B':s.status==='Missed'?'color:#B7560A':'';
+      return `<tr style="border-bottom:1px solid #eee;${rowColor}">
+        <td style="padding:7px 10px">${i+1}</td>
+        <td style="padding:7px 10px">${dateDisp}</td>
+        <td style="padding:7px 10px">${timeStr}</td>
+        <td style="padding:7px 10px;text-align:center">${s.hours||'—'}</td>
+        <td style="padding:7px 10px;text-align:center">${hrsStudied}</td>
+        <td style="padding:7px 10px">${statusLabel}</td>
+      </tr>`;
+    }).join('');
+
+    const isLast = pageIdx === courseIds.length - 1;
+    return `<section style="page-break-after:${isLast?'avoid':'always'}">
+      <h2 style="font-size:16px;margin:0 0 2px;font-weight:700">Poppadi's Studyo — ${lang==='th'?'สรุปการเรียน':'Course Summary'}</h2>
+      <p style="font-size:13px;color:#555;margin:0 0 14px">${studentName} · ${course.subject||'—'} · ${lang==='th'?'สอนโดย':'Taught by'} ${tutor.name||course.tutor_id} · Block ${course.block_number||1}</p>
+      ${groupBannerHtml}
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:2px solid #eee">
+          <th style="text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px">#</th>
+          <th style="text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px">${lang==='th'?'วันที่':'Date'}</th>
+          <th style="text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px">${lang==='th'?'เวลา':'Time'}</th>
+          <th style="text-align:center;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px">${lang==='th'?'ชม./คาบ':'Hrs'}</th>
+          <th style="text-align:center;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px">${lang==='th'?'ชม.เรียน':'Studied'}</th>
+          <th style="text-align:left;font-size:11px;color:#888;text-transform:uppercase;padding:7px 10px">${lang==='th'?'สถานะ':'Status'}</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:18px;padding:13px 16px;background:#f7f6f3;border-radius:8px;display:flex;gap:32px;flex-wrap:wrap">
+        <div><span style="font-size:11px;color:#888;display:block">${lang==='th'?'ชม.ที่ซื้อ':'Paid hours'}</span><strong style="font-size:17px">${paid}</strong></div>
+        <div><span style="font-size:11px;color:#888;display:block">${lang==='th'?'ชม.ที่เรียนแล้ว':'Studied'}</span><strong style="font-size:17px">${taught}</strong></div>
+        <div><span style="font-size:11px;color:#888;display:block">${lang==='th'?'ชม.คงเหลือ':'Remaining'}</span><strong style="font-size:17px;color:#1D9E75">${remaining}</strong></div>
+      </div>
+    </section>`;
+  }).join('\n');
+
+  const firstCourse = DATA.courses.find(c => c.course_id === courseIds[0]);
+  const firstStudent = DATA.students.find(s => s.student_id === firstCourse?.student_id);
+  const docTitle = overrideStudentName || firstStudent?.nickname || 'Student';
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${docTitle} — ${lang==='th'?'สรุปการเรียน':'Course Schedules'}</title>
+  <style>
+    body{font-family:sans-serif;font-size:13px;padding:32px;max-width:700px;margin:0 auto}
+    @media print{body{padding:16px}section{page-break-after:always}section:last-child{page-break-after:avoid}}
+  </style></head><body>
+  ${sections}
+  <p style="margin-top:24px;font-size:11px;color:#aaa">Generated ${new Date().toLocaleString()} · Poppadi's Studyo</p>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank');
+  if (!win) { const a=document.createElement('a');a.href=url;a.download=`${docTitle}_Schedules.html`;a.click(); }
+  showToast(lang==='th'?`✓ เปิด ${courseIds.length} คอร์ส — กด Print เพื่อบันทึก PDF`:`✓ ${courseIds.length} courses — Press Print to save as PDF`);
+}
+
+// Called from receivables panel: course IDs passed as comma-separated string (all pending for student)
 function downloadAllStudentPDFs(courseIdsStr) {
+  // Expand to ALL courses for the student (not just those with earned sessions)
+  // courseIdsStr contains the pending earned ones — get student_id from first, then fetch all pending
   const ids = courseIdsStr.split(',').filter(Boolean);
   if (!ids.length) return;
-  showToast(lang==='th'?`⬇ เปิด ${ids.length} PDF...`:`⬇ Opening ${ids.length} PDFs...`);
-  ids.forEach((id, i) => {
-    setTimeout(() => downloadPendingPDFStudent(id), i * 800);
-  });
+  const firstCourse = DATA.courses.find(c => c.course_id === ids[0]);
+  if (!firstCourse) return;
+  const studentId   = firstCourse.student_id;
+  const studentName = firstCourse.student_nickname || DATA.students.find(s=>s.student_id===studentId)?.nickname || studentId;
+  // All pending courses for this student (include those with 0 earned — scheduled but unpaid)
+  const allIds = DATA.courses
+    .filter(c => c.student_id === studentId && (c.payment_status||'').trim() === 'Pending' && c.lifecycle_status !== 'Cancelled')
+    .sort((a,b) => Number(a.block_number||1) - Number(b.block_number||1))
+    .map(c => c.course_id);
+  buildCombinedSchedulePDF(allIds.length ? allIds : ids, studentName);
+}
+
+// Called from Students page detail view
+function downloadAllCoursesForStudent(studentId) {
+  const studentName = getStudentNickname(studentId, null) || studentId;
+  const allIds = DATA.courses
+    .filter(c => c.student_id === studentId && c.lifecycle_status !== 'Cancelled' && c.payment_status !== 'Cancelled')
+    .sort((a,b) => Number(a.block_number||1) - Number(b.block_number||1))
+    .map(c => c.course_id);
+  if (!allIds.length) { showToast(lang==='th'?'ไม่มีคอร์ส':'No courses found'); return; }
+  buildCombinedSchedulePDF(allIds, studentName);
 }
 
 function downloadPendingPDF(courseId) {
@@ -5761,6 +5882,7 @@ function renderPendingPayments() {
           <td style="text-align:right;font-size:12px">${ch>0?ch+'hr':'—'}</td>
           <td></td>
           <td onclick="event.stopPropagation()" style="white-space:nowrap">
+            <button class="btn btn-sm" onclick="openPendingDetail('${course.course_id}')" style="font-size:11px">📋 ${lang==='th'?'ดูตาราง':'Schedule'}</button>
             <button class="btn btn-sm" onclick="confirmPayment('${course.course_id}')" style="color:var(--teal);font-size:11px">✅ ${lang==='th'?'ยืนยัน':'Confirm'}</button>
             <button class="btn btn-sm" onclick="downloadPendingPDFStudent('${course.course_id}')" style="font-size:11px;margin-left:2px">⬇ PDF</button>
           </td>
@@ -10446,7 +10568,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '5.2';
+  const cacheVersion = '5.4';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
