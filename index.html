@@ -1669,8 +1669,8 @@
       <div class="card" id="pending-payments-section" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div>
-            <div class="card-title" style="margin:0;color:var(--amber)" data-en="⏳ Pending payments" data-th="⏳ รอการชำระเงิน">⏳ Pending payments</div>
-            <div style="font-size:12px;color:var(--text3);margin-top:2px" data-en="These enrollments are awaiting payment confirmation" data-th="รายการเหล่านี้รอการยืนยันการชำระเงิน">These enrollments are awaiting payment confirmation</div>
+            <div class="card-title" style="margin:0;color:var(--amber)" data-en="💰 Tuition receivables" data-th="💰 ค่าเรียนค้างชำระ">💰 Tuition receivables</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px" data-en="Sessions already taught on credit — collect before the block ends" data-th="กำลังสอนโดยยังไม่ได้รับชำระ — ควรเก็บก่อนหมดบล็อก">Sessions already taught on credit — collect before the block ends</div>
           </div>
         </div>
         <div class="table-wrap">
@@ -2301,6 +2301,41 @@ function renderOverview() {
   const predictedGap = totalExpenses - predictedSchoolRem;
   const predictedCovers = predictedGap <= 0;
 
+  // ── Receivables: group pending-payment courses by student ──
+  const pendingCourses = DATA.courses.filter(c => (c.payment_status||'').trim() === 'Pending');
+  const recvStudentMap = {};
+  pendingCourses.forEach(course => {
+    const taught = DATA.sessions.filter(s =>
+      s.course_id === course.course_id && (s.status === 'Completed' || s.status === 'Makeup')
+    );
+    if (!taught.length) return;
+    const name    = course.student_nickname || course.student_id;
+    const earned  = taught.reduce((sum, s) => sum + (Number(s.total_revenue) || 0), 0);
+    const hrs     = taught.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
+    const block   = (Number(course.fee_per_hr) || 0) * (Number(course.total_paid_hrs) || 0);
+    const sched   = DATA.sessions.filter(s => s.course_id === course.course_id && s.status === 'Scheduled');
+    const hrsLeft = sched.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
+    if (!recvStudentMap[name]) recvStudentMap[name] = { earned: 0, block: 0, hrs: 0, hrsLeft: 0 };
+    recvStudentMap[name].earned  += earned;
+    recvStudentMap[name].block   += block;
+    recvStudentMap[name].hrs     += hrs;
+    recvStudentMap[name].hrsLeft += hrsLeft;
+  });
+  const recvTotalEarned  = Object.values(recvStudentMap).reduce((s, d) => s + d.earned, 0);
+  const recvTotalBlock   = Object.values(recvStudentMap).reduce((s, d) => s + d.block, 0);
+  const recvStudentCount = Object.keys(recvStudentMap).length;
+  const recvRed    = Object.entries(recvStudentMap).filter(([,d]) => d.block > 0 && d.earned >= d.block * 0.99).sort((a,b) => b[1].earned - a[1].earned);
+  const recvYellow = Object.entries(recvStudentMap).filter(([,d]) => !(d.block > 0 && d.earned >= d.block * 0.99) && d.earned >= 5000).sort((a,b) => b[1].earned - a[1].earned);
+  const recvWhite  = Object.entries(recvStudentMap).filter(([,d]) => !(d.block > 0 && d.earned >= d.block * 0.99) && d.earned < 5000).sort((a,b) => b[1].earned - a[1].earned);
+  const recvDetailHtml = recvStudentCount === 0 ? '' : `
+    ${recvRed.length ? `<div style="margin-top:6px;font-size:11px;font-weight:600;color:var(--red)">🔴 ต้องเก็บเงิน — สอนครบแล้ว</div>` : ''}
+    ${recvRed.map(([name,d]) => `<div style="font-size:11px;color:var(--text2);margin-top:3px;padding-left:10px">${name} · ฿${fmt(d.earned)} · ${d.hrs}hr สอนครบ</div>`).join('')}
+    ${recvYellow.length ? `<div style="margin-top:6px;font-size:11px;font-weight:600;color:var(--amber)">🟡 ติดตาม — กำลังสอนอยู่</div>` : ''}
+    ${recvYellow.map(([name,d]) => `<div style="font-size:11px;color:var(--text2);margin-top:3px;padding-left:10px">${name} · ฿${fmt(d.earned)} จาก ฿${fmt(d.block)}${d.hrsLeft > 0 ? ` · เหลืออีก ${d.hrsLeft}hr` : ''}</div>`).join('')}
+    ${recvWhite.length ? `<div style="margin-top:6px;font-size:11px;color:var(--text3)">⚪ เฝ้าระวัง</div>` : ''}
+    ${recvWhite.map(([name,d]) => `<div style="font-size:11px;color:var(--text3);margin-top:3px;padding-left:10px">${name} · ฿${fmt(d.earned)} จาก ฿${fmt(d.block)}</div>`).join('')}
+  `;
+
   // Cache hit info
   const cached = localStorage.getItem(CACHE_KEY);
   let cacheInfo = '';
@@ -2357,7 +2392,15 @@ function renderOverview() {
       <div class="metric-sub">${gapCovered
         ? (lang==='th'?`✅ ครอบคลุมค่าใช้จ่ายคงที่ ฿${fmt(totalExpenses)} แล้ว`:`✅ ฿${fmt(totalExpenses)} fixed costs already covered`)
         : (lang==='th'?`จากคาบที่สอนแล้ว — ยังต้องการอีก ฿${fmt(gap)} เพื่อครอบคลุม ฿${fmt(totalExpenses)}`:`From completed sessions — ฿${fmt(gap)} still needed to cover ฿${fmt(totalExpenses)}`)
-      }${accountantShare > 0 ? `<br>${lang==='th'?`รวม ฿${fmt(accountantShare)} ส่วนสมทบค่าบัญชีจาก AJ. Steven`:`Includes ฿${fmt(accountantShare)} accountant-share contribution from AJ. Steven`}` : ''}</div>
+      }${accountantShare > 0 ? `<br>${lang==='th'?`รวม ฿${fmt(accountantShare)} ส่วนสมทบค่าบัญชีจาก AJ. Steven`:`Includes ฿${fmt(accountantShare)} accountant-share contribution from AJ. Steven`}` : ''}${recvTotalEarned > 0 ? `
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.15)">
+          <span style="font-size:11px;font-weight:600;color:${gapCovered?'rgba(255,255,255,0.9)':'var(--amber)'}">⚠️ ฿${fmt(recvTotalEarned)} ${lang==='th'?'สอนแล้วยังไม่ได้รับชำระ':'earned but not yet collected'} · ${recvStudentCount} ${lang==='th'?'นักเรียน':'students'}</span>
+          <button onclick="(function(btn){const d=btn.parentElement.nextElementSibling;const open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?'${lang==='th'?'▼ ดูรายละเอียด':'▼ details'}':'${lang==='th'?'▲ ซ่อน':'▲ hide'}';})(this)"
+            style="margin-left:8px;font-size:10px;padding:2px 7px;border:1px solid rgba(255,255,255,0.3);border-radius:4px;background:none;color:inherit;cursor:pointer;font-family:'DM Sans',sans-serif">
+            ${lang==='th'?'▼ ดูรายละเอียด':'▼ details'}
+          </button>
+          <div style="display:none;margin-top:8px">${recvDetailHtml}</div>
+        </div>` : ''}</div>
     </div>
     <div class="metric">
       <div class="metric-label">${lang==='th'?'ค่าใช้จ่ายคงที่ (เป้าหมาย)':'Fixed costs (monthly target)'}</div>
@@ -10308,7 +10351,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.9';
+  const cacheVersion = '5.0';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
