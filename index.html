@@ -1667,6 +1667,7 @@
 
       <!-- PENDING PAYMENTS SECTION -->
       <div class="card" id="pending-payments-section" style="display:none">
+        <div id="recv-card-banner" style="display:none"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div>
             <div class="card-title" style="margin:0;color:var(--amber)" data-en="💰 Tuition receivables" data-th="💰 ค่าเรียนค้างชำระ">💰 Tuition receivables</div>
@@ -2328,12 +2329,12 @@ function renderOverview() {
   const recvYellow = Object.entries(recvStudentMap).filter(([,d]) => !(d.block > 0 && d.earned >= d.block * 0.99) && d.earned >= 5000).sort((a,b) => b[1].earned - a[1].earned);
   const recvWhite  = Object.entries(recvStudentMap).filter(([,d]) => !(d.block > 0 && d.earned >= d.block * 0.99) && d.earned < 5000).sort((a,b) => b[1].earned - a[1].earned);
   const recvDetailHtml = recvStudentCount === 0 ? '' : `
-    ${recvRed.length ? `<div style="margin-top:6px;font-size:11px;font-weight:600;color:var(--red)">🔴 ต้องเก็บเงิน — สอนครบแล้ว</div>` : ''}
-    ${recvRed.map(([name,d]) => `<div style="font-size:11px;color:var(--text2);margin-top:3px;padding-left:10px">${name} · ฿${fmt(d.earned)} · ${d.hrs}hr สอนครบ</div>`).join('')}
-    ${recvYellow.length ? `<div style="margin-top:6px;font-size:11px;font-weight:600;color:var(--amber)">🟡 ติดตาม — กำลังสอนอยู่</div>` : ''}
-    ${recvYellow.map(([name,d]) => `<div style="font-size:11px;color:var(--text2);margin-top:3px;padding-left:10px">${name} · ฿${fmt(d.earned)} จาก ฿${fmt(d.block)}${d.hrsLeft > 0 ? ` · เหลืออีก ${d.hrsLeft}hr` : ''}</div>`).join('')}
-    ${recvWhite.length ? `<div style="margin-top:6px;font-size:11px;color:var(--text3)">⚪ เฝ้าระวัง</div>` : ''}
-    ${recvWhite.map(([name,d]) => `<div style="font-size:11px;color:var(--text3);margin-top:3px;padding-left:10px">${name} · ฿${fmt(d.earned)} จาก ฿${fmt(d.block)}</div>`).join('')}
+    ${recvRed.length ? `<div style="margin-top:6px;font-size:11px;font-weight:600;color:#fff">🔴 ต้องเก็บเงิน — สอนครบแล้ว</div>` : ''}
+    ${recvRed.map(([name,d]) => `<div style="font-size:11px;color:rgba(255,255,255,0.9);margin-top:3px;padding-left:10px">${name} · ฿${fmt(d.earned)} · ${d.hrs}hr สอนครบ</div>`).join('')}
+    ${recvYellow.length ? `<div style="margin-top:6px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.9)">🟡 ติดตาม — กำลังสอนอยู่</div>` : ''}
+    ${recvYellow.map(([name,d]) => `<div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:3px;padding-left:10px">${name} · ฿${fmt(d.earned)} จาก ฿${fmt(d.block)}${d.hrsLeft > 0 ? ` · เหลืออีก ${d.hrsLeft}hr` : ''}</div>`).join('')}
+    ${recvWhite.length ? `<div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,0.7)">⚪ เฝ้าระวัง</div>` : ''}
+    ${recvWhite.map(([name,d]) => `<div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:3px;padding-left:10px">${name} · ฿${fmt(d.earned)} จาก ฿${fmt(d.block)}</div>`).join('')}
   `;
 
   // Cache hit info
@@ -5618,6 +5619,16 @@ function downloadPendingPDFStudent(courseId) {
   showToast(lang==='th'?'✓ PDF สำหรับนักเรียน':'✓ Student PDF — press Print to save');
 }
 
+// Opens each course's student PDF in sequence (one tab per course, small delay between)
+function downloadAllStudentPDFs(courseIdsStr) {
+  const ids = courseIdsStr.split(',').filter(Boolean);
+  if (!ids.length) return;
+  showToast(lang==='th'?`⬇ เปิด ${ids.length} PDF...`:`⬇ Opening ${ids.length} PDFs...`);
+  ids.forEach((id, i) => {
+    setTimeout(() => downloadPendingPDFStudent(id), i * 800);
+  });
+}
+
 function downloadPendingPDF(courseId) {
   const course   = DATA.courses.find(c => c.course_id === courseId);
   if (!course) return;
@@ -5667,7 +5678,7 @@ function renderPendingPayments() {
 
   if (!pending.length) { section.style.display = 'none'; return; }
 
-  // Group by student name — aggregate across all their pending courses
+  // Group by student name — only include courses that have at least 1 completed/makeup session
   const studentMap = {};
   pending.forEach(course => {
     const student    = DATA.students.find(s => s.student_id === course.student_id);
@@ -5677,12 +5688,16 @@ function renderPendingPayments() {
     const earnedRev  = courseSess.reduce((sum, s) => sum + (Number(s.total_revenue) || 0), 0);
     const earnedHrs  = courseSess.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
     const blockValue = (Number(course.fee_per_hr) || 0) * (Number(course.total_paid_hrs) || 0);
+    // Skip courses with no sessions taught yet
+    if (earnedRev === 0 && earnedHrs === 0) return;
     if (!studentMap[name]) studentMap[name] = { earnedRev: 0, earnedHrs: 0, blockValue: 0, courses: [] };
     studentMap[name].earnedRev  += earnedRev;
     studentMap[name].earnedHrs  += earnedHrs;
     studentMap[name].blockValue += blockValue;
     studentMap[name].courses.push({ course, tutor, earnedRev, earnedHrs, blockValue });
   });
+
+  if (!Object.keys(studentMap).length) { section.style.display = 'none'; return; }
 
   // Sort students: fully taught first, then by earned desc
   const studentRows = Object.entries(studentMap).sort(([,a],[,b]) => {
@@ -5692,9 +5707,26 @@ function renderPendingPayments() {
     return b.earnedRev - a.earnedRev;
   });
 
-  const totalBlock  = studentRows.reduce((s,[,d]) => s + d.blockValue, 0);
-  const totalEarned = studentRows.reduce((s,[,d]) => s + d.earnedRev, 0);
-  const totalHrs    = studentRows.reduce((s,[,d]) => s + d.earnedHrs, 0);
+  const totalBlock   = studentRows.reduce((s,[,d]) => s + d.blockValue, 0);
+  const totalEarned  = studentRows.reduce((s,[,d]) => s + d.earnedRev, 0);
+  const totalHrs     = studentRows.reduce((s,[,d]) => s + d.earnedHrs, 0);
+  const nStudents    = studentRows.length;
+
+  // Inject big red banner into card header
+  const bannerEl = document.getElementById('recv-card-banner');
+  if (bannerEl) {
+    bannerEl.innerHTML = `
+      <div style="background:#E24B4A;border-radius:10px;padding:16px 20px;margin-bottom:16px;color:#fff">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;opacity:0.85;margin-bottom:4px">
+          ${lang==='th'?'⚠️ ค่าเรียนค้างชำระ — สอนไปแล้วแต่ยังไม่ได้รับเงิน':'⚠️ TUITION RECEIVABLE — TAUGHT BUT NOT COLLECTED'}
+        </div>
+        <div style="font-size:32px;font-weight:700;letter-spacing:-1px">฿${fmt(totalEarned)}</div>
+        <div style="font-size:12px;opacity:0.85;margin-top:2px">
+          ${lang==='th'?`รวมทั้งหมด ฿${fmt(totalBlock)} · ${nStudents} นักเรียน · ${totalHrs}hr ที่สอนไปแล้ว`:`Total block ฿${fmt(totalBlock)} · ${nStudents} students · ${totalHrs}hr already taught`}
+        </div>
+      </div>`;
+    bannerEl.style.display = 'block';
+  }
 
   section.style.display = 'block';
 
@@ -5707,29 +5739,30 @@ function renderPendingPayments() {
       : highExp
         ? `<span style="color:var(--amber);font-weight:600">🟡 ${lang==='th'?'ติดตาม':'Watch'}</span>`
         : `<span style="color:var(--text3)">⚪ ${lang==='th'?'เฝ้าระวัง':'Low'}</span>`;
-    const hasMulti   = courses.length > 1;
-    const expandId   = 'recv-expand-' + idx;
+    const hasMulti = courses.length > 1;
+    const expandId = 'recv-expand-' + idx;
 
-    // Course breakdown rows (hidden by default)
+    // All course IDs for this student (active + pending) for bulk PDF
+    const courseIds = courses.map(c => c.course.course_id).join(',');
+
+    // Course breakdown rows (hidden by default, shown on row click)
     const courseBreakdown = courses
       .sort((a,b) => b.earnedRev - a.earnedRev)
       .map(({ course, tutor, earnedRev: cr, earnedHrs: ch, blockValue: cb }) => {
-        const cFull = cb > 0 && cr >= cb * 0.99;
-        const cBadge = cFull
-          ? `<span style="color:var(--red);font-size:11px">🔴</span>`
+        const cFull  = cb > 0 && cr >= cb * 0.99;
+        const cBadge = cFull ? `<span style="color:var(--red);font-size:11px">🔴</span>`
           : cr >= 5000 ? `<span style="color:var(--amber);font-size:11px">🟡</span>`
           : `<span style="color:var(--text3);font-size:11px">⚪</span>`;
         return `<tr data-expand="${expandId}" style="display:none;background:var(--surface2)">
-          <td style="padding:6px 12px 6px 28px;font-size:12px;color:var(--text2)">${cBadge} ${course.subject||'—'}</td>
+          <td style="padding:6px 12px 6px 28px;font-size:12px;color:var(--text2)">${cBadge} ${course.subject||'—'} <span style="color:var(--text3);font-size:10px">${course.course_id}</span></td>
           <td style="font-size:12px;color:var(--text2)">${tutor.name||course.tutor_id}</td>
           <td style="text-align:right;font-size:12px">฿${fmt(cb)}</td>
           <td style="text-align:right;font-size:12px;color:${cr>0?'var(--amber)':'var(--text3)'}">฿${fmt(cr)}</td>
           <td style="text-align:right;font-size:12px">${ch>0?ch+'hr':'—'}</td>
           <td></td>
-          <td onclick="event.stopPropagation()">
-            <button class="btn btn-sm" onclick="confirmPayment('${course.course_id}')" style="color:var(--teal);font-size:11px">
-              ✅ ${lang==='th'?'ยืนยัน':'Confirm'}
-            </button>
+          <td onclick="event.stopPropagation()" style="white-space:nowrap">
+            <button class="btn btn-sm" onclick="confirmPayment('${course.course_id}')" style="color:var(--teal);font-size:11px">✅ ${lang==='th'?'ยืนยัน':'Confirm'}</button>
+            <button class="btn btn-sm" onclick="downloadPendingPDFStudent('${course.course_id}')" style="font-size:11px;margin-left:2px">⬇ PDF</button>
           </td>
         </tr>`;
       }).join('');
@@ -5740,23 +5773,24 @@ function renderPendingPayments() {
 
     return `<tr style="cursor:${hasMulti?'pointer':'default'}" onclick="${hasMulti?`toggleRecvExpand('${expandId}','${expandId}-icon')`:''}">
       <td style="font-weight:600">${name}${expandToggle}</td>
-      <td style="color:var(--text2)">${courses.length === 1 ? (courses[0].course.subject||'—') : `${courses.length} ${lang==='th'?'คอร์ส':'courses'}`}</td>
-      <td style="color:var(--text2)">${courses.length === 1 ? (courses[0].tutor.name||'—') : '—'}</td>
+      <td style="color:var(--text2)">${courses.length===1?(courses[0].course.subject||'—'):`${courses.length} ${lang==='th'?'คอร์ส':'courses'}`}</td>
+      <td style="color:var(--text2)">${courses.length===1?(courses[0].tutor.name||'—'):'—'}</td>
       <td style="text-align:right">฿${fmt(blockValue)}</td>
       <td style="text-align:right;font-weight:600;color:${earnedRev>0?'var(--amber)':'var(--text3)'}">฿${fmt(earnedRev)}</td>
       <td style="text-align:right">${earnedHrs>0?earnedHrs+'hr':'—'}</td>
       <td style="text-align:center">${urgency}</td>
-      <td onclick="event.stopPropagation()">
-        ${courses.length === 1
-          ? `<button class="btn btn-sm" onclick="confirmPayment('${courses[0].course.course_id}')" style="color:var(--teal)">✅ ${lang==='th'?'ยืนยันการชำระ':'Confirm paid'}</button>`
-          : `<button class="btn btn-sm" onclick="openPendingDetail('${courses[0].course.course_id}')" style="color:var(--text2)">👁 ${lang==='th'?'ดู':'View'}</button>`}
+      <td onclick="event.stopPropagation()" style="white-space:nowrap">
+        ${courses.length===1
+          ? `<button class="btn btn-sm" onclick="confirmPayment('${courses[0].course.course_id}')" style="color:var(--teal)">✅ ${lang==='th'?'ยืนยันการชำระ':'Confirm paid'}</button>
+             <button class="btn btn-sm" onclick="downloadPendingPDFStudent('${courses[0].course.course_id}')" style="margin-left:2px">⬇ PDF</button>`
+          : `<button class="btn btn-sm" onclick="downloadAllStudentPDFs('${courseIds}')" style="margin-left:2px">⬇ ${lang==='th'?'PDF ทั้งหมด':'All PDFs'}</button>`}
       </td>
     </tr>${courseBreakdown}`;
   }).join('');
 
   body.innerHTML = rowsHtml + `
     <tr style="border-top:2px solid var(--border);background:var(--surface2);font-weight:700">
-      <td colspan="3" style="padding:10px 12px;font-size:13px">${lang==='th'?'รวมทั้งหมด':'Total'} (${studentRows.length} ${lang==='th'?'นักเรียน':'students'})</td>
+      <td colspan="3" style="padding:10px 12px;font-size:13px">${lang==='th'?'รวมทั้งหมด':'Total'} (${nStudents} ${lang==='th'?'นักเรียน':'students'})</td>
       <td style="text-align:right;padding:10px 12px">฿${fmt(totalBlock)}</td>
       <td style="text-align:right;padding:10px 12px;color:var(--amber)">฿${fmt(totalEarned)}</td>
       <td style="text-align:right;padding:10px 12px">${totalHrs}hr</td>
@@ -10412,7 +10446,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '5.1';
+  const cacheVersion = '5.2';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
