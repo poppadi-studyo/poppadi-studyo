@@ -5903,7 +5903,8 @@ function renderPendingPayments() {
       <td style="text-align:center">${urgency}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
         ${courses.length===1
-          ? `<button class="btn btn-sm" onclick="confirmPayment('${courses[0].course.course_id}')" style="color:var(--teal)">✅ ${lang==='th'?'ยืนยันการชำระ':'Confirm paid'}</button>
+          ? `<button class="btn btn-sm" onclick="openPendingDetail('${courses[0].course.course_id}')" style="font-size:11px">📋 ${lang==='th'?'ดูตาราง':'Schedule'}</button>
+             <button class="btn btn-sm" onclick="confirmPayment('${courses[0].course.course_id}')" style="color:var(--teal);margin-left:2px">✅ ${lang==='th'?'ยืนยัน':'Confirm'}</button>
              <button class="btn btn-sm" onclick="downloadPendingPDFStudent('${courses[0].course.course_id}')" style="margin-left:2px">⬇ PDF</button>`
           : `<button class="btn btn-sm" onclick="downloadAllStudentPDFs('${courseIds}')" style="margin-left:2px">⬇ ${lang==='th'?'PDF ทั้งหมด':'All PDFs'}</button>`}
       </td>
@@ -10568,7 +10569,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '5.4';
+  const cacheVersion = '5.5';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
