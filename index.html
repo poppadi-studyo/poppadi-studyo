@@ -1679,8 +1679,10 @@
               <th data-en="Student" data-th="นักเรียน">Student</th>
               <th data-en="Subject" data-th="วิชา">Subject</th>
               <th data-en="Tutor" data-th="ครู">Tutor</th>
-              <th data-en="Hrs" data-th="ชม.">Hrs</th>
-              <th data-en="Fee/hr" data-th="ค่าเรียน/ชม.">Fee/hr</th>
+              <th data-en="Block value" data-th="มูลค่าบล็อก" style="text-align:right">Block value</th>
+              <th data-en="Already earned" data-th="สอนไปแล้ว" style="text-align:right">Already earned</th>
+              <th data-en="Hrs taught" data-th="ชม.ที่สอน" style="text-align:right">Hrs taught</th>
+              <th data-en="Urgency" data-th="ความเร่งด่วน" style="text-align:center">Urgency</th>
               <th data-en="Action" data-th="การดำเนินการ">Action</th>
             </tr></thead>
             <tbody id="pending-payments-body"></tbody>
@@ -5600,24 +5602,62 @@ function renderPendingPayments() {
     return;
   }
 
+  // Compute earned revenue and hours for each pending course
+  const rows = pending.map(course => {
+    const student     = DATA.students.find(s => s.student_id === course.student_id);
+    const tutor       = getTutor(course.tutor_id);
+    const name        = course.student_nickname || student?.nickname || course.student_name || course.student_id;
+    const courseSess  = DATA.sessions.filter(s => s.course_id === course.course_id && (s.status === 'Completed' || s.status === 'Makeup'));
+    const earnedRev   = courseSess.reduce((sum, s) => sum + (Number(s.total_revenue) || 0), 0);
+    const earnedHrs   = courseSess.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
+    const blockValue  = (Number(course.fee_per_hr) || 0) * (Number(course.total_paid_hrs) || 0);
+    return { course, name, tutor, earnedRev, earnedHrs, blockValue };
+  });
+
+  // Sort: fully taught (🔴) first, then by earned revenue descending
+  rows.sort((a, b) => {
+    const aFull = a.earnedRev >= a.blockValue * 0.99 && a.blockValue > 0 ? 1 : 0;
+    const bFull = b.earnedRev >= b.blockValue * 0.99 && b.blockValue > 0 ? 1 : 0;
+    if (bFull !== aFull) return bFull - aFull;
+    return b.earnedRev - a.earnedRev;
+  });
+
+  // Grand totals
+  const totalBlock   = rows.reduce((s, r) => s + r.blockValue, 0);
+  const totalEarned  = rows.reduce((s, r) => s + r.earnedRev, 0);
+  const totalHrs     = rows.reduce((s, r) => s + r.earnedHrs, 0);
+
   section.style.display = 'block';
-  body.innerHTML = pending.map(course => {
-    const student = DATA.students.find(s => s.student_id === course.student_id);
-    const tutor   = getTutor(course.tutor_id);
-    const name    = course.student_nickname || student?.nickname || course.student_name || course.student_id;
+  body.innerHTML = rows.map(({ course, name, tutor, earnedRev, earnedHrs, blockValue }) => {
+    const fullyTaught = blockValue > 0 && earnedRev >= blockValue * 0.99;
+    const highExp     = earnedRev >= 5000;
+    const urgency     = fullyTaught
+      ? `<span style="color:var(--red);font-weight:600">🔴 ${lang==='th'?'สอนครบแล้ว':'Fully taught'}</span>`
+      : highExp
+        ? `<span style="color:var(--amber);font-weight:600">🟡 ${lang==='th'?'ติดตาม':'Watch'}</span>`
+        : `<span style="color:var(--text3)">⚪ ${lang==='th'?'ปกติ':'Low'}</span>`;
     return `<tr style="cursor:pointer" onclick="openPendingDetail('${course.course_id}')">
       <td>${name}</td>
       <td>${course.subject||'—'}</td>
       <td>${tutor.name||course.tutor_id}</td>
-      <td>${course.total_paid_hrs||'—'}</td>
-      <td>฿${fmt(course.fee_per_hr)}</td>
+      <td style="text-align:right">฿${fmt(blockValue)}</td>
+      <td style="text-align:right;font-weight:600;color:${earnedRev>0?'var(--amber)':'var(--text3)'}">฿${fmt(earnedRev)}</td>
+      <td style="text-align:right">${earnedHrs>0?earnedHrs+'hr':'—'}</td>
+      <td style="text-align:center">${urgency}</td>
       <td onclick="event.stopPropagation()">
         <button class="btn btn-sm" onclick="confirmPayment('${course.course_id}')" style="color:var(--teal)">
           ✅ ${lang==='th'?'ยืนยันการชำระ':'Confirm paid'}
         </button>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') + `
+    <tr style="border-top:2px solid var(--border);background:var(--surface2);font-weight:700">
+      <td colspan="3" style="padding:10px 12px;font-size:13px">${lang==='th'?'รวมทั้งหมด':'Total'} (${rows.length} ${lang==='th'?'คอร์ส':'courses'})</td>
+      <td style="text-align:right;padding:10px 12px">฿${fmt(totalBlock)}</td>
+      <td style="text-align:right;padding:10px 12px;color:var(--amber)">฿${fmt(totalEarned)}</td>
+      <td style="text-align:right;padding:10px 12px">${totalHrs}hr</td>
+      <td colspan="2"></td>
+    </tr>`;
 }
 
 async function confirmPayment(courseId) {
@@ -10268,7 +10308,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '4.8';
+  const cacheVersion = '4.9';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
