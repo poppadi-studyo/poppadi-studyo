@@ -5733,7 +5733,7 @@ function downloadAllStudentPDFs(courseIdsStr) {
   const studentName = firstCourse.student_nickname || DATA.students.find(s=>s.student_id===studentId)?.nickname || studentId;
   // All pending courses for this student (include those with 0 earned — scheduled but unpaid)
   const allIds = DATA.courses
-    .filter(c => c.student_id === studentId && (c.payment_status||'').trim() === 'Pending' && c.lifecycle_status !== 'Cancelled')
+    .filter(c => c.student_id === studentId && c.lifecycle_status !== 'Cancelled' && c.payment_status !== 'Cancelled')
     .sort((a,b) => Number(a.block_number||1) - Number(b.block_number||1))
     .map(c => c.course_id);
   buildCombinedSchedulePDF(allIds.length ? allIds : ids, studentName);
@@ -5799,8 +5799,9 @@ function renderPendingPayments() {
 
   if (!pending.length) { section.style.display = 'none'; return; }
 
-  // Group by student name — only include courses that have at least 1 completed/makeup session
+  // Group by student name — separate maps for earned vs not-started
   const studentMap = {};
+  const notStartedMap = {};
   pending.forEach(course => {
     const student    = DATA.students.find(s => s.student_id === course.student_id);
     const name       = course.student_nickname || student?.nickname || course.student_id;
@@ -5809,8 +5810,13 @@ function renderPendingPayments() {
     const earnedRev  = courseSess.reduce((sum, s) => sum + (Number(s.total_revenue) || 0), 0);
     const earnedHrs  = courseSess.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
     const blockValue = (Number(course.fee_per_hr) || 0) * (Number(course.total_paid_hrs) || 0);
-    // Skip courses with no sessions taught yet
-    if (earnedRev === 0 && earnedHrs === 0) return;
+    if (earnedRev === 0 && earnedHrs === 0) {
+      // Not started yet — track separately
+      if (!notStartedMap[name]) notStartedMap[name] = { blockValue: 0, courses: [] };
+      notStartedMap[name].blockValue += blockValue;
+      notStartedMap[name].courses.push({ course, tutor, blockValue });
+      return;
+    }
     if (!studentMap[name]) studentMap[name] = { earnedRev: 0, earnedHrs: 0, blockValue: 0, courses: [] };
     studentMap[name].earnedRev  += earnedRev;
     studentMap[name].earnedHrs  += earnedHrs;
@@ -5818,7 +5824,7 @@ function renderPendingPayments() {
     studentMap[name].courses.push({ course, tutor, earnedRev, earnedHrs, blockValue });
   });
 
-  if (!Object.keys(studentMap).length) { section.style.display = 'none'; return; }
+  if (!Object.keys(studentMap).length && !Object.keys(notStartedMap).length) { section.style.display = 'none'; return; }
 
   // Sort students: fully taught first, then by earned desc
   const studentRows = Object.entries(studentMap).sort(([,a],[,b]) => {
@@ -5911,10 +5917,43 @@ function renderPendingPayments() {
     </tr>${courseBreakdown}`;
   }).join('');
 
-  body.innerHTML = rowsHtml + `
+  const notStartedRows = Object.entries(notStartedMap).sort(([,a],[,b]) => b.blockValue - a.blockValue);
+  const notStartedBlock = notStartedRows.reduce((s,[,d]) => s + d.blockValue, 0);
+
+  const notStartedHtml = notStartedRows.map(([name, data]) => {
+    const { blockValue, courses } = data;
+    const hasMulti = courses.length > 1;
+    const courseIds = courses.map(c => c.course.course_id).join(',');
+    return `<tr style="opacity:0.75">
+      <td style="font-weight:600">${name}</td>
+      <td style="color:var(--text2)">${courses.length===1?(courses[0].course.subject||'—'):`${courses.length} ${lang==='th'?'คอร์ส':'courses'}`}</td>
+      <td style="color:var(--text2)">${courses.length===1?(courses[0].tutor.name||'—'):'—'}</td>
+      <td style="text-align:right">฿${fmt(blockValue)}</td>
+      <td style="text-align:right;color:var(--text3)">฿0</td>
+      <td style="text-align:right;color:var(--text3)">—</td>
+      <td style="text-align:center"><span style="color:var(--text3)">⏳ ${lang==='th'?'ยังไม่เริ่ม':'Not started'}</span></td>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap">
+        ${courses.length===1
+          ? `<button class="btn btn-sm" onclick="openPendingDetail('${courses[0].course.course_id}')" style="font-size:11px">📋 ${lang==='th'?'ดูตาราง':'Schedule'}</button>
+             <button class="btn btn-sm" onclick="confirmPayment('${courses[0].course.course_id}')" style="color:var(--teal);margin-left:2px">✅ ${lang==='th'?'ยืนยัน':'Confirm'}</button>`
+          : `<button class="btn btn-sm" onclick="downloadAllStudentPDFs('${courseIds}')" style="margin-left:2px">⬇ ${lang==='th'?'PDF ทั้งหมด':'All PDFs'}</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+
+  const grandTotalBlock  = totalBlock + notStartedBlock;
+  const grandNStudents   = nStudents + notStartedRows.length;
+
+  body.innerHTML = rowsHtml + (notStartedRows.length ? `
+    <tr style="border-top:1px dashed var(--border)">
+      <td colspan="8" style="padding:6px 12px;font-size:11px;color:var(--text3);font-style:italic">
+        ⏳ ${lang==='th'?'รอการชำระเงิน — ยังไม่ได้เริ่มสอน':'Pending payment — classes not yet started'}
+      </td>
+    </tr>
+    ${notStartedHtml}` : '') + `
     <tr style="border-top:2px solid var(--border);background:var(--surface2);font-weight:700">
-      <td colspan="3" style="padding:10px 12px;font-size:13px">${lang==='th'?'รวมทั้งหมด':'Total'} (${nStudents} ${lang==='th'?'นักเรียน':'students'})</td>
-      <td style="text-align:right;padding:10px 12px">฿${fmt(totalBlock)}</td>
+      <td colspan="3" style="padding:10px 12px;font-size:13px">${lang==='th'?'รวมทั้งหมด':'Total'} (${grandNStudents} ${lang==='th'?'นักเรียน':'students'})</td>
+      <td style="text-align:right;padding:10px 12px">฿${fmt(grandTotalBlock)}</td>
       <td style="text-align:right;padding:10px 12px;color:var(--amber)">฿${fmt(totalEarned)}</td>
       <td style="text-align:right;padding:10px 12px">${totalHrs}hr</td>
       <td colspan="2"></td>
@@ -10569,7 +10608,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '5.5';
+  const cacheVersion = '5.6';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
