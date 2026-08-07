@@ -67,6 +67,7 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
   body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; overflow-x: hidden; }
 
   /* ── Layout (mirrors dashboard) ── */
@@ -106,8 +107,9 @@
       margin-left: 0;
       width: 100%;
       max-width: 100vw;
-      padding: 16px 14px env(safe-area-inset-bottom, 40px);
-      padding-top: 16px;
+      padding: 16px 14px 16px;
+      padding-top: calc(16px + env(safe-area-inset-top, 0px));
+      padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
     }
     .mobile-header { display: flex !important; }
     .page-header {
@@ -173,8 +175,8 @@
     <a href="https://poppadi-studyo.github.io/poppadi-studyo" style="font-size:13px;color:var(--text3);text-decoration:none" data-en="← Dashboard" data-th="← แดชบอร์ด">← Dashboard</a>
     <span style="font-size:14px;font-weight:600" data-en="Accounting guide" data-th="คู่มือบัญชี">Accounting guide</span>
     <div style="display:flex;gap:6px">
-      <button onclick="setLang('en')" style="font-size:11px;border:1px solid var(--border-strong);border-radius:6px;padding:3px 8px;background:none;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text2)">EN</button>
-      <button onclick="setLang('th')" style="font-size:11px;border:1px solid var(--border-strong);border-radius:6px;padding:3px 8px;background:none;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text2)">ไทย</button>
+      <button id="mob-lang-en" onclick="setLang('en', this)" style="font-size:11px;border:1px solid var(--border-strong);border-radius:6px;padding:3px 8px;background:none;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text2)">EN</button>
+      <button id="mob-lang-th" onclick="setLang('th', this)" style="font-size:11px;border:1px solid var(--border-strong);border-radius:6px;padding:3px 8px;background:none;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text2)">ไทย</button>
       <button onclick="toggleTheme()" style="font-size:12px;border:1px solid var(--border-strong);border-radius:6px;padding:3px 8px;background:none;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text2)">⏾</button>
     </div>
   </div>
@@ -220,7 +222,8 @@
           <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🧾</span><span><span data-en="WHT certificate (ทวิ 50) — teachers (" data-th="ใบหักภาษี ณ ที่จ่าย (ทวด 50) — ครู (">WHT certificate (ทวิ 50) — teachers (</span><span class="acct-slip-mm">06</span>/01, <span class="acct-slip-mm">06</span>/02…) · <span data-en="signed copy" data-th="สำเนาพร้อมลายเซ็น">signed copy</span></span></div>
           <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🧾</span><span><span data-en="WHT certificate (ทวิ 50) — staff (continuing sequence " data-th="ใบหักภาษี ณ ที่จ่าย (ทวด 50) — พนักงาน (ต่อเลขรัน ">WHT certificate (ทวิ 50) — staff (continuing sequence </span><span class="acct-slip-mm">06</span>/03, <span class="acct-slip-mm">06</span>/04…) · <span data-en="signed copy" data-th="สำเนาพร้อมลายเซ็น">signed copy</span></span></div>
           <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🏦</span><span data-en="Bank statement — Account 1 · full month PDF · no signature needed" data-th="สเตทเมนต์ธนาคาร บัญชี 1 · PDF เต็มเดือน · ไม่ต้องเซ็น">Bank statement — Account 1 · full month PDF · no signature needed</span></div>
-          <div style="font-size:13px;color:var(--text);padding:7px 0;display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🏦</span><span data-en="Bank statement — Account 2 · full month PDF · no signature needed" data-th="สเตทเมนต์ธนาคาร บัญชี 2 · PDF เต็มเดือน · ไม่ต้องเซ็น">Bank statement — Account 2 · full month PDF · no signature needed</span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🏦</span><span data-en="Bank statement — Account 2 · full month PDF · no signature needed" data-th="สเตทเมนต์ธนาคาร บัญชี 2 · PDF เต็มเดือน · ไม่ต้องเซ็น">Bank statement — Account 2 · full month PDF · no signature needed</span></div>
+          <div style="font-size:13px;color:var(--text);padding:7px 0;display:flex;gap:10px"><span style="color:var(--text3);flex-shrink:0">🧾</span><span><span data-en="Company-name receipts — subscriptions or payments billed to บริษัท พร้อม แลงเกวจ สตูดิโอ จำกัด (software, services, etc.)" data-th="ใบเสร็จในชื่อบริษัท — Subscription หรือการชำระเงินที่ออกในนาม บริษัท พร้อม แลงเกวจ สตูดิโอ จำกัด (ซอฟต์แวร์ บริการ ฯลฯ)">Company-name receipts — subscriptions or payments billed to บริษัท พร้อม แลงเกวจ สตูดิโอ จำกัด (software, services, etc.)</span></span></div>
           <!-- Email draft 1 -->
           <div style="margin-top:16px;border:1px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
             <div style="background:var(--surface2);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
@@ -242,6 +245,7 @@
 4. ใบหักภาษี ณ ที่จ่าย (ทวิ 50) — พนักงาน ([N] ไฟล์)
 5. Statement ธนาคาร บัญชีที่ 1 — [ชื่อธนาคาร]
 6. Statement ธนาคาร บัญชีที่ 2 — [ชื่อธนาคาร]
+7. ใบเสร็จ Subscription/การชำระเงินในชื่อบริษัท — [N] ไฟล์
 
 หากมีข้อสงสัยหรือต้องการเอกสารเพิ่มเติม กรุณาแจ้งได้เลยค่ะ
 
@@ -342,6 +346,7 @@ Send receipts to Eye when done.</pre></div>
         <div class="acct-cl-item" onclick="acctTick(this)" style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px"><div class="acct-cl-box" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;border:1.5px solid var(--border-strong);border-radius:5px;display:flex;align-items:center;justify-content:center;transition:all 0.15s"><span class="acct-cl-check" style="display:none;font-size:11px;color:#fff;font-weight:600">✓</span></div><div class="acct-cl-text"><span data-en="ใบหักภาษี ณ ที่จ่าย — staff (continuing sequence)" data-th="ใบหักภาษี ณ ที่จ่าย — พนักงาน (ต่อเลขรัน)">ใบหักภาษี ณ ที่จ่าย — staff (continuing sequence)</span></div></div>
         <div class="acct-cl-item" onclick="acctTick(this)" style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px"><div class="acct-cl-box" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;border:1.5px solid var(--border-strong);border-radius:5px;display:flex;align-items:center;justify-content:center;transition:all 0.15s"><span class="acct-cl-check" style="display:none;font-size:11px;color:#fff;font-weight:600">✓</span></div><div class="acct-cl-text"><span data-en="Bank statements — both accounts, full month PDF" data-th="Statement ธนาคาร — ทั้งสองบัญชี PDF เต็มเดือน">Bank statements — both accounts, full month PDF</span></div></div>
         <div class="acct-cl-item" onclick="acctTick(this)" style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px"><div class="acct-cl-box" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;border:1.5px solid var(--border-strong);border-radius:5px;display:flex;align-items:center;justify-content:center;transition:all 0.15s"><span class="acct-cl-check" style="display:none;font-size:11px;color:#fff;font-weight:600">✓</span></div><div class="acct-cl-text"><span data-en="Draft submission email ready for Steven to forward" data-th="ร่างอีเมลพร้อมส่งให้ Steven ฟอร์เวิร์ด">Draft submission email ready for Steven to forward</span></div></div>
+        <div class="acct-cl-item" onclick="acctTick(this)" style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px"><div class="acct-cl-box" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;border:1.5px solid var(--border-strong);border-radius:5px;display:flex;align-items:center;justify-content:center;transition:all 0.15s"><span class="acct-cl-check" style="display:none;font-size:11px;color:#fff;font-weight:600">✓</span></div><div class="acct-cl-text"><span data-en="Company-name receipts — subscriptions/payments billed to บริษัท พร้อม แลงเกวจ สตูดิโอ จำกัด" data-th="ใบเสร็จในชื่อบริษัท — Subscription/การชำระเงินที่ออกในนาม บริษัท พร้อม แลงเกวจ สตูดิโอ จำกัด">Company-name receipts — subscriptions/payments billed to บริษัท พร้อม แลงเกวจ สตูดิโอ จำกัด</span></div></div>
         <div class="acct-cl-item" onclick="acctTick(this)" style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;cursor:pointer;border-radius:4px"><div class="acct-cl-box" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;border:1.5px solid var(--border-strong);border-radius:5px;display:flex;align-items:center;justify-content:center;transition:all 0.15s"><span class="acct-cl-check" style="display:none;font-size:11px;color:#fff;font-weight:600">✓</span></div><div class="acct-cl-text"><span data-en="Physical copies printed and prepared for delivery" data-th="ปริ้นท์เอกสารกระดาษและเตรียมพร้อมส่ง">Physical copies printed and prepared for delivery</span></div></div>
         <div style="font-size:12px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;padding:12px 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px;margin-top:8px" data-en="Eye — after receiving receipts from Pop" data-th="Eye — หลังรับใบเสร็จจาก Pop">Eye — after receiving receipts from Pop</div>
         <div class="acct-cl-item" onclick="acctTick(this)" style="display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px"><div class="acct-cl-box" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;border:1.5px solid var(--border-strong);border-radius:5px;display:flex;align-items:center;justify-content:center;transition:all 0.15s"><span class="acct-cl-check" style="display:none;font-size:11px;color:#fff;font-weight:600">✓</span></div><div class="acct-cl-text"><span data-en="Save all Chanawat attachments to Google Drive" data-th="บันทึกไฟล์ทั้งหมดของคุณชนวัฒน์ลง Google Drive">Save all Chanawat attachments to Google Drive</span></div></div>
@@ -504,10 +509,15 @@ function setLang(l, btn) {
     if (el.tagName === 'INPUT') el.placeholder = val;
     else el.textContent = val;
   });
-  // Update active lang button
+  // Update active lang button (sidebar)
   document.querySelectorAll('.lang-btn').forEach(function(b) { b.classList.remove('active'); });
   var activeBtn = document.getElementById(l === 'th' ? 'lang-th' : 'lang-en');
   if (activeBtn) activeBtn.classList.add('active');
+  // Update active lang button (mobile header)
+  var mobEn = document.getElementById('mob-lang-en');
+  var mobTh = document.getElementById('mob-lang-th');
+  if (mobEn) { mobEn.style.background = l === 'en' ? 'var(--text)' : ''; mobEn.style.color = l === 'en' ? '#fff' : ''; mobEn.style.borderColor = l === 'en' ? 'var(--text)' : ''; }
+  if (mobTh) { mobTh.style.background = l === 'th' ? 'var(--text)' : ''; mobTh.style.color = l === 'th' ? '#fff' : ''; mobTh.style.borderColor = l === 'th' ? 'var(--text)' : ''; }
   acctSetDates();
 }
 
