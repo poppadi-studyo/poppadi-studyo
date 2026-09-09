@@ -8412,7 +8412,7 @@ function renderCalendar() {
 // ─── MONTHLY SUMMARY MODAL ────────────────────────────────
 function showMonthlySummary() {
   const monthSessions = filterByMonth(DATA.sessions, 'date')
-    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup' || s.status === 'Missed');
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
@@ -8763,7 +8763,7 @@ function showMonthlySummary() {
 
 function downloadMonthlySummaryPDF() {
   const monthSessions = filterByMonth(DATA.sessions, 'date')
-    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup' || s.status === 'Missed');
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
@@ -8933,7 +8933,7 @@ function downloadMonthlySummaryPDF() {
 // ─── MONTHLY SUMMARY — EXCEL EXPORT ──────────────────────
 function downloadMonthlySummaryExcel() {
   const monthSessions = filterByMonth(DATA.sessions, 'date')
-    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup' || s.status === 'Missed');
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
@@ -9134,7 +9134,7 @@ function downloadMonthlySummaryExcel() {
 // ─── MONTHLY SUMMARY — COPY TABLE ─────────────────────────
 function copyMonthlySummaryTable() {
   const monthSessions = filterByMonth(DATA.sessions, 'date')
-    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup' || s.status === 'Missed');
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
