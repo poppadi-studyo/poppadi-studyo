@@ -8412,7 +8412,7 @@ function renderCalendar() {
 // ─── MONTHLY SUMMARY MODAL ────────────────────────────────
 function showMonthlySummary() {
   const monthSessions = filterByMonth(DATA.sessions, 'date')
-    .filter(s => s.status === 'Completed' || s.status === 'Makeup' || s.status === 'Missed');
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
@@ -8763,7 +8763,7 @@ function showMonthlySummary() {
 
 function downloadMonthlySummaryPDF() {
   const monthSessions = filterByMonth(DATA.sessions, 'date')
-    .filter(s => s.status === 'Completed' || s.status === 'Makeup' || s.status === 'Missed');
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
@@ -8817,10 +8817,11 @@ function downloadMonthlySummaryPDF() {
       <td style="text-align:right;color:#1D9E75;font-weight:600">฿${fmt(net)}</td></tr>`;
   }).join('') || '<tr><td colspan="4" style="color:#aaa;text-align:center">No commission this month</td></tr>';
 
+  const pdfWHTExp = DATA.expenses.filter(e=>(e.month||'').startsWith(selectedMonth)).reduce((s,e)=>{ const isRentPDF=/rent/i.test(e.item_name||''); const isAcctPDF=/accountant/i.test(e.item_name||''); const base=Number(e.amount||0); const amt=isAcctPDF&&pdfAccShare>0?base+pdfAccShare:base; return isRentPDF?s:s+Math.round(amt*0.03*100)/100; },0);
   const totalWHT = DATA.tutors.filter(t=>t.active==='TRUE').map(tutor => {
     const pay = monthSessions.filter(s=>s.tutor_id===tutor.tutor_id).reduce((s,x)=>s+Number(x.tutor_pay||0),0);
     return pay*0.03;
-  }).reduce((a,b)=>a+b,0) + Object.values(commMap).reduce((s,x)=>s+x*0.03,0);
+  }).reduce((a,b)=>a+b,0) + Object.values(commMap).reduce((s,x)=>s+x*0.03,0) + pdfWHTExp;
 
   // Other Income
   const otherIncomeMonth = (DATA.otherIncome||[]).filter(e=>(e.month||'').startsWith(selectedMonth));
@@ -8932,7 +8933,7 @@ function downloadMonthlySummaryPDF() {
 // ─── MONTHLY SUMMARY — EXCEL EXPORT ──────────────────────
 function downloadMonthlySummaryExcel() {
   const monthSessions = filterByMonth(DATA.sessions, 'date')
-    .filter(s => s.status === 'Completed' || s.status === 'Makeup' || s.status === 'Missed');
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
@@ -9133,7 +9134,7 @@ function downloadMonthlySummaryExcel() {
 // ─── MONTHLY SUMMARY — COPY TABLE ─────────────────────────
 function copyMonthlySummaryTable() {
   const monthSessions = filterByMonth(DATA.sessions, 'date')
-    .filter(s => s.status === 'Completed' || s.status === 'Makeup' || s.status === 'Missed');
+    .filter(s => s.status === 'Completed' || s.status === 'Makeup');
   const monthLabel = getMonthOptions().find(o => o.val === selectedMonth);
   const monthStr   = lang==='th' ? monthLabel?.labelTh : monthLabel?.label;
 
@@ -10609,7 +10610,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '5.8';
+  const cacheVersion = '5.7';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
