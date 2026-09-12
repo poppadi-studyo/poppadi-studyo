@@ -1493,7 +1493,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label data-en="Nickname" data-th="ชื่อเล่น">Nickname <span style="color:var(--red);font-size:11px">*</span></label>
-                <input type="text" id="enroll-student" placeholder="e.g. Boss" autocomplete="off" oninput="onNewStudentInput();saveEnrollDraft()">
+                <input type="text" id="enroll-student" placeholder="e.g. Boss" autocomplete="off" oninput="onNewStudentInput();saveEnrollDraft()" onblur="onNewStudentBlur()">
                 <div id="student-match-hint" style="font-size:11px;margin-top:3px"></div>
               </div>
             </div>
@@ -4538,8 +4538,9 @@ function clearReturningSelection() {
 
 // ─── NEW STUDENT INPUT — duplicate warning ────────────────
 function onNewStudentInput() {
-  const val  = capFirst(document.getElementById('enroll-student')?.value.trim());
-  const hint = document.getElementById('student-match-hint');
+  const input = document.getElementById('enroll-student');
+  const val   = capFirst(input?.value.trim());
+  const hint  = document.getElementById('student-match-hint');
   if (!val) { if (hint) hint.textContent = ''; return; }
   const existing = DATA.students.find(s =>
     (s.nickname||'').toLowerCase() === val.toLowerCase() ||
@@ -4547,13 +4548,39 @@ function onNewStudentInput() {
   );
   if (existing) {
     if (hint) {
-      hint.style.color   = 'var(--amber)';
-      hint.innerHTML     = `⚠️ "${existing.nickname}" already exists (${existing.student_id}). If this is the same person, use <strong>Returning student</strong> instead.`;
+      hint.style.color = 'var(--amber)';
+      hint.innerHTML   = `⚠️ "${existing.nickname}" already exists (${existing.student_id}). If same person → use <strong>Returning student</strong>. If different person, please enter their <strong>full name</strong> as nickname to avoid confusion.`;
     }
+    // Auto-suggest: if they haven't typed a full name yet (no space), leave input alone
+    // but if full name is available on existing, offer it as a placeholder hint only
   } else {
     if (hint) {
-      hint.style.color   = 'var(--teal)';
-      hint.textContent   = '✨ New student — a new ID will be created automatically';
+      hint.style.color = 'var(--teal)';
+      hint.textContent = '✨ New student — a new ID will be created automatically';
+    }
+  }
+}
+
+// Called when user blurs the new-student field after a duplicate warning —
+// if they confirmed it's a different person with the same nickname, auto-fill full name
+function onNewStudentBlur() {
+  const input    = document.getElementById('enroll-student');
+  const hint     = document.getElementById('student-match-hint');
+  const val      = capFirst(input?.value.trim());
+  if (!val) return;
+  const existing = DATA.students.find(s =>
+    (s.nickname||'').toLowerCase() === val.toLowerCase() ||
+    (s.full_name||'').toLowerCase() === val.toLowerCase()
+  );
+  // If still a plain duplicate (no space = still just a nickname, not a full name),
+  // auto-replace with full name of the NEW student (we don't know it, so prompt clearly)
+  if (existing && !val.includes(' ')) {
+    // Replace input value with placeholder full-name prompt
+    input.value = val + ' ';   // add a space so they know to keep typing full name
+    input.focus();
+    if (hint) {
+      hint.style.color = 'var(--red)';
+      hint.innerHTML   = `⚠️ Same nickname as ${existing.student_id}. Please type this student\'s <strong>full name</strong> (e.g. "${val} Surname") so they can be told apart.`;
     }
   }
 }
@@ -4601,6 +4628,7 @@ function addGroupStudentRow() {
         <input type="text" class="grow-new-input" autocomplete="off"
           placeholder="${lang==='th'?'ชื่อนักเรียนใหม่':'New student name'} ${idx}"
           oninput="onGroupRowNewInput(this)"
+          onblur="onGroupRowNewBlur(this)"
           style="width:100%;font-size:12px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:7px;font-family:'DM Sans',sans-serif;box-sizing:border-box">
         <div class="grow-new-hint" style="font-size:11px;margin-top:3px"></div>
       </div>
@@ -4735,12 +4763,31 @@ function onGroupRowNewInput(input) {
   if (existing) {
     if (hint) {
       hint.style.color = 'var(--amber)';
-      hint.innerHTML   = `⚠️ "${existing.nickname}" already exists (${existing.student_id}). Use <strong>Existing</strong> tab instead.`;
+      hint.innerHTML   = `⚠️ "${existing.nickname}" already exists (${existing.student_id}). Same person → use <strong>Existing</strong> tab. Different person → type their <strong>full name</strong> to avoid confusion.`;
     }
   } else {
     if (hint) {
       hint.style.color = 'var(--teal)';
       hint.textContent = '✨ New student — ID will be created automatically';
+    }
+  }
+}
+
+function onGroupRowNewBlur(input) {
+  const rowEl = input.closest('[data-row-mode]');
+  const hint  = rowEl.querySelector('.grow-new-hint');
+  const val   = input.value.trim();
+  if (!val) return;
+  const existing = DATA.students.find(s =>
+    (s.nickname||'').toLowerCase() === val.toLowerCase() ||
+    (s.full_name||'').toLowerCase() === val.toLowerCase()
+  );
+  if (existing && !val.includes(' ')) {
+    input.value = val + ' ';
+    input.focus();
+    if (hint) {
+      hint.style.color = 'var(--red)';
+      hint.innerHTML   = `⚠️ Same nickname as ${existing.student_id}. Type this student\'s <strong>full name</strong> (e.g. "${val} Surname") so they can be told apart.`;
     }
   }
 }
@@ -4751,13 +4798,10 @@ function updateGroupRateHint() {
   const tutor   = getTutor(tutorId);
   const hint    = document.getElementById('group-rate-hint');
 
-  // Tier lookup
-  let base     = 650;
-  if (tutorId === 'T001' || tutorId === 'T005') base = 700;
-  if (tutorId === 'T006' || tutorId === 'T007') base = 350;
-  if (tutorId === 'T008') base = 500;
-  const extraPer = (tutorId === 'T006' || tutorId === 'T007') ? 50
-                 : (tutorId === 'T008') ? 50 : 100;
+  // Tier lookup — dynamic via getTutorTier(), reads hourly_rate from DATA.tutors
+  const _tier  = getTutorTier(tutorId);
+  const base   = _tier.base;
+  const extraPer = _tier.extra;
   const extra    = Math.max(0, count - 1);
   const totalRate = base + extra * extraPer;
   const splitRate = count > 0 ? Math.round((totalRate / count) * 100) / 100 : totalRate;
@@ -9474,16 +9518,18 @@ function applyTheme() {
 }
 
 // ─── TUTOR RATE SUGGESTION ────────────────────────────────
-const TUTOR_TIERS = {
-  T001: { base: 700, extra: 100 }, // AJ. Pop
-  T002: { base: 650, extra: 100 }, // AJ. Steven
-  T003: { base: 650, extra: 100 }, // Dr. Poon
-  T004: { base: 650, extra: 100 }, // AJ. Koi
-  T005: { base: 700, extra: 100 }, // AJ. Sumi
-  T006: { base: 350, extra: 50  }, // AJ. Noey
-  T007: { base: 350, extra: 50  }, // AJ. Nicha
-  T008: { base: 500, extra: 50  }, // AJ. Looknaam
-};
+// ─── TUTOR TIER LOOKUP — dynamic, driven by DATA.tutors ────────────────────────────
+// Derives base + group-extra from hourly_rate in the Tutors sheet.
+// Rule: rate >=650 -> extra 100 | rate <650 -> extra 50
+// Adding a new tutor to the sheet is all that's needed — no code change required.
+function getTutorTier(tutorId) {
+  const tutor = (typeof DATA !== 'undefined' && DATA.tutors)
+    ? DATA.tutors.find(t => t.tutor_id === tutorId)
+    : null;
+  const base  = tutor ? (Number(tutor.hourly_rate) || 650) : 650;
+  const extra = base >= 650 ? 100 : 50;
+  return { base, extra };
+}
 
 // Default fee per student by number of students (from pricing doc)
 function defaultFeeForStudents(n) {
@@ -9509,8 +9555,7 @@ function suggestTutorRate() {
 
   // ── Auto-suggest tutor rate ───────────────────────────────
   if (!tutorId || !rateInput) { updateEnrollPreview(); return; }
-  const tier = TUTOR_TIERS[tutorId];
-  if (!tier) { updateEnrollPreview(); return; }
+  const tier = getTutorTier(tutorId);
   const suggested = tier.base + (numStudents - 1) * tier.extra;
   rateInput.value = suggested;
   rateInput.style.borderColor = 'var(--teal)';
