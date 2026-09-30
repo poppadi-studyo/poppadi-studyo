@@ -1839,7 +1839,17 @@ const BASE      = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/val
 let WEB_APP_URL = localStorage.getItem('poppadi_webapp_url') || 'https://script.google.com/macros/s/AKfycbxRTCaxDCdkCGLNOlLV7zYIu-vOfHjbWNqDqv2tFN1NkEUZFtEhxl2PuOeNJNU4DwUf/exec';
 
 // ─── WRITE TO SHEET VIA WEB APP ───────────────────────────
-async function webAppWrite(action, payload) {
+// Actions that create a new row are never auto-retried: if the first attempt's
+// request actually reached the server but its response was lost (the failure
+// mode behind the Rada double-enrollment — C122/C123 in Courses), a blind retry
+// would silently create a second row. Status/update/delete actions are safe to
+// retry — GAS already guards against re-applying a duplicate status change.
+const WEBAPP_NO_RETRY_ACTIONS = new Set([
+  'addEnrollment', 'addExpense', 'addOtherIncome', 'scheduleMakeup', 'addVideoSale'
+]);
+
+async function webAppWrite(action, payload, _attempt) {
+  _attempt = _attempt || 1;
   if (!WEB_APP_URL) {
     showWebAppPrompt();
     throw new Error('Web App URL not configured');
@@ -1850,7 +1860,17 @@ async function webAppWrite(action, payload) {
     headers: { 'Content-Type': 'text/plain' },
     body
   });
-  if (!res.ok) throw new Error('Web App request failed: ' + res.status);
+  if (!res.ok) {
+    // Apps Script's dispatcher occasionally 404s a request that never reached
+    // doPost() at all — most often under rapid back-to-back writes (e.g. marking
+    // several overdue sessions in a row). One quiet retry clears most of these
+    // instead of surfacing "Save failed" for something that self-resolves in ~1s.
+    if (_attempt < 2 && !WEBAPP_NO_RETRY_ACTIONS.has(action)) {
+      await new Promise(r => setTimeout(r, 700));
+      return webAppWrite(action, payload, _attempt + 1);
+    }
+    throw new Error('Web App request failed: ' + res.status);
+  }
   // Apps Script POST sometimes redirects and returns empty/HTML body —
   // treat a parse failure as success since the sheet write already completed
   let data;
@@ -4103,6 +4123,10 @@ async function markGroupAll(sessionIds, newStatus, forceOverride) {
       if (msg) msg.textContent = lang==='th'
         ? `กำลังอัปเดต ${i+1} / ${sessionIds.length} คาบ...`
         : `Updating ${i+1} / ${sessionIds.length} sessions...`;
+      // Small gap between back-to-back writes to the same Apps Script endpoint —
+      // firing them with zero delay is what most often triggers the dispatcher's
+      // transient 404 (see webAppWrite's retry comment above).
+      if (i < sessionIds.length - 1) await new Promise(r => setTimeout(r, 300));
     }
 
     if (inner) inner.innerHTML = `
@@ -10704,7 +10728,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '5.7';
+  const cacheVersion = '5.8';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
