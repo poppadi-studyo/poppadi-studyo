@@ -255,7 +255,10 @@
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  #as-card{transform:translateY(8px) scale(.97);transition:transform .24s var(--pp-ease,ease)}#add-sessions-modal.as-in #as-card{transform:none}
+@media (prefers-reduced-motion:reduce){#as-card{transform:none!important;transition:none!important}}
+@media (max-width:560px){.as-head{display:none!important}.as-row{grid-template-columns:1fr 1fr auto!important;row-gap:6px!important;padding-bottom:8px;border-bottom:1px solid var(--border)}.as-row>div:first-child{grid-column:1/-1}.as-row>input,.as-row>span{min-width:0!important}}
+@keyframes spin { to { transform: rotate(360deg); } }
 
   /* ═══ RESPONSIVENESS LAYER (apple-design) ═══════════════════════════
      Principles: respond on press, never block without showing life,
@@ -2094,9 +2097,19 @@ async function writeRobust(action, payload, tries) {
 
 function friendlyErr(msg) {
   const m = String(msg || '');
-  if (/^LOCKED/i.test(m))        return lang==='th' ? 'เดือนนี้ถูกล็อกแล้ว — ปลดล็อกด้วย PIN ก่อน' : 'That month is locked — unlock it with the PIN first';
-  if (/^POOL_EXCEEDED/i.test(m)) return lang==='th' ? 'ชั่วโมงที่ชำระครบแล้ว' : 'All paid hours are already used';
-  if (/Unknown action/i.test(m)) return lang==='th' ? 'ต้องอัปเดต Apps Script ก่อน (ดูไฟล์ patch)' : 'Apps Script needs the v5.8 patch first';
+  const th = lang === 'th';
+  if (/^LOCKED/i.test(m))        return th ? 'เดือนนี้ถูกล็อกแล้ว — ปลดล็อกด้วย PIN ก่อน' : 'That month is locked — unlock it with the PIN first';
+  if (/^POOL_EXCEEDED/i.test(m)) return th ? 'ชั่วโมงที่ชำระครบแล้ว' : 'All paid hours are already used';
+  if (/Unknown action/i.test(m)) return th ? 'ต้องอัปเดต Apps Script ก่อน (วางไฟล์ poppadi_FULL_v5_8.gs)' : 'Apps Script needs the v5.8 update first (paste poppadi_FULL_v5_8.gs)';
+  if (/^DUPLICATE/i.test(m))     return th ? 'คาบนี้ถูกบันทึกไว้แล้ว' : 'Already saved';
+  if (/Session not found|Course not found/i.test(m)) return th ? 'ไม่พบข้อมูลในชีต — ลองรีเฟรชหน้าแล้วทำใหม่' : 'Not found in the sheet — refresh the page and try again';
+  if (/enrollment is cancelled/i.test(m)) return th ? 'การลงทะเบียนนี้ถูกยกเลิกแล้ว' : 'This enrollment is cancelled';
+  const ex = m.match(/Exceeds paid hours: paid ([\d.]+)h, already booked ([\d.]+)h, adding ([\d.]+)h/i);
+  if (ex) return th ? `เกินชั่วโมงที่ชำระ (ชำระ ${ex[1]} ชม. จองแล้ว ${ex[2]} ชม. เพิ่ม ${ex[3]} ชม.)` : `Over the paid hours (paid ${ex[1]}h, booked ${ex[2]}h, adding ${ex[3]}h)`;
+  if (/Exceeds paid hours/i.test(m)) return th ? 'เกินชั่วโมงที่ชำระ' : 'Over the paid hours';
+  if (/Server busy/i.test(m))    return th ? 'ระบบกำลังประมวลผลอยู่ — ลองอีกครั้ง' : 'The system is busy — try again';
+  if (/Failed to fetch|NetworkError|network|Load failed|request failed: (404|5\d\d)|timed? ?out/i.test(m))
+    return th ? 'เชื่อมต่อไม่ได้ชั่วคราว — ตรวจอินเทอร์เน็ตแล้วลองใหม่' : 'Connection hiccup — check your internet and try again';
   return m;
 }
 
@@ -5426,9 +5439,10 @@ function openPendingDetail(courseId) {
       <!-- Buttons -->
       <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">
         <div style="display:flex;gap:8px">
-          <button onclick="downloadPendingPDF('${courseId}')" class="btn btn-sm">⬇ PDF for tutor</button>
-          <button onclick="downloadPendingPDFStudent('${courseId}')" class="btn btn-sm">⬇ PDF for student</button>
-          <button onclick="copyPendingForLine('${courseId}')" class="btn btn-sm">⎘ Copy for LINE</button>
+          <button onclick="downloadPendingPDF('${courseId}')" class="btn btn-sm">⬇ ${lang==='th'?'PDF สำหรับครู':'PDF for tutor'}</button>
+          <button onclick="downloadPendingPDFStudent('${courseId}')" class="btn btn-sm">⬇ ${lang==='th'?'PDF สำหรับนักเรียน':'PDF for student'}</button>
+          <button onclick="copyPendingForLine('${courseId}')" class="btn btn-sm">⎘ ${lang==='th'?'คัดลอกสำหรับ LINE':'Copy for LINE'}</button>
+          <button onclick="openAddSessions('${courseId}',true)" class="btn btn-sm" style="color:var(--teal);font-weight:600;border-color:var(--teal)">＋ ${lang==='th'?'เพิ่มคาบเรียน':'Add sessions'}</button>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${taughtCount > 0
@@ -6765,7 +6779,7 @@ function ppFindGroupMates(courseId) {
   });
 }
 
-function openAddSessions(courseId) {
+function openAddSessions(courseId, backToPending) {
   const course = DATA.courses.find(c => c.course_id === courseId);
   if (!course) return;
   if ((course.payment_status || '') === 'Cancelled' || (course.status || '') === 'Cancelled') {
@@ -6784,19 +6798,36 @@ function openAddSessions(courseId) {
     rows: [{ date, start: last ? normTime(last.start_time) : '', hours: last ? (Number(last.hours) || 1) : 1 }],
     ids: new Set([courseId, ...mates.map(c => c.course_id)]),
     mates: mates.map(c => c.course_id),
-    addHrs: 0
+    addHrs: 0,
+    back: backToPending ? courseId : null
   };
   document.getElementById('add-sessions-modal')?.remove();
   const modal = document.createElement('div');
   modal.id = 'add-sessions-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;transition:opacity .18s var(--pp-ease,ease)';
   modal.addEventListener('mousedown', e => { if (e.target === modal) asClose(); });
+  requestAnimationFrame(() => { modal.style.opacity = '1'; modal.classList.add('as-in'); });
   modal.innerHTML = '<div id="as-card" style="background:var(--surface);color:var(--text);border-radius:16px;padding:24px;max-width:600px;width:100%;max-height:92vh;overflow-y:auto;font-family:\'DM Sans\',sans-serif;animation:pp-rise .34s var(--pp-ease) both"></div>';
   document.body.appendChild(modal);
   asRenderForm();
 }
 
-function asClose() { document.getElementById('add-sessions-modal')?.remove(); _as = null; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('add-sessions-modal') && _as) asClose(); });
+
+function ppU() { return lang==='th' ? ' ชม.' : 'h'; }
+
+function asClose() {
+  const back = _as && _as.back;
+  const m = document.getElementById('add-sessions-modal');
+  _as = null;
+  if (back && DATA.courses.some(c => c.course_id === back)) {
+    // refresh the schedule popup behind the form in the same frame, then lift the form away: no flash, you land where you started
+    document.getElementById('pending-detail-modal')?.remove();
+    openPendingDetail(back);
+    const pm = document.getElementById('pending-detail-modal'); if (pm) pm.style.zIndex = 9999;
+  }
+  if (m) { m.style.opacity = '0'; setTimeout(() => m.remove(), 160); }
+}
 
 function asRenderForm() {
   const card = document.getElementById('as-card');
@@ -6809,11 +6840,11 @@ function asRenderForm() {
     ? `<div style="margin-top:8px;font-size:12px;color:var(--amber,#BA7517)">⏳ ${lang==='th'?'คอร์สนี้ยังรอชำระเงิน — คาบที่เพิ่มจะอยู่ในยอดค้างชำระด้วย':'This course is still pending payment — added sessions will count toward the receivable.'}</div>` : '';
 
   const rowsHtml = _as.rows.map((r, i) => `
-    <div style="display:grid;grid-template-columns:minmax(130px,1.3fr) 1fr 80px auto auto;gap:8px;align-items:center;margin-bottom:8px">
+    <div class="as-row" style="display:grid;grid-template-columns:minmax(130px,1.3fr) 1fr 80px auto auto;gap:8px;align-items:center;margin-bottom:8px">
       <div><input type="date" value="${r.date}" onchange="asEdit(${i},'date',this.value)" style="${inpStyle};width:100%">
         <div id="as-dow-${i}" style="font-size:10px;color:var(--text3);margin:2px 0 0 2px;height:12px"></div></div>
       <input type="time" value="${r.start}" onchange="asEdit(${i},'start',this.value)" style="${inpStyle};width:100%">
-      <input type="number" min="0.5" step="0.5" value="${r.hours}" oninput="asEdit(${i},'hours',this.value)" style="${inpStyle};width:100%" aria-label="hours">
+      <input type="number" min="0.5" step="0.5" value="${r.hours}" oninput="asEdit(${i},'hours',this.value)" style="${inpStyle};width:100%" aria-label="hours" title="hours" placeholder="hrs">
       <span id="as-end-${i}" style="font-size:12px;color:var(--text3);white-space:nowrap;min-width:64px"></span>
       <button type="button" onclick="asRemoveRow(${i})" ${_as.rows.length < 2 ? 'disabled' : ''} title="Remove" style="border:none;background:none;cursor:pointer;color:var(--text3);font-size:16px;padding:4px 6px">✕</button>
     </div>`).join('');
@@ -6847,7 +6878,7 @@ function asRenderForm() {
     ${pendingNote}
 
     <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;margin:${pendingNote?'12px':'0'} 0 6px">${lang==='th'?'คาบใหม่':'New sessions'}</div>
-    <div style="display:grid;grid-template-columns:minmax(130px,1.3fr) 1fr 80px auto auto;gap:8px;font-size:10px;color:var(--text3);margin:0 0 4px 2px"><span>${lang==='th'?'วันที่':'DATE'}</span><span>${lang==='th'?'เริ่ม':'START'}</span><span>${lang==='th'?'ชม.':'HRS'}</span><span></span><span></span></div>
+    <div class="as-head" style="display:grid;grid-template-columns:minmax(130px,1.3fr) 1fr 80px auto auto;gap:8px;font-size:10px;color:var(--text3);margin:0 0 4px 2px"><span>${lang==='th'?'วันที่':'DATE'}</span><span>${lang==='th'?'เริ่ม':'START'}</span><span>${lang==='th'?'ชม.':'HRS'}</span><span></span><span></span></div>
     ${rowsHtml}
     <div style="display:flex;gap:8px;margin:4px 0 2px;flex-wrap:wrap">
       <button type="button" class="btn btn-sm" onclick="asAddRow(false)">＋ ${lang==='th'?'เพิ่มอีกคาบ':'Add another'}</button>
@@ -6929,8 +6960,8 @@ function asRecalc() {
     <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
       <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:6px;padding:7px 12px;background:var(--surface2);font-size:10px;color:var(--text3);text-transform:uppercase"><span>${lang==='th'?'นักเรียน':'Student'}</span><span style="text-align:right">${lang==='th'?'ชำระ':'Paid'}</span><span style="text-align:right">${lang==='th'?'ใช้/จัดแล้ว':'Booked'}</span><span style="text-align:right">${lang==='th'?'คงเหลือหลังเพิ่ม':'Open after'}</span></div>
       ${v.per.map(p => `<div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:6px;padding:8px 12px;font-size:13px;border-top:1px solid var(--border);font-variant-numeric:tabular-nums">
-        <span style="font-weight:500">${ppEsc(p.name)}</span><span style="text-align:right">${p.paid}h</span><span style="text-align:right">${p.used}h <span style="color:var(--teal)">+${v.newHrs}</span></span>
-        <span style="text-align:right;font-weight:600;color:${p.after < -0.0001 ? 'var(--red,#E24B4A)' : 'var(--teal)'}">${p.after}h</span></div>`).join('')}
+        <span style="font-weight:500">${ppEsc(p.name)}</span><span style="text-align:right">${p.paid}${ppU()}</span><span style="text-align:right">${p.used}${ppU()} <span style="color:var(--teal)">+${v.newHrs}</span></span>
+        <span style="text-align:right;font-weight:600;color:${p.after < -0.0001 ? 'var(--red,#E24B4A)' : 'var(--teal)'}">${p.after}${ppU()}</span></div>`).join('')}
     </div>`;
   const pr = document.getElementById('as-problems');
   if (pr) pr.innerHTML = v.problems.length
@@ -6976,7 +7007,7 @@ async function asSubmit() {
     const needPatch = /Unknown action/i.test(e.message || '');
     card.innerHTML = ppErrHTML(
       needPatch ? (lang==='th' ? 'ต้องอัปเดต Apps Script ก่อน' : 'Apps Script needs one update first') : (lang==='th' ? 'เพิ่มคาบไม่สำเร็จ' : 'Couldn\'t add the sessions'),
-      needPatch ? (lang==='th' ? 'วางโค้ดจากไฟล์ patch v5.8 ใน Apps Script แล้ว Deploy ใหม่ จากนั้นลองอีกครั้ง — ยังไม่มีอะไรถูกบันทึก' : 'Paste the v5.8 patch into Apps Script and redeploy, then try again. Nothing was saved.') : friendlyErr(e.message),
+      needPatch ? (lang==='th' ? 'วางไฟล์ poppadi_FULL_v5_8.gs ทั้งไฟล์ใน Apps Script แล้ว Deploy ใหม่ จากนั้นลองอีกครั้ง — ยังไม่มีอะไรถูกบันทึก' : 'Paste the full poppadi_FULL_v5_8.gs into Apps Script and redeploy, then try again. Nothing was saved.') : friendlyErr(e.message),
       `<button type="button" onclick="asRenderForm()" style="padding:8px 18px;border:none;background:#1a1a18;color:#fff;border-radius:8px;cursor:pointer;font-size:13px">${lang==='th'?'กลับไปแก้ไข':'Back to edit'}</button>
        <button type="button" onclick="asClose()" style="padding:8px 18px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);cursor:pointer;font-size:13px">${lang==='th'?'ปิด':'Close'}</button>`);
     return;
@@ -11233,7 +11264,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '5.9';
+  const cacheVersion = '6.0';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
