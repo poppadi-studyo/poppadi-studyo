@@ -10384,9 +10384,11 @@ function initScheduleBody() {
 
 // ─── REPEAT SCHEDULE ──────────────────────────────────────
 function showRepeatScheduleModal() {
-  // Read first row to pre-fill
+  // Pre-fill from the LAST row that has a date, so adding a second weekly slot
+  // (Add row -> fill in e.g. Thursday -> Repeat) seeds from that new row, not the first slot.
   const tbody = document.getElementById('enroll-schedule-body');
-  const firstRow = tbody?.querySelector('tr');
+  const datedRows = Array.from(tbody?.querySelectorAll('tr') || []).filter(r => r.querySelector('input[type=date]')?.value);
+  const firstRow = datedRows.length ? datedRows[datedRows.length - 1] : tbody?.querySelector('tr');
   const firstDate  = firstRow?.querySelector('input[type=date]')?.value || '';
   const firstStart = firstRow?.querySelector('.sched-start')?.value || '';
   const firstEnd   = firstRow?.querySelector('.sched-end')?.value || '';
@@ -10409,7 +10411,7 @@ function showRepeatScheduleModal() {
     <div style="background:var(--surface);border-radius:16px;padding:28px;max-width:420px;width:100%;font-family:'DM Sans',sans-serif">
       <div style="font-size:17px;font-weight:700;margin-bottom:4px">🔁 Repeat weekly schedule</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:20px">
-        Generates sessions every 7 days from the first row${dayHint}. All rows are editable after.
+        Generates sessions every 7 days from the date below${dayHint}. Rows on other weekdays/times are kept; rows in the same slot are replaced. All rows are editable after.
       </div>
 
       <div style="margin-bottom:14px">
@@ -10487,24 +10489,41 @@ function applyRepeatSchedule() {
     return;
   }
 
-  // Hours cap — block if total scheduled hours would exceed paid hours
+  const tbody = document.getElementById('enroll-schedule-body');
+  if (!tbody) return;
+
+  // Keep rows that belong to OTHER weekly slots (e.g. keep the Monday rows when generating Thursday).
+  // Only blank rows and rows in the SAME weekday + start-time slot are replaced, so
+  // re-running the same pattern replaces itself instead of duplicating. (Previously the whole
+  // table was cleared, which silently deleted any other weekly slot already entered.)
+  const wdOf = v => new Date(v + 'T12:00:00').getDay();
+  const newWd = wdOf(startDate);
+  const allRows = Array.from(tbody.querySelectorAll('tr'));
+  const keepRows = allRows.filter(r => {
+    const d = r.querySelector('input[type=date]')?.value;
+    if (!d) return false;
+    const st = r.querySelector('.sched-start')?.value;
+    return !(wdOf(d) === newWd && st === startTime);
+  });
+  const keptHrs = keepRows.reduce((sum, r) => sum + (parseFloat(r.querySelector('.sched-hrs')?.value) || 0), 0);
+
+  // Hours cap — block if total scheduled hours (kept rows + new series) would exceed paid hours
   const paidHrsCap = parseFloat(document.getElementById('enroll-hours')?.value) || 0;
   const hrsPerSess = parseFloat(hrs) || 0;
-  const totalScheduledHrs = count * hrsPerSess;
-  if (paidHrsCap > 0 && totalScheduledHrs > paidHrsCap) {
-    const maxSessions = Math.floor(paidHrsCap / hrsPerSess);
+  const newHrs = count * hrsPerSess;
+  const totalScheduledHrs = keptHrs + newHrs;
+  if (paidHrsCap > 0 && totalScheduledHrs > paidHrsCap + 0.0001) {
+    const maxSessions = hrsPerSess > 0 ? Math.max(0, Math.floor((paidHrsCap - keptHrs + 0.0001) / hrsPerSess)) : 0;
     alert(`⛔ Cannot generate ${count} sessions.\n\n` +
-      `${count} sessions × ${hrsPerSess}h = ${totalScheduledHrs}h total\n` +
-      `But this enrollment is only paid for ${paidHrsCap}h.\n\n` +
+      (keptHrs > 0 ? `Other rows already scheduled: ${keptHrs}h\n` : '') +
+      `${count} sessions × ${hrsPerSess}h = ${newHrs}h new\n` +
+      `Total ${totalScheduledHrs}h, but this enrollment is only paid for ${paidHrsCap}h.\n\n` +
       `Maximum sessions at ${hrsPerSess}h each: ${maxSessions}`);
     return;
   }
 
-  const tbody = document.getElementById('enroll-schedule-body');
-  if (!tbody) return;
-
-  // Clear existing rows
-  tbody.innerHTML = '';
+  // Remove only the rows being replaced (blank rows + same weekday/time slot)
+  allRows.forEach(r => { if (!keepRows.includes(r)) r.remove(); });
 
   const base = new Date(startDate + 'T12:00:00');
 
@@ -10513,7 +10532,7 @@ function applyRepeatSchedule() {
     const dateStr = d.toISOString().slice(0, 10);
 
     const row = document.createElement('tr');
-    const isFirst = i === 0;
+    const isFirst = i === 0 && keepRows.length === 0;
     const btn = isFirst
       ? `<span></span>`
       : `<button class="btn btn-sm" style="color:var(--red)" onclick="this.closest('tr').remove();updateHrsCounter()">${lang==='th'?'ลบ':'Remove'}</button>`;
@@ -10530,6 +10549,13 @@ function applyRepeatSchedule() {
       <td>${btn}</td>`;
     tbody.appendChild(row);
   }
+
+  // Keep the table in date/time order so session numbers run chronologically across slots
+  const rowKey = r => (r.querySelector('input[type=date]')?.value || '') + ' ' + (r.querySelector('.sched-start')?.value || '');
+  Array.from(tbody.querySelectorAll('tr'))
+    .sort((a, b) => { const ka = rowKey(a), kb = rowKey(b); return ka < kb ? -1 : ka > kb ? 1 : 0; })
+    .forEach(r => tbody.appendChild(r));
+  updateHrsCounter();
 
   document.getElementById('repeat-sched-modal').remove();
   showToast(`✓ ${count} sessions generated — all editable`);
@@ -11264,7 +11290,7 @@ function downloadSchedulePDF() {
 // ─── INIT ─────────────────────────────────────────────────
 function onAppReady() {
   // Clear cache once to force fresh subject data load
-  const cacheVersion = '6.0';
+  const cacheVersion = '6.1';
   if (localStorage.getItem('poppadi_cache_ver') !== cacheVersion) {
     localStorage.removeItem(CACHE_KEY);
     localStorage.setItem('poppadi_cache_ver', cacheVersion);
